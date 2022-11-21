@@ -1,36 +1,47 @@
 package main
 
 import (
-	"flag"
-	"log"
 	"net/http"
 	"time"
 
+	"github.com/alecthomas/kong"
 	"github.com/davecheney/m/m"
 	"github.com/jmoiron/sqlx"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func main() {
-	var (
-		addr string
-		dsn  string
-	)
-	flag.StringVar(&addr, "a", "127.0.0.1:8080", "address to listen")
-	flag.StringVar(&dsn, "d", "", "data source name")
-	flag.Parse()
+type Context struct {
+	Debug bool
+}
 
-	db, err := sqlx.Connect("mysql", dsn)
+type ServeCmd struct {
+	Addr string `help:"address to listen"`
+	DSN  string `help:"data source name"`
+}
+
+func (s *ServeCmd) Run(ctx *Context) error {
+	db, err := sqlx.Connect("mysql", s.DSN)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-
 	svr := &http.Server{
-		Addr:         addr,
+		Addr:         s.Addr,
 		Handler:      m.New(db),
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
-	log.Fatal(svr.ListenAndServe())
+	return svr.ListenAndServe()
+}
+
+var cli struct {
+	Debug bool `help:"Enable debug mode."`
+
+	Serve ServeCmd `cmd:"" help:"Remove files."`
+}
+
+func main() {
+	ctx := kong.Parse(&cli)
+	err := ctx.Run(&Context{Debug: cli.Debug})
+	ctx.FatalIfErrorf(err)
 }

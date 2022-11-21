@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"hash"
 	"io"
 	"io/ioutil"
 	"log"
@@ -25,9 +23,9 @@ func main() {
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       fmt.Sprintf("https://cheney.net/%s", uuid.New().String()),
 		"type":     "Follow",
-		"object":   "https://hachyderm.io/users/youngnick",
+		// "object":   "https://hachyderm.io/users/youngnick",
 		// "object": "https://mastadon.social/users/effinbirds",
-		// "object": "https://infosec.exchange/users/metlstorm",
+		"object": "https://infosec.exchange/users/riskybusiness",
 		// "object": "https://bitbang.social/users/NanoRaptor",
 		// "object": "https://mas.to/users/TechConnectify",
 		// "object": "https://oldbytes.space/users/48kRAM",
@@ -37,7 +35,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	req, err := http.NewRequest("POST", "https://hachyderm.io/inbox", bytes.NewReader(body))
+	req, err := http.NewRequest("POST", "https://infosec.exchange/inbox", bytes.NewReader(body))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -106,11 +104,6 @@ func sign(r *http.Request, body []byte, pubKeyId string) {
 	if err := signer.SignRequest(privateKey, pubKeyId, r, body); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func digest(h hash.Hash, body []byte) string {
-	h.Write(body)
-	return base64.StdEncoding.EncodeToString(h.Sum(nil))
 }
 
 func dumpRequest(r *http.Request) {
