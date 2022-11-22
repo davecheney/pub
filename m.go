@@ -64,17 +64,15 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	wellknown := r.PathPrefix("/.well-known").Subrouter()
 	wellknown.HandleFunc("/webfinger", api.WellknownWebfinger).Methods("GET")
 
-	svc := &activitypub.Service{
-		StoreActivity: api.StoreActivity,
-	}
+	activitypub := activitypub.NewService(db)
 
 	inbox := r.Path("/inbox").Subrouter()
-	inbox.Use(api.ValidateSignature())
-	inbox.HandleFunc("", svc.Inbox).Methods("POST")
+	inbox.Use(activitypub.ValidateSignature())
+	inbox.HandleFunc("", activitypub.Inbox).Methods("POST")
 
 	users := r.PathPrefix("/users").Subrouter()
-	users.HandleFunc("/{username}", api.UsersShow).Methods("GET")
-	users.HandleFunc("/{username}/inbox", svc.Inbox).Methods("POST")
+	users.HandleFunc("/{username}", activitypub.UsersShow).Methods("GET")
+	users.HandleFunc("/{username}/inbox", activitypub.Inbox).Methods("POST")
 
 	r.Path("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "https://dave.cheney.net/", http.StatusFound)
