@@ -7,9 +7,6 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"time"
-
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -18,12 +15,16 @@ import (
 // Service implements a Mastodon service.
 type Service struct {
 	db *sqlx.DB
+	*users
+	*tokens
 }
 
 // NewService returns a new instance of Service.
 func NewService(db *sqlx.DB) *Service {
 	return &Service{
-		db: db,
+		db:     db,
+		users:  &users{db: db},
+		tokens: &tokens{db: db},
 	}
 }
 
@@ -110,7 +111,7 @@ func (svc *Service) authorizePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := svc.findUserByEmail(email)
+	user, err := svc.users.findByEmail(email)
 	if err != nil {
 		log.Println("findUserByEmail:", err)
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -130,27 +131,6 @@ func (svc *Service) authorizePost(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Location", redirectURI+"?code="+token.AuthorizationCode)
 	w.WriteHeader(302)
-}
-
-type User struct {
-	ID                int       `db:"id"`
-	CreatedAt         time.Time `db:"created_at"`
-	UpdatedAt         time.Time `db:"updated_at"`
-	Email             string    `db:"email"`
-	EncryptedPassword []byte    `db:"encrypted_password"`
-}
-
-func (u *User) comparePassword(password string) bool {
-	if err := bcrypt.CompareHashAndPassword(u.EncryptedPassword, []byte(password)); err != nil {
-		return false
-	}
-	return true
-}
-
-func (svc *Service) findUserByEmail(email string) (*User, error) {
-	user := &User{}
-	err := svc.db.QueryRowx(`SELECT * FROM users WHERE email = ?`, email).StructScan(user)
-	return user, err
 }
 
 func (svc *Service) findApplicationByClientID(clientID string) (*Application, error) {
@@ -184,7 +164,7 @@ func (svc *Service) OAuthToken(w http.ResponseWriter, r *http.Request) {
 	code := r.FormValue("code")
 	clientId := r.FormValue("client_id")
 	fmt.Println("OAuthToken", code, clientId)
-	token, err := svc.findTokenByAuthorizationCode(code)
+	token, err := svc.tokens.findByAuthorizationCode(code)
 	if err != nil {
 		log.Println("findTokenByAuthorizationCode:", err)
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -202,12 +182,6 @@ func (svc *Service) OAuthToken(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(token)
-}
-
-func (svc *Service) findTokenByAuthorizationCode(code string) (*Token, error) {
-	token := &Token{}
-	err := svc.db.QueryRowx(`SELECT * FROM tokens WHERE authorization_code = ?`, code).StructScan(token)
-	return token, err
 }
 
 func (svc *Service) AccountsVerify(w http.ResponseWriter, r *http.Request) {
