@@ -2,6 +2,17 @@ package mastodon
 
 import "time"
 
+type Application struct {
+	ID           int       `json:"id,string" db:"id"`
+	CreatedAt    time.Time `json:"-" db:"created_at"`
+	Name         string    `json:"name" db:"name"`
+	Website      *string   `json:"website" db:"website"`
+	RedirectURI  string    `json:"redirect_uri" db:"redirect_uri"`
+	ClientID     string    `json:"client_id" db:"client_id"`
+	ClientSecret string    `json:"client_secret" db:"client_secret"`
+	VapidKey     string    `json:"vapid_key" db:"vapid_key"`
+}
+
 type Status struct {
 	// ID of the status in the database.
 	Id string `json:"id"`
@@ -16,7 +27,7 @@ type Status struct {
 }
 
 type Account struct {
-	// #  uri                           :string           default(""), not null
+
 	// #  url                           :string
 	// #  avatar_file_name              :string
 	// #  avatar_content_type           :string
@@ -52,14 +63,15 @@ type Account struct {
 	// #  trendable                     :boolean
 	// #  reviewed_at                   :datetime
 	// #  requested_review_at           :datetime
-	ID          int       `json:"id"`
-	Username    string    `json:"username"`
-	Domain      string    `json:"domain"`
-	CreatedAt   time.Time `json:"created_at,omitempty"`
-	UpdatedAt   time.Time `json:"updated_at,omitempty"`
-	Note        string    `json:"note,omitempty"`
-	DisplayName string    `json:"display_name"`
-	Locked      bool      `json:"locked"`
+	ID        int       `json:"id" db:"id"`
+	UserID    int       `json:"-" db:"user_id"`
+	Username  string    `json:"-" db:"username"`
+	Domain    string    `json:"-" db:"domain"`
+	CreatedAt time.Time `json:"-" db:"created_at"`
+	UpdatedAt time.Time `json:"-" db:"updated_at"`
+
+	// synthesised by findAccount* functions
+	URI string `json:"uri" db:"-"`
 }
 
 type Instance struct {
@@ -94,4 +106,15 @@ type Instance struct {
 		// The number of domains federated with the instance.
 		DomainCount int `json:"domain_count"`
 	} `json:"stats"`
+}
+
+type Token struct {
+	ID                int       `json:"-" db:"id"`
+	UserID            int       `json:"-" db:"user_id"`
+	ApplicationID     int       `json:"-" db:"application_id"`
+	CreatedAt         time.Time `json:"-" db:"created_at"`
+	AccessToken       string    `json:"access_token" db:"access_token"`
+	TokenType         string    `json:"token_type" db:"token_type"`
+	Scope             string    `json:"scope" db:"scope"`
+	AuthorizationCode string    `json:"-" db:"authorization_code"`
 }

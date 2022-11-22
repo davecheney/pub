@@ -16,9 +16,12 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
+	"github.com/davecheney/m/activitypub"
 	"github.com/davecheney/m/m"
+	"github.com/davecheney/m/mastodon"
 	"github.com/go-fed/httpsig"
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -34,13 +37,52 @@ type ServeCmd struct {
 }
 
 func (s *ServeCmd) Run(ctx *Context) error {
-	db, err := sqlx.Connect("mysql", s.DSN)
+	db, err := sqlx.Connect("mysql", s.DSN+"?parseTime=true")
 	if err != nil {
 		return err
 	}
+
+	mastodon := mastodon.NewService(db)
+	api := m.New(db)
+
+	r := mux.NewRouter()
+
+	v1 := r.PathPrefix("/api/v1").Subrouter()
+	v1.HandleFunc("/apps", mastodon.AppsCreate).Methods("POST")
+	v1.HandleFunc("/accounts/verify_credentials", mastodon.AccountsVerify).Methods("GET")
+
+	v1.HandleFunc("/instance", api.InstanceFetch).Methods("GET")
+	v1.HandleFunc("/instance/peers", api.InstancePeers).Methods("GET")
+
+	v1.HandleFunc("/timelines/home", api.TimelinesHome).Methods("GET")
+
+	oauth := r.PathPrefix("/oauth").Subrouter()
+	oauth.HandleFunc("/authorize/", mastodon.Authorize).Methods("GET", "POST")
+	oauth.HandleFunc("/authorize", mastodon.Authorize).Methods("GET", "POST")
+	oauth.HandleFunc("/token", mastodon.OAuthToken).Methods("POST")
+
+	wellknown := r.PathPrefix("/.well-known").Subrouter()
+	wellknown.HandleFunc("/webfinger", api.WellknownWebfinger).Methods("GET")
+
+	svc := &activitypub.Service{
+		StoreActivity: api.StoreActivity,
+	}
+
+	inbox := r.Path("/inbox").Subrouter()
+	inbox.Use(api.ValidateSignature())
+	inbox.HandleFunc("", svc.Inbox).Methods("POST")
+
+	users := r.PathPrefix("/users").Subrouter()
+	users.HandleFunc("/{username}", api.UsersShow).Methods("GET")
+	users.HandleFunc("/{username}/inbox", svc.Inbox).Methods("POST")
+
+	r.Path("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "https://dave.cheney.net/", http.StatusFound)
+	})
+
 	svr := &http.Server{
 		Addr:         s.Addr,
-		Handler:      m.New(db),
+		Handler:      r,
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
@@ -120,7 +162,6 @@ func (f *FollowCmd) Run(ctx *Context) error {
 
 func sign(r *http.Request, body []byte, pubKeyId string) {
 	r.Header.Set("Date", time.Now().UTC().Format("Mon, 02 Jan 2006 15:04:05 GMT")) // Date must be in GMT, not UTC 🤯
-	// r.Header.Set("Digest", fmt.Sprintf("SHA-256=%s", digest(sha256.New(), body)))
 	priv, err := ioutil.ReadFile("private.pem")
 	if err != nil {
 		log.Fatal(err)
@@ -146,27 +187,18 @@ func sign(r *http.Request, body []byte, pubKeyId string) {
 	if !ok {
 		log.Fatal("failed to parse RSA private key")
 	}
-
-	// input := fmt.Sprintf("(request-target): %s %s\ndigest: %s\ndate: %s\n", r.Method, r.URL.Path, r.Header.Get("Digest"), r.Header.Get("Date"))
-	// // Before signing, we need to hash our message
-	// // The hash is what we actually sign
-	// hash := sha256.New()
-	// hash.Write([]byte(input))
-	// hashed := hash.Sum(nil)
-	// signed, err := rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, hashed)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// r.Header.Set("Signature", fmt.Sprintf(`keyId="%s",algorithm="rsa-sha256",headers="(request-target) digest date",signature="%s"`, pubKeyId, base64.StdEncoding.EncodeToString(signed)))
-
-	prefs := []httpsig.Algorithm{httpsig.RSA_SHA256}
 	// The "Date" and "Digest" headers must already be set on r, as well as r.URL.
 	headersToSign := []string{httpsig.RequestTarget, "date", "digest"}
-	signer, _, err := httpsig.NewSigner(prefs, httpsig.DigestSha256, headersToSign, httpsig.Signature, 60)
+	signer, _, err := httpsig.NewSigner(
+		[]httpsig.Algorithm{httpsig.RSA_SHA256},
+		httpsig.DigestSha256,
+		headersToSign,
+		httpsig.Signature,
+		60,
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
-	// If r were a http.ResponseWriter, call SignResponse instead.
 	if err := signer.SignRequest(privateKey, pubKeyId, r, body); err != nil {
 		log.Fatal(err)
 	}
