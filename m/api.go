@@ -30,23 +30,6 @@ func query[K comparable, V any](m map[K]V, k K) V {
 	return v
 }
 
-func (a *Api) InstanceFetch(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(&mastodon.Instance{
-		URI:              "https://cheney.net/",
-		Title:            "Casa del Cheese",
-		ShortDescription: "🧀",
-		Email:            "dave@cheney.net",
-		Version:          "0.1.2",
-		Languages:        []string{"en"},
-	})
-}
-
-func (a *Api) InstancePeers(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode([]string{})
-}
-
 func (a *Api) TimelinesHome(w http.ResponseWriter, r *http.Request) {
 	since, _ := strconv.ParseInt(r.FormValue("since_id"), 10, 64)
 	limit, _ := strconv.ParseInt(r.FormValue("limit"), 10, 64)

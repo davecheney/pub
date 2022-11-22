@@ -51,8 +51,8 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	v1.HandleFunc("/apps", mastodon.AppsCreate).Methods("POST")
 	v1.HandleFunc("/accounts/verify_credentials", mastodon.AccountsVerify).Methods("GET")
 
-	v1.HandleFunc("/instance", api.InstanceFetch).Methods("GET")
-	v1.HandleFunc("/instance/peers", api.InstancePeers).Methods("GET")
+	v1.HandleFunc("/instance", mastodon.InstanceFetch).Methods("GET")
+	v1.HandleFunc("/instance/peers", mastodon.InstancePeers).Methods("GET")
 
 	v1.HandleFunc("/timelines/home", api.TimelinesHome).Methods("GET")
 

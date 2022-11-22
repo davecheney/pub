@@ -28,6 +28,10 @@ func NewService(db *sqlx.DB) *Service {
 	}
 }
 
+func (svc *Service) applications() *applications {
+	return &applications{db: svc.db}
+}
+
 func (svc *Service) AppsCreate(w http.ResponseWriter, r *http.Request) {
 	clientName := r.FormValue("client_name")
 	redirectURIs := r.FormValue("redirect_uris")
@@ -40,7 +44,7 @@ func (svc *Service) AppsCreate(w http.ResponseWriter, r *http.Request) {
 		RedirectURI:  redirectURIs,
 		VapidKey:     "BCk-QqERU0q-CfYZjcuB6lnyyOYfJ2AifKqfeGIm7Z-HiTU5T9eTG5GxVA0_OH5mMlI4UkkDTpaZwozy0TzdZ2M=",
 	}
-	if err := svc.saveApplication(app); err != nil {
+	if err := svc.applications().create(app); err != nil {
 		log.Println("saveApplication:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -49,17 +53,21 @@ func (svc *Service) AppsCreate(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(app)
 }
 
-func (svc *Service) saveApplication(app *Application) error {
-	result, err := svc.db.NamedExec(`INSERT INTO applications (name, website, redirect_uri, client_id, client_secret, vapid_key) VALUES (:name, :website, :redirect_uri, :client_id, :client_secret, :vapid_key)`, app)
-	if err != nil {
-		return err
-	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		return err
-	}
-	app.ID = int(id)
-	return nil
+func (svc *Service) InstanceFetch(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(&Instance{
+		URI:              "https://cheney.net/",
+		Title:            "Casa del Cheese",
+		ShortDescription: "🧀",
+		Email:            "dave@cheney.net",
+		Version:          "0.1.2",
+		Languages:        []string{"en"},
+	})
+}
+
+func (svc *Service) InstancePeers(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode([]string{})
 }
 
 func (svc *Service) Authorize(w http.ResponseWriter, r *http.Request) {
