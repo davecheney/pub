@@ -3,10 +3,11 @@ package activitypub
 import (
 	"crypto"
 	"crypto/x509"
+	"database/sql"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 
@@ -65,12 +66,13 @@ func (svc *Service) ValidateSignature() func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			verifier, err := httpsig.NewVerifier(r)
 			if err != nil {
-				log.Println("validateSignature:", err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
 			}
-			log.Println("keyId:", verifier.KeyId())
 			pubKey, err := svc.getKey(verifier.KeyId())
 			if err != nil {
-				log.Println("getkey:", err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
 			}
 			if err := verifier.Verify(pubKey, httpsig.RSA_SHA256); err != nil {
 				http.Error(w, err.Error(), http.StatusUnauthorized)
@@ -83,13 +85,15 @@ func (svc *Service) ValidateSignature() func(next http.Handler) http.Handler {
 
 func (svc *Service) getKey(id string) (crypto.PublicKey, error) {
 	actor_id := trimKeyId(id)
-	if actor, err := svc.actors().findById(actor_id); err == nil {
+	actor, err := svc.actors().findById(actor_id)
+	if err == nil {
+		// found cached key
 		return pemToPublicKey(actor["publicKey"].(map[string]interface{})["publicKeyPem"].(string))
-	} else {
-		log.Println("findActorById:", err)
 	}
-
-	actor, err := fetchActor(actor_id)
+	if !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("getKey: findbyid: %w", err)
+	}
+	actor, err = fetchActor(actor_id)
 	if err != nil {
 		return nil, err
 	}

@@ -9,7 +9,11 @@ require (
 	github.com/jmoiron/sqlx v1.3.5
 )
 
-require golang.org/x/sys v0.2.0 // indirect
+require (
+	github.com/felixge/httpsnoop v1.0.1 // indirect
+	github.com/gorilla/handlers v1.5.1 // indirect
+	golang.org/x/sys v0.2.0 // indirect
+)
 
 require (
 	github.com/go-sql-driver/mysql v1.6.0

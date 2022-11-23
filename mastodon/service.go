@@ -25,23 +25,25 @@ func NewService(db *sqlx.DB) *Service {
 	}
 }
 
-func (svc *Service) users() *users {
-	return &users{db: svc.db}
-}
-
-func (svc *Service) tokens() *tokens {
-	return &tokens{db: svc.db}
+func (svc *Service) accounts() *accounts {
+	return &accounts{db: svc.db}
 }
 
 func (svc *Service) applications() *applications {
 	return &applications{db: svc.db}
 }
+func (svc *Service) tokens() *tokens {
+	return &tokens{db: svc.db}
+}
+
+func (svc *Service) users() *users {
+	return &users{db: svc.db}
+}
 
 func (svc *Service) AppsCreate(w http.ResponseWriter, r *http.Request) {
 	clientName := r.FormValue("client_name")
 	redirectURIs := r.FormValue("redirect_uris")
-	redirectURI := r.FormValue("redirect_uri")
-	fmt.Println("AppsCreate", clientName, redirectURIs, redirectURI)
+	fmt.Println("AppsCreate", r.Form)
 	app := &Application{
 		Name:         clientName,
 		ClientID:     uuid.New().String(),
@@ -87,9 +89,17 @@ func (svc *Service) OAuthAuthorize(w http.ResponseWriter, r *http.Request) {
 }
 
 func (svc *Service) authorizeGet(w http.ResponseWriter, r *http.Request) {
-	redirectURI := r.FormValue("redirect_uri")
 	clientID := r.FormValue("client_id")
-	fmt.Println("authorizeGet", redirectURI, clientID)
+	redirectURI := r.FormValue("redirect_uri")
+	fmt.Println("/oauth/authorize(get): query:", r.URL.Query(), "form:", r.Form)
+	if clientID == "" {
+		http.Error(w, "client_id is required", http.StatusBadRequest)
+		return
+	}
+	if redirectURI == "" {
+		http.Error(w, "redirect_uri is required", http.StatusBadRequest)
+		return
+	}
 	w.Header().Set("Content-Type", "text/html")
 	io.WriteString(w, `
 		<!DOCTYPE html>
@@ -104,6 +114,7 @@ func (svc *Service) authorizeGet(w http.ResponseWriter, r *http.Request) {
 		<p><label>Password</label><input type="password" name="password"></p>
 		<input type="hidden" name="client_id" value="`+clientID+`">
 		<input type="hidden" name="redirect_uri" value="`+redirectURI+`">
+		<input type="hidden" name="response_type" value="code"> 
 		<p><input type="submit" value="I solemnly swear that I am up to no good"></p>
 		</form>
 		</body>
@@ -112,21 +123,19 @@ func (svc *Service) authorizeGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (svc *Service) authorizePost(w http.ResponseWriter, r *http.Request) {
-	email := r.FormValue("email")
-	password := r.FormValue("password")
-	redirectURI := r.FormValue("redirect_uri")
-	clientID := r.FormValue("client_id")
-
+	email := r.PostFormValue("email")
+	password := r.PostFormValue("password")
+	redirectURI := r.PostFormValue("redirect_uri")
+	clientID := r.PostFormValue("client_id")
+	fmt.Println("/oauth/authorize(post): query:", r.URL.Query(), "form:", r.Form)
 	app, err := svc.applications().findByClientID(clientID)
 	if err != nil {
-		log.Println("findApplicationByClientID:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	user, err := svc.users().findByEmail(email)
 	if err != nil {
-		log.Println("findUserByEmail:", err)
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -154,23 +163,28 @@ func (svc *Service) authorizePost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (svc *Service) OAuthToken(w http.ResponseWriter, r *http.Request) {
-	code := r.FormValue("code")
-	clientId := r.FormValue("client_id")
-	fmt.Println(r.URL.Query())
-	fmt.Println("OAuthToken", code, clientId)
-	token, err := svc.tokens().findByAuthorizationCode(code)
+
+	var body = map[string]string{}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	fmt.Println("/oauth/token: query:", r.URL.Query(), "form:", r.Form, "headers:", r.Header)
+	fmt.Println("body:", body)
+	token, err := svc.tokens().findByAuthorizationCode(body["code"])
 	if err != nil {
 		log.Println("findTokenByAuthorizationCode:", err)
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	app, err := svc.applications().findByClientID(clientId)
+	app, err := svc.applications().findByClientID(body["client_id"])
 	if err != nil {
 		log.Println("findApplicationByClientID:", err)
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 	if token.ApplicationID != app.ID {
+		log.Println("client_id mismatch", token.ApplicationID, app.ID)
 		http.Error(w, "invalid client_id", http.StatusUnauthorized)
 		return
 	}
@@ -179,19 +193,21 @@ func (svc *Service) OAuthToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (svc *Service) AccountsVerify(w http.ResponseWriter, r *http.Request) {
-	token, err := svc.findTokenByAccessToken(r.Header.Get("Authorization"))
+	bearer := r.Header.Get("Authorization")
+	accessToken := strings.TrimPrefix(bearer, "Bearer ")
+	token, err := svc.tokens().findByAccessToken(accessToken)
 	if err != nil {
 		log.Println("findTokenByAccessToken:", err)
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	user, err := svc.findUserByID(token.UserID)
+	user, err := svc.users().findByID(token.UserID)
 	if err != nil {
 		log.Println("findUserByID:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	account, err := svc.findAccountByUserID(user.ID)
+	account, err := svc.accounts().findByUserID(user.ID)
 	if err != nil {
 		log.Println("findAccountByUserID:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -199,30 +215,6 @@ func (svc *Service) AccountsVerify(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(account)
-
-}
-
-func (svc *Service) findUserByID(id int) (*User, error) {
-	user := &User{}
-	err := svc.db.QueryRowx(`SELECT * FROM users WHERE id = ?`, id).StructScan(user)
-	return user, err
-}
-
-func (svc *Service) findAccountByUserID(id int) (*Account, error) {
-	account := &Account{}
-	err := svc.db.QueryRowx(`SELECT * FROM accounts WHERE user_id = ?`, id).StructScan(account)
-	if err != nil {
-		return nil, err
-	}
-	account.URI = fmt.Sprintf("https://%s/users/%s", account.Domain, account.Username)
-	return account, nil
-}
-
-func (svc *Service) findTokenByAccessToken(accessToken string) (*Token, error) {
-	accessToken = strings.TrimPrefix(accessToken, "Bearer ")
-	token := &Token{}
-	err := svc.db.QueryRowx(`SELECT * FROM tokens WHERE access_token = ?`, accessToken).StructScan(token)
-	return token, err
 }
 
 func (svc *Service) WellknownWebfinger(w http.ResponseWriter, r *http.Request) {
@@ -278,10 +270,6 @@ func (svc *Service) TimelinesHome(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if len(statuses) == 0 {
-		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

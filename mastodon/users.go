@@ -31,3 +31,9 @@ func (u *users) findByEmail(email string) (*User, error) {
 	err := u.db.QueryRowx(`SELECT * FROM users WHERE email = ?`, email).StructScan(user)
 	return user, err
 }
+
+func (u *users) findByID(id int) (*User, error) {
+	user := &User{}
+	err := u.db.QueryRowx(`SELECT * FROM users WHERE id = ?`, id).StructScan(user)
+	return user, err
+}

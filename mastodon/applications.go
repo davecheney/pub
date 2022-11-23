@@ -1,6 +1,21 @@
 package mastodon
 
-import "github.com/jmoiron/sqlx"
+import (
+	"time"
+
+	"github.com/jmoiron/sqlx"
+)
+
+type Application struct {
+	ID           int       `json:"id,string" db:"id"`
+	CreatedAt    time.Time `json:"-" db:"created_at"`
+	Name         string    `json:"name" db:"name"`
+	Website      *string   `json:"website" db:"website"`
+	RedirectURI  string    `json:"redirect_uri" db:"redirect_uri"`
+	ClientID     string    `json:"client_id" db:"client_id"`
+	ClientSecret string    `json:"client_secret" db:"client_secret"`
+	VapidKey     string    `json:"vapid_key" db:"vapid_key"`
+}
 
 type applications struct {
 	db *sqlx.DB

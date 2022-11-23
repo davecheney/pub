@@ -2,10 +2,12 @@ package main
 
 import (
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/davecheney/m/activitypub"
 	"github.com/davecheney/m/mastodon"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 )
@@ -35,7 +37,6 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	v1.HandleFunc("/timelines/home", mastodon.TimelinesHome).Methods("GET")
 
 	oauth := r.PathPrefix("/oauth").Subrouter()
-	oauth.HandleFunc("/authorize/", mastodon.OAuthAuthorize).Methods("GET", "POST")
 	oauth.HandleFunc("/authorize", mastodon.OAuthAuthorize).Methods("GET", "POST")
 	oauth.HandleFunc("/token", mastodon.OAuthToken).Methods("POST")
 
@@ -58,7 +59,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 
 	svr := &http.Server{
 		Addr:         s.Addr,
-		Handler:      r,
+		Handler:      handlers.ProxyHeaders(handlers.LoggingHandler(os.Stdout, r)),
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
