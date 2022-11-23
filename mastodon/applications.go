@@ -18,3 +18,9 @@ func (a *applications) create(app *Application) error {
 	app.ID = int(id)
 	return nil
 }
+
+func (a *applications) findByClientID(clientID string) (*Application, error) {
+	app := &Application{}
+	err := a.db.QueryRowx(`SELECT * FROM applications WHERE client_id = ?`, clientID).StructScan(app)
+	return app, err
+}

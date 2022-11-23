@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -15,17 +16,21 @@ import (
 // Service implements a Mastodon service.
 type Service struct {
 	db *sqlx.DB
-	*users
-	*tokens
 }
 
 // NewService returns a new instance of Service.
 func NewService(db *sqlx.DB) *Service {
 	return &Service{
-		db:     db,
-		users:  &users{db: db},
-		tokens: &tokens{db: db},
+		db: db,
 	}
+}
+
+func (svc *Service) users() *users {
+	return &users{db: svc.db}
+}
+
+func (svc *Service) tokens() *tokens {
+	return &tokens{db: svc.db}
 }
 
 func (svc *Service) applications() *applications {
@@ -112,14 +117,14 @@ func (svc *Service) authorizePost(w http.ResponseWriter, r *http.Request) {
 	redirectURI := r.FormValue("redirect_uri")
 	clientID := r.FormValue("client_id")
 
-	app, err := svc.findApplicationByClientID(clientID)
+	app, err := svc.applications().findByClientID(clientID)
 	if err != nil {
 		log.Println("findApplicationByClientID:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	user, err := svc.users.findByEmail(email)
+	user, err := svc.users().findByEmail(email)
 	if err != nil {
 		log.Println("findUserByEmail:", err)
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -130,24 +135,6 @@ func (svc *Service) authorizePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := svc.createToken(user, app)
-	if err != nil {
-		log.Println("createAccessToken:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Location", redirectURI+"?code="+token.AuthorizationCode)
-	w.WriteHeader(302)
-}
-
-func (svc *Service) findApplicationByClientID(clientID string) (*Application, error) {
-	app := &Application{}
-	err := svc.db.QueryRowx(`SELECT * FROM applications WHERE client_id = ?`, clientID).StructScan(app)
-	return app, err
-}
-
-func (svc *Service) createToken(user *User, app *Application) (*Token, error) {
 	token := &Token{
 		UserID:            user.ID,
 		ApplicationID:     app.ID,
@@ -156,29 +143,28 @@ func (svc *Service) createToken(user *User, app *Application) (*Token, error) {
 		Scope:             "read write follow push",
 		AuthorizationCode: uuid.New().String(),
 	}
-	result, err := svc.db.NamedExec(`INSERT INTO tokens (access_token, token_type, scope, user_id, application_id, authorization_code) VALUES (:access_token, :token_type, :scope, :user_id, :application_id, :authorization_code)`, token)
-	if err != nil {
-		return nil, err
+	if err := svc.tokens().create(token); err != nil {
+		log.Println("saveToken:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		return nil, err
-	}
-	token.ID = int(id)
-	return token, nil
+
+	w.Header().Set("Location", redirectURI+"?code="+token.AuthorizationCode)
+	w.WriteHeader(302)
 }
 
 func (svc *Service) OAuthToken(w http.ResponseWriter, r *http.Request) {
 	code := r.FormValue("code")
 	clientId := r.FormValue("client_id")
+	fmt.Println(r.URL.Query())
 	fmt.Println("OAuthToken", code, clientId)
-	token, err := svc.tokens.findByAuthorizationCode(code)
+	token, err := svc.tokens().findByAuthorizationCode(code)
 	if err != nil {
 		log.Println("findTokenByAuthorizationCode:", err)
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	app, err := svc.findApplicationByClientID(clientId)
+	app, err := svc.applications().findByClientID(clientId)
 	if err != nil {
 		log.Println("findApplicationByClientID:", err)
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -237,4 +223,67 @@ func (svc *Service) findTokenByAccessToken(accessToken string) (*Token, error) {
 	token := &Token{}
 	err := svc.db.QueryRowx(`SELECT * FROM tokens WHERE access_token = ?`, accessToken).StructScan(token)
 	return token, err
+}
+
+func (svc *Service) WellknownWebfinger(w http.ResponseWriter, r *http.Request) {
+	resource := r.URL.Query().Get("resource")
+	if resource != "acct:dave@cheney.net" {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/jrd+json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"subject": resource,
+		"links": []map[string]any{
+			{
+				"rel":  "http://webfinger.net/rel/profile-page",
+				"type": "text/html",
+				"href": "https://cheney.net/dave",
+			},
+			{
+				"rel":  "self",
+				"type": "application/activity+json",
+				"href": "https://cheney.net/users/dave",
+			},
+			{
+				"rel":      "http://ostatus.org/schema/1.0/subscribe",
+				"template": "https://cheney.net/authorize_interaction?uri={uri}",
+			},
+		},
+	})
+}
+
+func (svc *Service) TimelinesHome(w http.ResponseWriter, r *http.Request) {
+	since, _ := strconv.ParseInt(r.FormValue("since_id"), 10, 64)
+	limit, _ := strconv.ParseInt(r.FormValue("limit"), 10, 64)
+	rows, err := svc.db.Queryx("SELECT id, activity FROM activitypub_inbox WHERE activity_type=? AND object_type=? AND id > ? ORDER BY created_at DESC LIMIT ?", "Create", "Note", since, limit)
+
+	var statuses []Status
+	for rows.Next() {
+		var entry string
+		var id int
+		if err = rows.Scan(&id, &entry); err != nil {
+			break
+		}
+		var activity map[string]any
+		json.NewDecoder(strings.NewReader(entry)).Decode(&activity)
+		object, _ := activity["object"].(map[string]interface{})
+		statuses = append(statuses, Status{
+			Id:         strconv.Itoa(id),
+			Uri:        object["atomUri"].(string),
+			CreatedAt:  object["published"].(string),
+			Content:    object["content"].(string),
+			Visibility: "public",
+		})
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if len(statuses) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(statuses)
 }

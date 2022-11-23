@@ -32,3 +32,16 @@ func (t *tokens) findByAuthorizationCode(code string) (*Token, error) {
 	err := t.db.QueryRowx(`SELECT * FROM tokens WHERE authorization_code = ?`, code).StructScan(token)
 	return token, err
 }
+
+func (t *tokens) create(token *Token) error {
+	result, err := t.db.NamedExec(`INSERT INTO tokens (user_id, application_id, access_token, token_type, scope, authorization_code) VALUES (:user_id, :application_id, :access_token, :token_type, :scope, :authorization_code)`, token)
+	if err != nil {
+		return err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+	token.ID = int(id)
+	return nil
+}

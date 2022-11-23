@@ -17,7 +17,6 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/davecheney/m/activitypub"
-	"github.com/davecheney/m/m"
 	"github.com/davecheney/m/mastodon"
 	"github.com/go-fed/httpsig"
 	"github.com/google/uuid"
@@ -43,7 +42,6 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	}
 
 	mastodon := mastodon.NewService(db)
-	api := m.New(db)
 
 	r := mux.NewRouter()
 
@@ -54,7 +52,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	v1.HandleFunc("/instance", mastodon.InstanceFetch).Methods("GET")
 	v1.HandleFunc("/instance/peers", mastodon.InstancePeers).Methods("GET")
 
-	v1.HandleFunc("/timelines/home", api.TimelinesHome).Methods("GET")
+	v1.HandleFunc("/timelines/home", mastodon.TimelinesHome).Methods("GET")
 
 	oauth := r.PathPrefix("/oauth").Subrouter()
 	oauth.HandleFunc("/authorize/", mastodon.Authorize).Methods("GET", "POST")
@@ -62,7 +60,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	oauth.HandleFunc("/token", mastodon.OAuthToken).Methods("POST")
 
 	wellknown := r.PathPrefix("/.well-known").Subrouter()
-	wellknown.HandleFunc("/webfinger", api.WellknownWebfinger).Methods("GET")
+	wellknown.HandleFunc("/webfinger", mastodon.WellknownWebfinger).Methods("GET")
 
 	activitypub := activitypub.NewService(db)
 
