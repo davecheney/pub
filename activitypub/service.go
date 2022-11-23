@@ -35,7 +35,7 @@ func (svc *Service) activities() *activities {
 	return &activities{db: svc.db}
 }
 
-func (svc *Service) Inbox(w http.ResponseWriter, r *http.Request) {
+func (svc *Service) InboxCreate(w http.ResponseWriter, r *http.Request) {
 	var activity map[string]any
 	if err := json.NewDecoder(r.Body).Decode(&activity); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)

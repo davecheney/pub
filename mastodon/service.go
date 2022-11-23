@@ -75,7 +75,7 @@ func (svc *Service) InstancePeers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode([]string{})
 }
 
-func (svc *Service) Authorize(w http.ResponseWriter, r *http.Request) {
+func (svc *Service) OAuthAuthorize(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		svc.authorizeGet(w, r)
