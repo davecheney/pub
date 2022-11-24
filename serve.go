@@ -28,6 +28,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 
 	if s.AutoMigrate {
 		if err := db.AutoMigrate(
+			&mastodon.Status{},
 			&mastodon.User{},
 			&mastodon.Account{},
 			&mastodon.Application{},
@@ -72,6 +73,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	v1 := r.PathPrefix("/api/v1").Subrouter()
 	v1.HandleFunc("/apps", mastodon.AppsCreate).Methods("POST")
 	v1.HandleFunc("/accounts/verify_credentials", mastodon.AccountsVerify).Methods("GET")
+	v1.HandleFunc("/accounts/{id}", mastodon.AccountsFetch).Methods("GET")
 	v1.HandleFunc("/statuses", mastodon.StatusesCreate).Methods("POST")
 
 	v1.HandleFunc("/instance", mastodon.InstanceFetch).Methods("GET")
@@ -82,6 +84,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	oauth := r.PathPrefix("/oauth").Subrouter()
 	oauth.HandleFunc("/authorize", mastodon.OAuthAuthorize).Methods("GET", "POST")
 	oauth.HandleFunc("/token", mastodon.OAuthToken).Methods("POST")
+	oauth.HandleFunc("/revoke", mastodon.OAuthRevoke).Methods("POST")
 
 	wellknown := r.PathPrefix("/.well-known").Subrouter()
 	wellknown.HandleFunc("/webfinger", mastodon.WellknownWebfinger).Methods("GET")

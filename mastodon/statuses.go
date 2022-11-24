@@ -6,4 +6,6 @@ import (
 
 type Status struct {
 	gorm.Model
+	AccountID uint
+	Account   Account
 }

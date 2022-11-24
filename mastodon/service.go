@@ -8,8 +8,10 @@ import (
 	"net/http/httputil"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"gorm.io/gorm"
 
 	"github.com/go-json-experiment/json"
@@ -31,9 +33,6 @@ func (svc *Service) accounts() *accounts {
 	return &accounts{db: svc.db}
 }
 
-func (svc *Service) applications() *applications {
-	return &applications{db: svc.db}
-}
 func (svc *Service) tokens() *tokens {
 	return &tokens{db: svc.db}
 }
@@ -64,7 +63,15 @@ func (svc *Service) AppsCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, app)
+	json.MarshalFull(w, map[string]any{
+		"id":            strconv.Itoa(int(app.ID)),
+		"name":          app.Name,
+		"website":       app.Website,
+		"redirect_uri":  app.RedirectURI,
+		"client_id":     app.ClientID,
+		"client_secret": app.ClientSecret,
+		"vapid_key":     app.VapidKey,
+	})
 }
 
 func (svc *Service) InstanceFetch(w http.ResponseWriter, r *http.Request) {
@@ -134,14 +141,15 @@ func (svc *Service) authorizePost(w http.ResponseWriter, r *http.Request) {
 	password := r.PostFormValue("password")
 	redirectURI := r.PostFormValue("redirect_uri")
 	clientID := r.PostFormValue("client_id")
-	app, err := svc.applications().findByClientID(clientID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+	var app Application
+	if err := svc.db.Where("client_id = ?", clientID).First(&app).Error; err != nil {
+		http.Error(w, "invalid client_id", http.StatusBadRequest)
 		return
 	}
 
 	var user User
-	if err := svc.db.Where("email = ?", email).First(&user).Error; err != nil {
+	if err := svc.db.Preload("Account").Where("email = ?", email).First(&user).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -151,8 +159,9 @@ func (svc *Service) authorizePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := &Token{
-		User:              user,
+		UserID:            user.ID,
 		ApplicationID:     app.ID,
+		AccountID:         user.Account.ID,
 		AccessToken:       uuid.New().String(),
 		TokenType:         "bearer",
 		Scope:             "read write follow push",
@@ -186,12 +195,12 @@ func (svc *Service) OAuthToken(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	app, err := svc.applications().findByClientID(params.ClientID)
-	if err != nil {
-		log.Println("findApplicationByClientID:", err)
-		http.Error(w, err.Error(), http.StatusNotFound)
+	var app Application
+	if err := svc.db.Where("client_id = ?", params.ClientID).First(&app).Error; err != nil {
+		http.Error(w, "invalid client_id", http.StatusBadRequest)
 		return
 	}
+
 	if token.ApplicationID != app.ID {
 		log.Println("client_id mismatch", token.ApplicationID, app.ID)
 		http.Error(w, "invalid client_id", http.StatusUnauthorized)
@@ -206,23 +215,54 @@ func (svc *Service) OAuthToken(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (svc *Service) AccountsVerify(w http.ResponseWriter, r *http.Request) {
+func (svc *Service) OAuthRevoke(w http.ResponseWriter, r *http.Request) {
 	bearer := r.Header.Get("Authorization")
 	accessToken := strings.TrimPrefix(bearer, "Bearer ")
+	var token Token
+	if err := svc.db.Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	if err := svc.db.Delete(&token).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(204)
+}
 
-	token, err := svc.tokens().findByAccessToken(accessToken)
-	if err != nil {
-		log.Println("findTokenByAccessToken:", err)
+func (svc *Service) AccountsVerify(w http.ResponseWriter, r *http.Request) {
+	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+
+	var token Token
+	if err := svc.db.Preload("Account").Where("access_token = ?", accessToken).First(&token).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	account := &token.Account
 	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, serialiseAccount(account))
+	json.MarshalFull(w, serialiseAccount(&token.Account))
+}
+
+func (svc *Service) AccountsFetch(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	var token Token
+	if err := svc.db.Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	var account Account
+	if err := svc.db.Where("id = ?", id).First(&account).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.MarshalFull(w, serialiseAccount(&account))
 }
 
 func serialiseAccount(a *Account) map[string]any {
+	fmt.Printf("%+v\n", a)
 	return map[string]any{
 		"id":              strconv.Itoa(int(a.ID)),
 		"username":        a.Username,
@@ -279,83 +319,49 @@ func (svc *Service) WellknownWebfinger(w http.ResponseWriter, r *http.Request) {
 }
 
 func (svc *Service) TimelinesHome(w http.ResponseWriter, r *http.Request) {
-	bearer := r.Header.Get("Authorization")
-	accessToken := strings.TrimPrefix(bearer, "Bearer ")
-	_, err := svc.tokens().findByAccessToken(accessToken)
-	if err != nil {
-		log.Println("findTokenByAccessToken:", err)
+	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	var token Token
+	if err := svc.db.Preload("Account").Where("access_token = ?", accessToken).First(&token).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	io.WriteString(w, `[{
-		"id": "1",
-		"created_at": "2016-03-16T14:44:31.580Z",
-		"in_reply_to_id": null,
-		"in_reply_to_account_id": null,
-		"sensitive": false,
-		"spoiler_text": "",
-		"visibility": "public",
-		"language": "en",
-		"uri": "https://mastodon.social/users/Gargron/statuses/1",
-		"url": "https://mastodon.social/@Gargron/1",
-		"replies_count": 7,
-		"reblogs_count": 98,
-		"favourites_count": 112,
-		"favourited": false,
-		"reblogged": false,
-		"muted": false,
-		"bookmarked": false,
-		"content": "<p>Hello world</p>",
-		"reblog": null,
-		"application": null,
-		"account": {
-		  "id": "1",
-		  "username": "Gargron",
-		  "acct": "Gargron",
-		  "display_name": "Eugen",
-		  "locked": false,
-		  "bot": false,
-		  "created_at": "2016-03-16T14:34:26.392Z",
-		  "note": "<p>Developer of Mastodon and administrator of mastodon.social. I post service announcements, development updates, and personal stuff.</p>",
-		  "url": "https://mastodon.social/@Gargron",
-		  "avatar": "https://files.mastodon.social/accounts/avatars/000/000/001/original/d96d39a0abb45b92.jpg",
-		  "avatar_static": "https://files.mastodon.social/accounts/avatars/000/000/001/original/d96d39a0abb45b92.jpg",
-		  "header": "https://files.mastodon.social/accounts/headers/000/000/001/original/c91b871f294ea63e.png",
-		  "header_static": "https://files.mastodon.social/accounts/headers/000/000/001/original/c91b871f294ea63e.png",
-		  "followers_count": 320472,
-		  "following_count": 453,
-		  "statuses_count": 61163,
-		  "last_status_at": "2019-12-05T03:03:02.595Z",
-		  "emojis": [],
-		  "fields": [
-			{
-			  "name": "Patreon",
-			  "value": "<a href=\"https://www.patreon.com/mastodon\" rel=\"me nofollow noopener noreferrer\" target=\"_blank\"><span class=\"invisible\">https://www.</span><span class=\"\">patreon.com/mastodon</span><span class=\"invisible\"></span></a>",
-			  "verified_at": null
-			},
-			{
-			  "name": "Homepage",
-			  "value": "<a href=\"https://zeonfederated.com\" rel=\"me nofollow noopener noreferrer\" target=\"_blank\"><span class=\"invisible\">https://</span><span class=\"\">zeonfederated.com</span><span class=\"invisible\"></span></a>",
-			  "verified_at": "2019-07-15T18:29:57.191+00:00"
-			}
-		  ]
-		},
-		"media_attachments": [],
-		"mentions": [],
-		"tags": [],
-		"emojis": [],
-		"card": null,
-		"poll": null
-	  }]`)
+	json.MarshalFull(w, []map[string]any{{
+		"id":                     "3",
+		"created_at":             time.Now().Format("2006-01-02T15:04:05.006Z"),
+		"in_reply_to_id":         nil,
+		"in_reply_to_account_id": nil,
+		"sensitive":              false,
+		"spoiler_text":           "",
+		"visibility":             "public",
+		"language":               "en",
+		"uri":                    "https://cheney.net/users/dave/statuses/3",
+		"url":                    "https://cheney.net/@dave/3",
+		"replies_count":          7,
+		"reblogs_count":          98,
+		"favourites_count":       112,
+		"favourited":             false,
+		"reblogged":              false,
+		"muted":                  false,
+		"bookmarked":             false,
+		"content":                "<p>Hello world</p>",
+		"reblog":                 nil,
+		"application":            nil,
+		"account":                serialiseAccount(&token.Account),
+		"media_attachments":      []map[string]any{},
+		"mentions":               []map[string]any{},
+		"tags":                   []map[string]any{},
+		"emojis":                 []map[string]any{},
+		"card":                   nil,
+		"poll":                   nil,
+	}})
 }
 
 func (svc *Service) StatusesCreate(w http.ResponseWriter, r *http.Request) {
-	bearer := r.Header.Get("Authorization")
-	accessToken := strings.TrimPrefix(bearer, "Bearer ")
-	_, err := svc.tokens().findByAccessToken(accessToken)
-	if err != nil {
+	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	var token Token
+	if err := svc.db.Preload("Account").Where("access_token = ?", accessToken).First(&token).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
