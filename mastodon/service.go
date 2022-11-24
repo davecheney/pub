@@ -36,8 +36,7 @@ func (svc *Service) applications() *applications {
 	return &applications{db: svc.db}
 }
 func (svc *Service) tokens() *tokens {
-	db, _ := svc.db.DB()
-	return &tokens{db: sqlx.NewDb(db, "mysql")}
+	return &tokens{db: svc.db}
 }
 
 func (svc *Service) statuses() *statuses {
@@ -50,19 +49,28 @@ func (svc *Service) users() *users {
 }
 
 func (svc *Service) AppsCreate(w http.ResponseWriter, r *http.Request) {
-	clientName := r.FormValue("client_name")
-	redirectURIs := r.FormValue("redirect_uris")
-	fmt.Println("AppsCreate", r.Form)
+	var params struct {
+		ClientName   string  `json:"client_name"`
+		Website      *string `json:"website"`
+		RedirectURIs string  `json:"redirect_uris"`
+		Scopes       string  `json:"scopes"`
+	}
+	if err := json.UnmarshalFull(r.Body, &params); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	fmt.Println("/api/v1/apps: params:", params)
+
 	app := &Application{
-		Name:         clientName,
+		Name:         params.ClientName,
+		Website:      params.Website,
 		ClientID:     uuid.New().String(),
 		ClientSecret: uuid.New().String(),
-		RedirectURI:  redirectURIs,
+		RedirectURI:  params.RedirectURIs,
 		VapidKey:     "BCk-QqERU0q-CfYZjcuB6lnyyOYfJ2AifKqfeGIm7Z-HiTU5T9eTG5GxVA0_OH5mMlI4UkkDTpaZwozy0TzdZ2M=",
 	}
-	if err := svc.applications().create(app); err != nil {
-		log.Println("saveApplication:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := svc.db.Create(app).Error; err != nil {
+		http.Error(w, "failed to create application", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -154,8 +162,8 @@ func (svc *Service) authorizePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := &Token{
-		UserID:            int(user.ID),
-		ApplicationID:     int(app.ID),
+		UserID:            user.ID,
+		ApplicationID:     app.ID,
 		AccessToken:       uuid.New().String(),
 		TokenType:         "bearer",
 		Scope:             "read write follow push",
@@ -192,7 +200,7 @@ func (svc *Service) OAuthToken(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	if token.ApplicationID != int(app.ID) {
+	if token.ApplicationID != app.ID {
 		log.Println("client_id mismatch", token.ApplicationID, app.ID)
 		http.Error(w, "invalid client_id", http.StatusUnauthorized)
 		return
@@ -216,7 +224,7 @@ func (svc *Service) AccountsVerify(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	account, err := svc.accounts().findByUserID(int(user.ID))
+	account, err := svc.accounts().findByUserID(user.ID)
 	if err != nil {
 		log.Println("findAccountByUserID:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -273,7 +281,7 @@ func (svc *Service) TimelinesHome(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	_, err = svc.accounts().findByUserID(int(user.ID))
+	_, err = svc.accounts().findByUserID(user.ID)
 	if err != nil {
 		log.Println("findAccountByUserID:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -368,7 +376,7 @@ func (svc *Service) StatusesCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	_, err = svc.accounts().findByUserID(int(user.ID))
+	_, err = svc.accounts().findByUserID(user.ID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return

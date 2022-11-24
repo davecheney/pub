@@ -15,8 +15,9 @@ import (
 )
 
 type ServeCmd struct {
-	Addr string `help:"address to listen"`
-	DSN  string `help:"data source name"`
+	Addr        string `help:"address to listen"`
+	DSN         string `help:"data source name"`
+	AutoMigrate bool   `help:"auto migrate"`
 }
 
 func (s *ServeCmd) Run(ctx *Context) error {
@@ -25,13 +26,25 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	if err != nil {
 		return err
 	}
-	if err := db.AutoMigrate(
-		&mastodon.User{},
-		&mastodon.Account{},
-		&mastodon.Application{},
-	); err != nil {
-		return err
+
+	if s.AutoMigrate {
+		if err := db.AutoMigrate(
+			&mastodon.User{},
+			&mastodon.Account{},
+			&mastodon.Application{},
+			&mastodon.Token{},
+		); err != nil {
+			return err
+		}
 	}
+
+	// user := &mastodon.User{
+	// 	Email:             "dave@cheney.net",
+	// 	EncryptedPassword: []byte("$2a$04$0k4j6NbaaPSrGwDb0ufOK.KKYBCigiXk95YNUAQXk74CQVg4FUrre"),
+	// }
+	// if err := db.Create(user).Error; err != nil {
+	// 	return err
+	// }
 
 	dbx, err := sqlx.Connect("mysql", s.DSN+"?parseTime=true")
 	if err != nil {
@@ -75,7 +88,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 
 	svr := &http.Server{
 		Addr:         s.Addr,
-		Handler:      handlers.ProxyHeaders(handlers.CombinedLoggingHandler(os.Stdout, r)),
+		Handler:      handlers.ProxyHeaders(handlers.LoggingHandler(os.Stdout, r)),
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}

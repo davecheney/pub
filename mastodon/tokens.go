@@ -1,47 +1,36 @@
 package mastodon
 
 import (
-	"time"
-
-	"github.com/jmoiron/sqlx"
+	"gorm.io/gorm"
 )
 
 type Token struct {
-	ID                int       `json:"-" db:"id"`
-	UserID            int       `json:"-" db:"user_id"`
-	ApplicationID     int       `json:"-" db:"application_id"`
-	CreatedAt         time.Time `json:"-" db:"created_at"`
-	AccessToken       string    `json:"access_token" db:"access_token"`
-	TokenType         string    `json:"token_type" db:"token_type"`
-	Scope             string    `json:"scope" db:"scope"`
-	AuthorizationCode string    `json:"-" db:"authorization_code"`
+	gorm.Model
+	UserID            uint
+	ApplicationID     uint
+	AccessToken       string `json:"access_token"`
+	TokenType         string `json:"token_type"`
+	Scope             string `json:"scope"`
+	AuthorizationCode string `json:"-"`
 }
 
 type tokens struct {
-	db *sqlx.DB
+	db *gorm.DB
 }
 
 func (t *tokens) findByAccessToken(accessToken string) (*Token, error) {
 	token := &Token{}
-	err := t.db.QueryRowx(`SELECT * FROM tokens WHERE access_token = ?`, accessToken).StructScan(token)
-	return token, err
+	result := t.db.Where("access_token = ?", accessToken).First(token)
+	return token, result.Error
 }
 
 func (t *tokens) findByAuthorizationCode(code string) (*Token, error) {
 	token := &Token{}
-	err := t.db.QueryRowx(`SELECT * FROM tokens WHERE authorization_code = ?`, code).StructScan(token)
-	return token, err
+	result := t.db.Where("authorization_code = ?", code).First(token)
+	return token, result.Error
 }
 
 func (t *tokens) create(token *Token) error {
-	result, err := t.db.NamedExec(`INSERT INTO tokens (user_id, application_id, access_token, token_type, scope, authorization_code) VALUES (:user_id, :application_id, :access_token, :token_type, :scope, :authorization_code)`, token)
-	if err != nil {
-		return err
-	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		return err
-	}
-	token.ID = int(id)
-	return nil
+	result := t.db.Create(token)
+	return result.Error
 }

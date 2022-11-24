@@ -9,6 +9,9 @@ type User struct {
 	gorm.Model
 	Email             string
 	EncryptedPassword []byte
+
+	// relations
+	Tokens []Token `gorm:"foreignKey:UserID;references:ID"`
 }
 
 func (u *User) comparePassword(password string) bool {
@@ -28,7 +31,7 @@ func (u *users) findByEmail(email string) (*User, error) {
 	return user, result.Error
 }
 
-func (u *users) findByID(id int) (*User, error) {
+func (u *users) findByID(id uint) (*User, error) {
 	user := &User{}
 	result := u.db.First(user, id)
 	return user, result.Error
