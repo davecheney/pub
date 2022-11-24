@@ -1,18 +1,14 @@
 package mastodon
 
 import (
-	"time"
-
-	"github.com/jmoiron/sqlx"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 type User struct {
-	ID                int       `db:"id"`
-	CreatedAt         time.Time `db:"created_at"`
-	UpdatedAt         time.Time `db:"updated_at"`
-	Email             string    `db:"email"`
-	EncryptedPassword []byte    `db:"encrypted_password"`
+	gorm.Model
+	Email             string
+	EncryptedPassword []byte
 }
 
 func (u *User) comparePassword(password string) bool {
@@ -23,17 +19,17 @@ func (u *User) comparePassword(password string) bool {
 }
 
 type users struct {
-	db *sqlx.DB
+	db *gorm.DB
 }
 
 func (u *users) findByEmail(email string) (*User, error) {
 	user := &User{}
-	err := u.db.QueryRowx(`SELECT * FROM users WHERE email = ?`, email).StructScan(user)
-	return user, err
+	result := u.db.Where("email = ?", email).First(user)
+	return user, result.Error
 }
 
 func (u *users) findByID(id int) (*User, error) {
 	user := &User{}
-	err := u.db.QueryRowx(`SELECT * FROM users WHERE id = ?`, id).StructScan(user)
-	return user, err
+	result := u.db.First(user, id)
+	return user, result.Error
 }

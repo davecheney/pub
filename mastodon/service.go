@@ -7,20 +7,22 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"gorm.io/gorm"
 
 	"github.com/go-json-experiment/json"
 )
 
 // Service implements a Mastodon service.
 type Service struct {
-	db *sqlx.DB
+	db *gorm.DB
 }
 
 // NewService returns a new instance of Service.
-func NewService(db *sqlx.DB) *Service {
+func NewService(db *gorm.DB) *Service {
 	return &Service{
 		db: db,
 	}
@@ -34,11 +36,13 @@ func (svc *Service) applications() *applications {
 	return &applications{db: svc.db}
 }
 func (svc *Service) tokens() *tokens {
-	return &tokens{db: svc.db}
+	db, _ := svc.db.DB()
+	return &tokens{db: sqlx.NewDb(db, "mysql")}
 }
 
 func (svc *Service) statuses() *statuses {
-	return &statuses{db: svc.db}
+	db, _ := svc.db.DB()
+	return &statuses{db: sqlx.NewDb(db, "mysql")}
 }
 
 func (svc *Service) users() *users {
@@ -150,8 +154,8 @@ func (svc *Service) authorizePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := &Token{
-		UserID:            user.ID,
-		ApplicationID:     app.ID,
+		UserID:            int(user.ID),
+		ApplicationID:     int(app.ID),
 		AccessToken:       uuid.New().String(),
 		TokenType:         "bearer",
 		Scope:             "read write follow push",
@@ -188,7 +192,7 @@ func (svc *Service) OAuthToken(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	if token.ApplicationID != app.ID {
+	if token.ApplicationID != int(app.ID) {
 		log.Println("client_id mismatch", token.ApplicationID, app.ID)
 		http.Error(w, "invalid client_id", http.StatusUnauthorized)
 		return
@@ -212,7 +216,7 @@ func (svc *Service) AccountsVerify(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	account, err := svc.accounts().findByUserID(user.ID)
+	account, err := svc.accounts().findByUserID(int(user.ID))
 	if err != nil {
 		log.Println("findAccountByUserID:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -269,15 +273,86 @@ func (svc *Service) TimelinesHome(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	_, err = svc.accounts().findByUserID(user.ID)
+	_, err = svc.accounts().findByUserID(int(user.ID))
 	if err != nil {
 		log.Println("findAccountByUserID:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	type status struct {
+		ID                 int       `json:"id,string"`
+		CreatedAt          time.Time `json:"created_at,format:'2006-01-02T15:04:05.006Z"`
+		InReplyTo          *int      `json:"in_reply_to_id,string"`
+		InReplyToAccountID *int      `json:"in_reply_to_account_id,string"`
+		Sensitive          bool      `json:"sensitive"`
+		SpoilerText        string    `json:"spoiler_text"`
+		Visibility         string    `json:"visibility"`
+		Language           string    `json:"language"`
+		URI                string    `json:"uri"`
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, []struct{}{})
+	io.WriteString(w, `[{
+		"id": "1",
+		"created_at": "2016-03-16T14:44:31.580Z",
+		"in_reply_to_id": null,
+		"in_reply_to_account_id": null,
+		"sensitive": false,
+		"spoiler_text": "",
+		"visibility": "public",
+		"language": "en",
+		"uri": "https://mastodon.social/users/Gargron/statuses/1",
+		"url": "https://mastodon.social/@Gargron/1",
+		"replies_count": 7,
+		"reblogs_count": 98,
+		"favourites_count": 112,
+		"favourited": false,
+		"reblogged": false,
+		"muted": false,
+		"bookmarked": false,
+		"content": "<p>Hello world</p>",
+		"reblog": null,
+		"application": null,
+		"account": {
+		  "id": "1",
+		  "username": "Gargron",
+		  "acct": "Gargron",
+		  "display_name": "Eugen",
+		  "locked": false,
+		  "bot": false,
+		  "created_at": "2016-03-16T14:34:26.392Z",
+		  "note": "<p>Developer of Mastodon and administrator of mastodon.social. I post service announcements, development updates, and personal stuff.</p>",
+		  "url": "https://mastodon.social/@Gargron",
+		  "avatar": "https://files.mastodon.social/accounts/avatars/000/000/001/original/d96d39a0abb45b92.jpg",
+		  "avatar_static": "https://files.mastodon.social/accounts/avatars/000/000/001/original/d96d39a0abb45b92.jpg",
+		  "header": "https://files.mastodon.social/accounts/headers/000/000/001/original/c91b871f294ea63e.png",
+		  "header_static": "https://files.mastodon.social/accounts/headers/000/000/001/original/c91b871f294ea63e.png",
+		  "followers_count": 320472,
+		  "following_count": 453,
+		  "statuses_count": 61163,
+		  "last_status_at": "2019-12-05T03:03:02.595Z",
+		  "emojis": [],
+		  "fields": [
+			{
+			  "name": "Patreon",
+			  "value": "<a href=\"https://www.patreon.com/mastodon\" rel=\"me nofollow noopener noreferrer\" target=\"_blank\"><span class=\"invisible\">https://www.</span><span class=\"\">patreon.com/mastodon</span><span class=\"invisible\"></span></a>",
+			  "verified_at": null
+			},
+			{
+			  "name": "Homepage",
+			  "value": "<a href=\"https://zeonfederated.com\" rel=\"me nofollow noopener noreferrer\" target=\"_blank\"><span class=\"invisible\">https://</span><span class=\"\">zeonfederated.com</span><span class=\"invisible\"></span></a>",
+			  "verified_at": "2019-07-15T18:29:57.191+00:00"
+			}
+		  ]
+		},
+		"media_attachments": [],
+		"mentions": [],
+		"tags": [],
+		"emojis": [],
+		"card": null,
+		"poll": null
+	  }]`)
 }
 
 func (svc *Service) StatusesCreate(w http.ResponseWriter, r *http.Request) {
@@ -293,7 +368,7 @@ func (svc *Service) StatusesCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	_, err = svc.accounts().findByUserID(user.ID)
+	_, err = svc.accounts().findByUserID(int(user.ID))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return

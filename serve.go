@@ -10,6 +10,8 @@ import (
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
 type ServeCmd struct {
@@ -18,7 +20,20 @@ type ServeCmd struct {
 }
 
 func (s *ServeCmd) Run(ctx *Context) error {
-	db, err := sqlx.Connect("mysql", s.DSN+"?parseTime=true")
+	dsn := s.DSN + "?charset=utf8mb4&parseTime=True&loc=Local"
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+		return err
+	}
+	if err := db.AutoMigrate(
+		&mastodon.User{},
+		&mastodon.Account{},
+		&mastodon.Application{},
+	); err != nil {
+		return err
+	}
+
+	dbx, err := sqlx.Connect("mysql", s.DSN+"?parseTime=true")
 	if err != nil {
 		return err
 	}
@@ -44,7 +59,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	wellknown := r.PathPrefix("/.well-known").Subrouter()
 	wellknown.HandleFunc("/webfinger", mastodon.WellknownWebfinger).Methods("GET")
 
-	activitypub := activitypub.NewService(db)
+	activitypub := activitypub.NewService(dbx)
 
 	inbox := r.Path("/inbox").Subrouter()
 	inbox.Use(activitypub.ValidateSignature())
