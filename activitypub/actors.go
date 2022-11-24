@@ -1,40 +1,36 @@
 package activitypub
 
 import (
-	"encoding/json"
+	"crypto"
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
 
-	"github.com/jmoiron/sqlx"
+	"gorm.io/gorm"
 )
 
-type actors struct {
-	db *sqlx.DB
+type Actor struct {
+	gorm.Model
+	ActorID   string
+	Type      string
+	Object    []byte
+	PublicKey string
 }
 
-func (a *actors) findById(id string) (map[string]any, error) {
-	var b []byte
-	err := a.db.QueryRowx("SELECT object FROM activitypub_actors WHERE actor_id = ? ORDER BY created_at desc LIMIT 1", id).Scan(&b)
-	if err != nil {
-		return nil, err
-	}
-	var v map[string]any
-	if err := json.Unmarshal(b, &v); err != nil {
-		return nil, err
-	}
-	return v, nil
+func (Actor) TableName() string {
+	return "activitypub_actors"
 }
 
-func (a *actors) create(actor map[string]interface{}) error {
-	b, err := json.Marshal(actor)
-	if err != nil {
-		return err
+// pemToPublicKey converts a PEM encoded public key to a crypto.PublicKey.
+func (a *Actor) pemToPublicKey() (crypto.PublicKey, error) {
+	block, _ := pem.Decode([]byte(a.PublicKey))
+	if block.Type != "PUBLIC KEY" {
+		return nil, fmt.Errorf("pemToPublicKey: invalid pem type: %s", block.Type)
 	}
-	tx, err := a.db.Begin()
-	if err != nil {
-		return err
+	var publicKey interface{}
+	var err error
+	if publicKey, err = x509.ParsePKIXPublicKey(block.Bytes); err != nil {
+		return nil, fmt.Errorf("pemToPublicKey: parsepkixpublickey: %w", err)
 	}
-	defer tx.Rollback()
-	if _, err := tx.Exec("INSERT INTO activitypub_actors (actor_id, type, object, publickey) VALUES (?,?,?,?)", actor["id"], actor["type"], b, actor["publicKey"].(map[string]interface{})["publicKeyPem"].(string)); err != nil {
-		return err
-	}
-	return tx.Commit()
+	return publicKey, nil
 }

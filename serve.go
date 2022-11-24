@@ -9,7 +9,6 @@ import (
 	"github.com/davecheney/m/mastodon"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/jmoiron/sqlx"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -33,6 +32,8 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			&mastodon.Account{},
 			&mastodon.Application{},
 			&mastodon.Token{},
+
+			&activitypub.Actor{},
 		); err != nil {
 			return err
 		}
@@ -63,11 +64,6 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	dbx, err := sqlx.Connect("mysql", s.DSN+"?parseTime=true")
-	if err != nil {
-		return err
-	}
-
 	mastodon := mastodon.NewService(db)
 
 	r := mux.NewRouter()
@@ -89,7 +85,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	wellknown := r.PathPrefix("/.well-known").Subrouter()
 	wellknown.HandleFunc("/webfinger", mastodon.WellknownWebfinger).Methods("GET")
 
-	activitypub := activitypub.NewService(dbx)
+	activitypub := activitypub.NewService(db)
 
 	inbox := r.Path("/inbox").Subrouter()
 	inbox.Use(activitypub.ValidateSignature())

@@ -2,11 +2,7 @@ package activitypub
 
 import (
 	"crypto"
-	"crypto/x509"
-	"database/sql"
 	"encoding/json"
-	"encoding/pem"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -14,26 +10,24 @@ import (
 	"github.com/go-fed/httpsig"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
+	"gorm.io/gorm"
 )
 
 // Service implements a Mastodon service.
 type Service struct {
-	db *sqlx.DB
+	db *gorm.DB
 }
 
 // NewService returns a new instance of Service.
-func NewService(db *sqlx.DB) *Service {
+func NewService(db *gorm.DB) *Service {
 	return &Service{
 		db: db,
 	}
 }
 
-func (svc *Service) actors() *actors {
-	return &actors{db: svc.db}
-}
-
 func (svc *Service) activities() *activities {
-	return &activities{db: svc.db}
+	db, _ := svc.db.DB()
+	return &activities{db: sqlx.NewDb(db, "mysql")}
 }
 
 func (svc *Service) InboxCreate(w http.ResponseWriter, r *http.Request) {
@@ -52,13 +46,13 @@ func (svc *Service) InboxCreate(w http.ResponseWriter, r *http.Request) {
 func (svc *Service) UsersShow(w http.ResponseWriter, r *http.Request) {
 	username := mux.Vars(r)["username"]
 	actor_id := fmt.Sprintf("https://cheney.net/users/%s", username)
-	actor, err := svc.actors().findById(actor_id)
-	if err != nil {
+	var actor Actor
+	if err := svc.db.Where("actor_id = ?", actor_id).First(&actor).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 	w.Header().Set("Content-Type", "application/activity+json")
-	json.NewEncoder(w).Encode(actor)
+	w.Write(actor.Object)
 }
 
 func (svc *Service) ValidateSignature() func(next http.Handler) http.Handler {
@@ -69,7 +63,7 @@ func (svc *Service) ValidateSignature() func(next http.Handler) http.Handler {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-			pubKey, err := svc.getKey(verifier.KeyId())
+			pubKey, err := svc.GetKey(verifier.KeyId())
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -83,24 +77,33 @@ func (svc *Service) ValidateSignature() func(next http.Handler) http.Handler {
 	}
 }
 
-func (svc *Service) getKey(id string) (crypto.PublicKey, error) {
+func (svc *Service) GetKey(id string) (crypto.PublicKey, error) {
 	actor_id := trimKeyId(id)
-	actor, err := svc.actors().findById(actor_id)
+	var actor Actor
+	err := svc.db.Where("actor_id = ?", actor_id).First(&actor).Error
 	if err == nil {
 		// found cached key
-		return pemToPublicKey(actor["publicKey"].(map[string]interface{})["publicKeyPem"].(string))
+		return actor.pemToPublicKey()
 	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("getKey: findbyid: %w", err)
-	}
-	actor, err = fetchActor(actor_id)
+	actor_, err := fetchActor(actor_id)
 	if err != nil {
 		return nil, err
 	}
-	if err := svc.actors().create(actor); err != nil {
-		return nil, err
+	object, err := json.Marshal(actor_)
+	if err != nil {
+		return nil, fmt.Errorf("getKey: marshal: %w", err)
 	}
-	return pemToPublicKey(actor["publicKey"].(map[string]interface{})["publicKeyPem"].(string))
+	actor = Actor{
+		ActorID:   actor_["id"].(string),
+		Type:      actor_["type"].(string),
+		Object:    object,
+		PublicKey: actor_["publicKey"].(map[string]interface{})["publicKeyPem"].(string),
+	}
+	if err := svc.db.Create(&actor).Error; err != nil {
+		return nil, fmt.Errorf("getKey: create: %w", err)
+	}
+
+	return actor.pemToPublicKey()
 }
 
 // trimKeyId removes the #main-key suffix from the key id.
@@ -109,20 +112,6 @@ func trimKeyId(id string) string {
 		return id[:i]
 	}
 	return id
-}
-
-// pemToPublicKey converts a PEM encoded public key to a crypto.PublicKey.
-func pemToPublicKey(pemEncoded string) (crypto.PublicKey, error) {
-	block, _ := pem.Decode([]byte(pemEncoded))
-	if block.Type != "PUBLIC KEY" {
-		return nil, fmt.Errorf("pemToPublicKey: invalid pem type: %s", block.Type)
-	}
-	var publicKey interface{}
-	var err error
-	if publicKey, err = x509.ParsePKIXPublicKey(block.Bytes); err != nil {
-		return nil, fmt.Errorf("pemToPublicKey: parsepkixpublickey: %w", err)
-	}
-	return publicKey, nil
 }
 
 // fetchActor fetches an actor from the remote server.

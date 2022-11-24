@@ -50,6 +50,6 @@ func (a *accounts) findByUserID(id uint) (*Account, error) {
 
 func (a *accounts) findByAcct(acct string) (*Account, error) {
 	account := &Account{}
-	result := a.db.Where("acct = ?", acct).First(account)
+	result := a.db.Where("acct = ?", acct[5:]).First(account)
 	return account, result.Error
 }
