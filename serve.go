@@ -34,6 +34,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			&mastodon.Token{},
 
 			&activitypub.Actor{},
+			&activitypub.Activity{},
 		); err != nil {
 			return err
 		}

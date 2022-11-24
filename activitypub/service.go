@@ -3,6 +3,7 @@ package activitypub
 import (
 	"crypto"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/go-fed/httpsig"
 	"github.com/gorilla/mux"
-	"github.com/jmoiron/sqlx"
 	"gorm.io/gorm"
 )
 
@@ -27,18 +27,27 @@ func NewService(db *gorm.DB) *Service {
 	}
 }
 
-func (svc *Service) activities() *activities {
-	db, _ := svc.db.DB()
-	return &activities{db: sqlx.NewDb(db, "mysql")}
-}
-
 func (svc *Service) InboxCreate(w http.ResponseWriter, r *http.Request) {
-	var activity map[string]any
-	if err := json.UnmarshalFull(r.Body, &activity); err != nil {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := svc.activities().create(activity); err != nil {
+	var v map[string]interface{}
+	if err := json.Unmarshal(body, &v); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	object, _ := v["object"].(map[string]interface{})
+	objectType, _ := object["type"].(string)
+
+	activity := &Activity{
+		Activity:     string(body),
+		ActivityType: v["type"].(string),
+		ObjectType:   objectType,
+	}
+	if err := svc.db.Create(activity).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
