@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"gorm.io/gorm"
 
 	"github.com/go-json-experiment/json"
@@ -37,11 +36,6 @@ func (svc *Service) applications() *applications {
 }
 func (svc *Service) tokens() *tokens {
 	return &tokens{db: svc.db}
-}
-
-func (svc *Service) statuses() *statuses {
-	db, _ := svc.db.DB()
-	return &statuses{db: sqlx.NewDb(db, "mysql")}
 }
 
 func (svc *Service) AppsCreate(w http.ResponseWriter, r *http.Request) {

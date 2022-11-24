@@ -14,7 +14,6 @@ var cli struct {
 	Debug bool `help:"Enable debug mode."`
 
 	Serve  ServeCmd  `cmd:"" help:"Serve a local web server."`
-	Inbox  InboxCmd  `cmd:"" help:"Process activitypub inbox."`
 	Follow FollowCmd `cmd:"" help:"Follow an object."`
 }
 
