@@ -10,8 +10,7 @@ type User struct {
 	Email             string
 	EncryptedPassword []byte
 
-	// relations
-	Tokens []Token `gorm:"foreignKey:UserID;references:ID"`
+	Account Account `gorm:"foreignKey:ID"`
 }
 
 func (u *User) comparePassword(password string) bool {
@@ -19,20 +18,4 @@ func (u *User) comparePassword(password string) bool {
 		return false
 	}
 	return true
-}
-
-type users struct {
-	db *gorm.DB
-}
-
-func (u *users) findByEmail(email string) (*User, error) {
-	user := &User{}
-	result := u.db.Where("email = ?", email).First(user)
-	return user, result.Error
-}
-
-func (u *users) findByID(id uint) (*User, error) {
-	user := &User{}
-	result := u.db.First(user, id)
-	return user, result.Error
 }

@@ -44,10 +44,6 @@ func (svc *Service) statuses() *statuses {
 	return &statuses{db: sqlx.NewDb(db, "mysql")}
 }
 
-func (svc *Service) users() *users {
-	return &users{db: svc.db}
-}
-
 func (svc *Service) AppsCreate(w http.ResponseWriter, r *http.Request) {
 	var params struct {
 		ClientName   string  `json:"client_name"`
@@ -151,8 +147,8 @@ func (svc *Service) authorizePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := svc.users().findByEmail(email)
-	if err != nil {
+	var user User
+	if err := svc.db.Where("email = ?", email).First(&user).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -162,15 +158,14 @@ func (svc *Service) authorizePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := &Token{
-		UserID:            user.ID,
+		User:              user,
 		ApplicationID:     app.ID,
 		AccessToken:       uuid.New().String(),
 		TokenType:         "bearer",
 		Scope:             "read write follow push",
 		AuthorizationCode: uuid.New().String(),
 	}
-	if err := svc.tokens().create(token); err != nil {
-		log.Println("saveToken:", err)
+	if err := svc.db.Create(token).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -212,19 +207,14 @@ func (svc *Service) OAuthToken(w http.ResponseWriter, r *http.Request) {
 func (svc *Service) AccountsVerify(w http.ResponseWriter, r *http.Request) {
 	bearer := r.Header.Get("Authorization")
 	accessToken := strings.TrimPrefix(bearer, "Bearer ")
+
 	token, err := svc.tokens().findByAccessToken(accessToken)
 	if err != nil {
 		log.Println("findTokenByAccessToken:", err)
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	user, err := svc.users().findByID(token.UserID)
-	if err != nil {
-		log.Println("findUserByID:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	account, err := svc.accounts().findByUserID(user.ID)
+	account, err := svc.accounts().findByUserID(token.User.ID)
 	if err != nil {
 		log.Println("findAccountByUserID:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -275,13 +265,7 @@ func (svc *Service) TimelinesHome(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	user, err := svc.users().findByID(token.UserID)
-	if err != nil {
-		log.Println("findUserByID:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	_, err = svc.accounts().findByUserID(user.ID)
+	_, err = svc.accounts().findByUserID(token.User.ID)
 	if err != nil {
 		log.Println("findAccountByUserID:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -366,17 +350,7 @@ func (svc *Service) TimelinesHome(w http.ResponseWriter, r *http.Request) {
 func (svc *Service) StatusesCreate(w http.ResponseWriter, r *http.Request) {
 	bearer := r.Header.Get("Authorization")
 	accessToken := strings.TrimPrefix(bearer, "Bearer ")
-	token, err := svc.tokens().findByAccessToken(accessToken)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-	user, err := svc.users().findByID(token.UserID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-	_, err = svc.accounts().findByUserID(user.ID)
+	_, err := svc.tokens().findByAccessToken(accessToken)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return

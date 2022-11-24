@@ -12,7 +12,7 @@ type Account struct {
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 
-	// User *User `gorm:"foreignKey:ID;references:user_id"`
+	UserID uint
 
 	Username       string
 	Domain         string
