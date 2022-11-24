@@ -46,23 +46,23 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	// if err := db.Create(user).Error; err != nil {
 	// 	return err
 	// }
-	var user mastodon.User
-	db.First(&user)
-	user.Account = mastodon.Account{
-		Username:    "dave",
-		Domain:      "cheney.net",
-		Acct:        "dave@cheney.net",
-		DisplayName: "Dave Cheney",
-		Locked:      false,
-		Bot:         false,
-		Note:        "I like cheese!",
-		URL:         "https://cheney.net/@dave",
-		Avatar:      "https://cheney.net/avatar.png",
-		Header:      "https://cheney.net/header.png",
-	}
-	if err := db.Save(&user).Error; err != nil {
-		return err
-	}
+	// var user mastodon.User
+	// db.First(&user)
+	// user.Account = mastodon.Account{
+	// 	Username:    "dave",
+	// 	Domain:      "cheney.net",
+	// 	Acct:        "dave@cheney.net",
+	// 	DisplayName: "Dave Cheney",
+	// 	Locked:      false,
+	// 	Bot:         false,
+	// 	Note:        "I like cheese!",
+	// 	URL:         "https://cheney.net/@dave",
+	// 	Avatar:      "https://cheney.net/avatar.png",
+	// 	Header:      "https://cheney.net/header.png",
+	// }
+	// if err := db.Save(&user).Error; err != nil {
+	// 	return err
+	// }
 
 	mastodon := mastodon.NewService(db)
 

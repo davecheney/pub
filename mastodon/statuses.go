@@ -26,16 +26,3 @@ type Status struct {
 type statuses struct {
 	db *sqlx.DB
 }
-
-func (s *statuses) create(status *Status) error {
-	result, err := s.db.NamedExec(`INSERT INTO mastodon_statuses (created_at, content, visibility, account_id) VALUES (:created_at, :content, :visibility, :account_id)`, status)
-	if err != nil {
-		return err
-	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		return err
-	}
-	status.Id = int(id)
-	return nil
-}

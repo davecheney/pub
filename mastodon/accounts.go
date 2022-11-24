@@ -7,11 +7,7 @@ import (
 )
 
 type Account struct {
-	ID        uint `gorm:"primarykey"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
-
+	gorm.Model
 	UserID uint
 
 	Username       string

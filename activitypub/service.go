@@ -2,10 +2,12 @@ package activitypub
 
 import (
 	"crypto"
-	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
+
+	"github.com/go-json-experiment/json"
 
 	"github.com/go-fed/httpsig"
 	"github.com/gorilla/mux"
@@ -32,7 +34,7 @@ func (svc *Service) activities() *activities {
 
 func (svc *Service) InboxCreate(w http.ResponseWriter, r *http.Request) {
 	var activity map[string]any
-	if err := json.NewDecoder(r.Body).Decode(&activity); err != nil {
+	if err := json.UnmarshalFull(r.Body, &activity); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -65,6 +67,7 @@ func (svc *Service) ValidateSignature() func(next http.Handler) http.Handler {
 			}
 			pubKey, err := svc.GetKey(verifier.KeyId())
 			if err != nil {
+				log.Println("getkey:", err)
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
@@ -123,13 +126,13 @@ func fetchActor(id string) (map[string]interface{}, error) {
 	req.Header.Set("Accept", `application/ld+json; profile="https://www.w3.org/ns/activitystreams"`)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("fetchActor: do: %w", err)
+		return nil, fmt.Errorf("fetchActor: %v do: %w", req.URL, err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("fetchActor: status: %d", resp.StatusCode)
+		return nil, fmt.Errorf("fetchActor: %v status: %d", resp.Request.URL, resp.StatusCode)
 	}
 	var v map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&v); err != nil {
+	if err := json.UnmarshalFull(resp.Body, &v); err != nil {
 		return nil, fmt.Errorf("fetchActor: jsondecode: %w", err)
 	}
 	return v, nil

@@ -6,8 +6,8 @@ import (
 	"log"
 	"net/http"
 	"net/http/httputil"
+	"strconv"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -140,7 +140,6 @@ func (svc *Service) authorizePost(w http.ResponseWriter, r *http.Request) {
 	password := r.PostFormValue("password")
 	redirectURI := r.PostFormValue("redirect_uri")
 	clientID := r.PostFormValue("client_id")
-	fmt.Println("/oauth/authorize(post): query:", r.URL.Query(), "form:", r.Form)
 	app, err := svc.applications().findByClientID(clientID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -175,21 +174,25 @@ func (svc *Service) authorizePost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (svc *Service) OAuthToken(w http.ResponseWriter, r *http.Request) {
+	var params struct {
+		ClientID     string `json:"client_id"`
+		ClientSecret string `json:"client_secret"`
+		GrantType    string `json:"grant_type"`
+		Code         string `json:"code"`
+		RedirectURI  string `json:"redirect_uri"`
+	}
 
-	var body = map[string]string{}
-	if err := json.UnmarshalFull(r.Body, &body); err != nil {
+	if err := json.UnmarshalFull(r.Body, &params); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	fmt.Println("/oauth/token: query:", r.URL.Query(), "form:", r.Form, "headers:", r.Header)
-	fmt.Println("body:", body)
-	token, err := svc.tokens().findByAuthorizationCode(body["code"])
+	token, err := svc.tokens().findByAuthorizationCode(params.Code)
 	if err != nil {
 		log.Println("findTokenByAuthorizationCode:", err)
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	app, err := svc.applications().findByClientID(body["client_id"])
+	app, err := svc.applications().findByClientID(params.ClientID)
 	if err != nil {
 		log.Println("findApplicationByClientID:", err)
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -201,7 +204,12 @@ func (svc *Service) OAuthToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, token)
+	json.MarshalFull(w, map[string]any{
+		"access_token": token.AccessToken,
+		"token_type":   token.TokenType,
+		"scope":        token.Scope,
+		"created_at":   token.CreatedAt.Unix(),
+	})
 }
 
 func (svc *Service) AccountsVerify(w http.ResponseWriter, r *http.Request) {
@@ -214,14 +222,34 @@ func (svc *Service) AccountsVerify(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	account, err := svc.accounts().findByUserID(token.User.ID)
-	if err != nil {
-		log.Println("findAccountByUserID:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+
+	account := &token.Account
 	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, account)
+	json.MarshalFull(w, serialiseAccount(account))
+}
+
+func serialiseAccount(a *Account) map[string]any {
+	return map[string]any{
+		"id":              strconv.Itoa(int(a.ID)),
+		"username":        a.Username,
+		"acct":            a.Acct,
+		"display_name":    a.DisplayName,
+		"locked":          a.Locked,
+		"bot":             a.Bot,
+		"created_at":      a.CreatedAt.Format("2006-01-02T15:04:05.006Z"),
+		"note":            a.Note,
+		"url":             a.URL,
+		"avatar":          a.Avatar,
+		"avatar_static":   a.Avatar,
+		"header":          a.Header,
+		"header_static":   a.Header,
+		"followers_count": a.FollowersCount,
+		"following_count": a.FollowingCount,
+		"statuses_count":  a.StatusesCount,
+		"last_status_at":  a.LastStatusAt.Format("2006-01-02T15:04:05.006Z"),
+		"emojis":          []map[string]any{},
+		"fields":          []map[string]any{},
+	}
 }
 
 func (svc *Service) WellknownWebfinger(w http.ResponseWriter, r *http.Request) {
@@ -259,29 +287,11 @@ func (svc *Service) WellknownWebfinger(w http.ResponseWriter, r *http.Request) {
 func (svc *Service) TimelinesHome(w http.ResponseWriter, r *http.Request) {
 	bearer := r.Header.Get("Authorization")
 	accessToken := strings.TrimPrefix(bearer, "Bearer ")
-	token, err := svc.tokens().findByAccessToken(accessToken)
+	_, err := svc.tokens().findByAccessToken(accessToken)
 	if err != nil {
 		log.Println("findTokenByAccessToken:", err)
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
-	}
-	_, err = svc.accounts().findByUserID(token.User.ID)
-	if err != nil {
-		log.Println("findAccountByUserID:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	type status struct {
-		ID                 int       `json:"id,string"`
-		CreatedAt          time.Time `json:"created_at,format:'2006-01-02T15:04:05.006Z"`
-		InReplyTo          *int      `json:"in_reply_to_id,string"`
-		InReplyToAccountID *int      `json:"in_reply_to_account_id,string"`
-		Sensitive          bool      `json:"sensitive"`
-		SpoilerText        string    `json:"spoiler_text"`
-		Visibility         string    `json:"visibility"`
-		Language           string    `json:"language"`
-		URI                string    `json:"uri"`
 	}
 
 	w.Header().Set("Content-Type", "application/json")

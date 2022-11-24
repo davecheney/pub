@@ -10,10 +10,10 @@ type Token struct {
 	User              User    `gorm:"foreignKey:ID"`
 	Account           Account `gorm:"foreignKey:ID"`
 	ApplicationID     uint
-	AccessToken       string `json:"access_token"`
-	TokenType         string `json:"token_type"`
-	Scope             string `json:"scope"`
-	AuthorizationCode string `json:"-"`
+	AccessToken       string
+	TokenType         string
+	Scope             string
+	AuthorizationCode string
 }
 
 type tokens struct {
