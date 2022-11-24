@@ -1,6 +1,7 @@
 package mastodon
 
 import (
+	"strconv"
 	"time"
 
 	"gorm.io/gorm"
@@ -26,6 +27,30 @@ type Account struct {
 	FollowingCount int
 	StatusesCount  int
 	LastStatusAt   time.Time
+}
+
+func (a *Account) serialize() map[string]any {
+	return map[string]any{
+		"id":              strconv.Itoa(int(a.ID)),
+		"username":        a.Username,
+		"acct":            a.Acct,
+		"display_name":    a.DisplayName,
+		"locked":          a.Locked,
+		"bot":             a.Bot,
+		"created_at":      a.CreatedAt.Format("2006-01-02T15:04:05.006Z"),
+		"note":            a.Note,
+		"url":             a.URL,
+		"avatar":          a.Avatar,
+		"avatar_static":   a.Avatar,
+		"header":          a.Header,
+		"header_static":   a.Header,
+		"followers_count": a.FollowersCount,
+		"following_count": a.FollowingCount,
+		"statuses_count":  a.StatusesCount,
+		"last_status_at":  a.LastStatusAt.Format("2006-01-02T15:04:05.006Z"),
+		"emojis":          []map[string]any{},
+		"fields":          []map[string]any{},
+	}
 }
 
 type accounts struct {

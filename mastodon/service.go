@@ -5,7 +5,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/http/httputil"
 	"strconv"
 	"strings"
 	"time"
@@ -31,10 +30,6 @@ func NewService(db *gorm.DB) *Service {
 
 func (svc *Service) accounts() *accounts {
 	return &accounts{db: svc.db}
-}
-
-func (svc *Service) tokens() *tokens {
-	return &tokens{db: svc.db}
 }
 
 func (svc *Service) AppsCreate(w http.ResponseWriter, r *http.Request) {
@@ -189,9 +184,8 @@ func (svc *Service) OAuthToken(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	token, err := svc.tokens().findByAuthorizationCode(params.Code)
-	if err != nil {
-		log.Println("findTokenByAuthorizationCode:", err)
+	var token Token
+	if err := svc.db.Where("authorization_code = ?", params.Code).First(&token).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -240,7 +234,7 @@ func (svc *Service) AccountsVerify(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, serialiseAccount(&token.Account))
+	json.MarshalFull(w, token.Account.serialize())
 }
 
 func (svc *Service) AccountsFetch(w http.ResponseWriter, r *http.Request) {
@@ -258,32 +252,35 @@ func (svc *Service) AccountsFetch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, serialiseAccount(&account))
+	json.MarshalFull(w, account.serialize())
 }
 
-func serialiseAccount(a *Account) map[string]any {
-	fmt.Printf("%+v\n", a)
-	return map[string]any{
-		"id":              strconv.Itoa(int(a.ID)),
-		"username":        a.Username,
-		"acct":            a.Acct,
-		"display_name":    a.DisplayName,
-		"locked":          a.Locked,
-		"bot":             a.Bot,
-		"created_at":      a.CreatedAt.Format("2006-01-02T15:04:05.006Z"),
-		"note":            a.Note,
-		"url":             a.URL,
-		"avatar":          a.Avatar,
-		"avatar_static":   a.Avatar,
-		"header":          a.Header,
-		"header_static":   a.Header,
-		"followers_count": a.FollowersCount,
-		"following_count": a.FollowingCount,
-		"statuses_count":  a.StatusesCount,
-		"last_status_at":  a.LastStatusAt.Format("2006-01-02T15:04:05.006Z"),
-		"emojis":          []map[string]any{},
-		"fields":          []map[string]any{},
+func (svc *Service) AccountsStatusesFetch(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	var token Token
+	if err := svc.db.Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
 	}
+	var account Account
+	if err := svc.db.Where("id = ?", id).First(&account).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	var statuses []Status
+	if err := svc.db.Preload("Account").Order("id desc").Limit(20).Find(&statuses).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var resp []any
+	for _, status := range statuses {
+		resp = append(resp, status.serialize())
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.MarshalFull(w, resp)
 }
 
 func (svc *Service) WellknownWebfinger(w http.ResponseWriter, r *http.Request) {
@@ -326,36 +323,19 @@ func (svc *Service) TimelinesHome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var statuses []Status
+	if err := svc.db.Preload("Account").Order("id desc").Limit(20).Find(&statuses).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var resp []any
+	for _, status := range statuses {
+		resp = append(resp, status.serialize())
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, []map[string]any{{
-		"id":                     "3",
-		"created_at":             time.Now().Format("2006-01-02T15:04:05.006Z"),
-		"in_reply_to_id":         nil,
-		"in_reply_to_account_id": nil,
-		"sensitive":              false,
-		"spoiler_text":           "",
-		"visibility":             "public",
-		"language":               "en",
-		"uri":                    "https://cheney.net/users/dave/statuses/3",
-		"url":                    "https://cheney.net/@dave/3",
-		"replies_count":          7,
-		"reblogs_count":          98,
-		"favourites_count":       112,
-		"favourited":             false,
-		"reblogged":              false,
-		"muted":                  false,
-		"bookmarked":             false,
-		"content":                "<p>Hello world</p>",
-		"reblog":                 nil,
-		"application":            nil,
-		"account":                serialiseAccount(&token.Account),
-		"media_attachments":      []map[string]any{},
-		"mentions":               []map[string]any{},
-		"tags":                   []map[string]any{},
-		"emojis":                 []map[string]any{},
-		"card":                   nil,
-		"poll":                   nil,
-	}})
+	json.MarshalFull(w, resp)
 }
 
 func (svc *Service) StatusesCreate(w http.ResponseWriter, r *http.Request) {
@@ -365,6 +345,40 @@ func (svc *Service) StatusesCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	req, err := httputil.DumpRequest(r, true)
-	fmt.Println(string(req), err)
+	var toot struct {
+		Status      string     `json:"status"`
+		InReplyToID *uint      `json:"in_reply_to_id,string"`
+		Sensitive   bool       `json:"sensitive"`
+		SpoilerText string     `json:"spoiler_text"`
+		Visibility  string     `json:"visibility"`
+		Language    string     `json:"language"`
+		ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
+	}
+	if err := json.UnmarshalFull(r.Body, &toot); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	status := &Status{
+		Account:     token.Account,
+		AccountID:   token.AccountID,
+		Sensitive:   toot.Sensitive,
+		SpoilerText: toot.SpoilerText,
+		Visibility:  toot.Visibility,
+		Language:    toot.Language,
+		Content:     toot.Status,
+	}
+	if err := svc.db.Create(status).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	token.Account.LastStatusAt = time.Now()
+	token.Account.StatusesCount++
+	if err := svc.db.Save(&token.Account).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.MarshalFull(w, status.serialize())
 }

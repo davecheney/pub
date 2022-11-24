@@ -2,7 +2,6 @@ package mastodon
 
 import (
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type Token struct {
@@ -16,14 +15,4 @@ type Token struct {
 	TokenType         string
 	Scope             string
 	AuthorizationCode string
-}
-
-type tokens struct {
-	db *gorm.DB
-}
-
-func (t *tokens) findByAuthorizationCode(code string) (*Token, error) {
-	token := &Token{}
-	result := t.db.Preload(clause.Associations).Where("authorization_code = ?", code).First(token)
-	return token, result.Error
 }
