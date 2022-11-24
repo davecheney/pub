@@ -1,0 +1,41 @@
+package mastodon
+
+import (
+	"time"
+
+	"github.com/jmoiron/sqlx"
+)
+
+type Status struct {
+	// ID of the status in the database.
+	Id int `json:"id,string" db:"id"`
+	// URI of the status for federation purposes.
+	Uri string `json:"uri,omitempty" db:"-"`
+	// The time when this status was created.
+	CreatedAt time.Time `json:"created_at,omitempty" db:"created_at"`
+
+	// HTML-encoded status content.
+	Content string `json:"content,omitempty" db:"content"`
+	//  Visibility of this status.
+	Visibility string `json:"visibility,omitempty" db:"visibility"`
+
+	Account   *Account `json:"account,omitempty" db:"-"`
+	AccountID int      `json:"-" db:"account_id"`
+}
+
+type statuses struct {
+	db *sqlx.DB
+}
+
+func (s *statuses) create(status *Status) error {
+	result, err := s.db.NamedExec(`INSERT INTO mastodon_statuses (created_at, content, visibility, account_id) VALUES (:created_at, :content, :visibility, :account_id)`, status)
+	if err != nil {
+		return err
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+	status.Id = int(id)
+	return nil
+}

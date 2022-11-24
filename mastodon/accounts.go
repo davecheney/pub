@@ -2,6 +2,7 @@ package mastodon
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -32,14 +33,34 @@ type accounts struct {
 	db *sqlx.DB
 }
 
+func (a *Account) hydrate() *Account {
+	if a == nil {
+		return a
+	}
+	a.URI = fmt.Sprintf("https://%s/users/%s", a.Domain, a.Username)
+	a.URL = fmt.Sprintf("https://%s/@%s", a.Domain, a.Username)
+	a.Acct = a.Username
+	return a
+}
+
+func (a *accounts) findByID(id int) (*Account, error) {
+	account := &Account{}
+	err := a.db.QueryRowx(`SELECT * FROM mastodon_accounts WHERE id = ?`, id).StructScan(account)
+	return account.hydrate(), err
+}
+
 func (a *accounts) findByUserID(id int) (*Account, error) {
 	account := &Account{}
 	err := a.db.QueryRowx(`SELECT * FROM mastodon_accounts WHERE user_id = ?`, id).StructScan(account)
-	if err != nil {
-		return nil, err
+	return account.hydrate(), err
+}
+
+func (a *accounts) findByAcct(acct string) (*Account, error) {
+	parts := strings.Split(strings.TrimPrefix(acct, "acct:"), "@")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid acct: %s", acct)
 	}
-	account.URI = fmt.Sprintf("https://%s/users/%s", account.Domain, account.Username)
-	account.URL = fmt.Sprintf("https://%s/@%s", account.Domain, account.Username)
-	account.Acct = account.Username
-	return account, nil
+	account := &Account{}
+	err := a.db.QueryRowx(`SELECT * FROM mastodon_accounts WHERE username = ? AND domain = ?`, parts[0], parts[1]).StructScan(account)
+	return account.hydrate(), err
 }

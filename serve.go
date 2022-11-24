@@ -30,6 +30,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	v1 := r.PathPrefix("/api/v1").Subrouter()
 	v1.HandleFunc("/apps", mastodon.AppsCreate).Methods("POST")
 	v1.HandleFunc("/accounts/verify_credentials", mastodon.AccountsVerify).Methods("GET")
+	v1.HandleFunc("/statuses", mastodon.StatusesCreate).Methods("POST")
 
 	v1.HandleFunc("/instance", mastodon.InstanceFetch).Methods("GET")
 	v1.HandleFunc("/instance/peers", mastodon.InstancePeers).Methods("GET")
@@ -59,7 +60,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 
 	svr := &http.Server{
 		Addr:         s.Addr,
-		Handler:      handlers.ProxyHeaders(handlers.LoggingHandler(os.Stdout, r)),
+		Handler:      handlers.ProxyHeaders(handlers.CombinedLoggingHandler(os.Stdout, r)),
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}

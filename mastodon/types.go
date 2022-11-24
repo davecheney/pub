@@ -1,18 +1,5 @@
 package mastodon
 
-type Status struct {
-	// ID of the status in the database.
-	Id string `json:"id"`
-	// URI of the status for federation purposes.
-	Uri string `json:"uri,omitempty"`
-	// The date when this status was created.
-	CreatedAt string `json:"created_at,omitempty"`
-	// HTML-encoded status content.
-	Content string `json:"content,omitempty"`
-	//  Visibility of this status.
-	Visibility string `json:"visibility,omitempty"`
-}
-
 type Instance struct {
 	// The domain name of the instance.
 	URI string `json:"uri"`

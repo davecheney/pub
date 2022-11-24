@@ -1,16 +1,17 @@
 package mastodon
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"strconv"
+	"net/http/httputil"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+
+	"github.com/go-json-experiment/json"
 )
 
 // Service implements a Mastodon service.
@@ -36,6 +37,10 @@ func (svc *Service) tokens() *tokens {
 	return &tokens{db: svc.db}
 }
 
+func (svc *Service) statuses() *statuses {
+	return &statuses{db: svc.db}
+}
+
 func (svc *Service) users() *users {
 	return &users{db: svc.db}
 }
@@ -57,12 +62,12 @@ func (svc *Service) AppsCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(app)
+	json.MarshalFull(w, app)
 }
 
 func (svc *Service) InstanceFetch(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(&Instance{
+	json.MarshalFull(w, &Instance{
 		URI:              "https://cheney.net/",
 		Title:            "Casa del Cheese",
 		ShortDescription: "🧀",
@@ -74,7 +79,7 @@ func (svc *Service) InstanceFetch(w http.ResponseWriter, r *http.Request) {
 
 func (svc *Service) InstancePeers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode([]string{})
+	json.MarshalFull(w, []string{})
 }
 
 func (svc *Service) OAuthAuthorize(w http.ResponseWriter, r *http.Request) {
@@ -165,7 +170,7 @@ func (svc *Service) authorizePost(w http.ResponseWriter, r *http.Request) {
 func (svc *Service) OAuthToken(w http.ResponseWriter, r *http.Request) {
 
 	var body = map[string]string{}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := json.UnmarshalFull(r.Body, &body); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -189,7 +194,7 @@ func (svc *Service) OAuthToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(token)
+	json.MarshalFull(w, token)
 }
 
 func (svc *Service) AccountsVerify(w http.ResponseWriter, r *http.Request) {
@@ -214,64 +219,85 @@ func (svc *Service) AccountsVerify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(account)
+	json.MarshalFull(w, account)
 }
 
 func (svc *Service) WellknownWebfinger(w http.ResponseWriter, r *http.Request) {
-	resource := r.URL.Query().Get("resource")
-	if resource != "acct:dave@cheney.net" {
-		http.Error(w, "not found", http.StatusNotFound)
+	account, err := svc.accounts().findByAcct(r.URL.Query().Get("resource"))
+	if err != nil {
+		log.Println("findAccountByAcct:", err)
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
+	webfinger := fmt.Sprintf("https://%s/@%s", account.Domain, account.Username)
+	self := fmt.Sprintf("https://%s/users/%s", account.Domain, account.Username)
 	w.Header().Set("Content-Type", "application/jrd+json")
-	json.NewEncoder(w).Encode(map[string]any{
-		"subject": resource,
+	json.MarshalFull(w, map[string]any{
+		"subject": account.Acct,
+		"aliases": []string{webfinger, self},
 		"links": []map[string]any{
 			{
 				"rel":  "http://webfinger.net/rel/profile-page",
 				"type": "text/html",
-				"href": "https://cheney.net/dave",
+				"href": webfinger,
 			},
 			{
 				"rel":  "self",
 				"type": "application/activity+json",
-				"href": "https://cheney.net/users/dave",
+				"href": self,
 			},
 			{
 				"rel":      "http://ostatus.org/schema/1.0/subscribe",
-				"template": "https://cheney.net/authorize_interaction?uri={uri}",
+				"template": fmt.Sprintf("https://%s/authorize_interaction?uri={uri}", account.Domain),
 			},
 		},
 	})
 }
 
 func (svc *Service) TimelinesHome(w http.ResponseWriter, r *http.Request) {
-	since, _ := strconv.ParseInt(r.FormValue("since_id"), 10, 64)
-	limit, _ := strconv.ParseInt(r.FormValue("limit"), 10, 64)
-	rows, err := svc.db.Queryx("SELECT id, activity FROM activitypub_inbox WHERE activity_type=? AND object_type=? AND id > ? ORDER BY created_at DESC LIMIT ?", "Create", "Note", since, limit)
-
-	var statuses []Status
-	for rows.Next() {
-		var entry string
-		var id int
-		if err = rows.Scan(&id, &entry); err != nil {
-			break
-		}
-		var activity map[string]any
-		json.NewDecoder(strings.NewReader(entry)).Decode(&activity)
-		object, _ := activity["object"].(map[string]interface{})
-		statuses = append(statuses, Status{
-			Id:         strconv.Itoa(id),
-			Uri:        object["atomUri"].(string),
-			CreatedAt:  object["published"].(string),
-			Content:    object["content"].(string),
-			Visibility: "public",
-		})
-	}
+	bearer := r.Header.Get("Authorization")
+	accessToken := strings.TrimPrefix(bearer, "Bearer ")
+	token, err := svc.tokens().findByAccessToken(accessToken)
 	if err != nil {
+		log.Println("findTokenByAccessToken:", err)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	user, err := svc.users().findByID(token.UserID)
+	if err != nil {
+		log.Println("findUserByID:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	_, err = svc.accounts().findByUserID(user.ID)
+	if err != nil {
+		log.Println("findAccountByUserID:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(statuses)
+	json.MarshalFull(w, []struct{}{})
+}
+
+func (svc *Service) StatusesCreate(w http.ResponseWriter, r *http.Request) {
+	bearer := r.Header.Get("Authorization")
+	accessToken := strings.TrimPrefix(bearer, "Bearer ")
+	token, err := svc.tokens().findByAccessToken(accessToken)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	user, err := svc.users().findByID(token.UserID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	_, err = svc.accounts().findByUserID(user.ID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	req, err := httputil.DumpRequest(r, true)
+	fmt.Println(string(req), err)
 }
