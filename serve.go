@@ -72,11 +72,13 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	oauth := mastodon.NewOAuth(db)
 	accounts := mastodon.NewAccounts(db)
 	instance := mastodon.NewInstance(db)
+	apps := mastodon.NewApplications(db)
+	timeline := mastodon.NewTimeline(db)
 
 	r := mux.NewRouter()
 
 	v1 := r.PathPrefix("/api/v1").Subrouter()
-	v1.HandleFunc("/apps", m.AppsCreate).Methods("POST")
+	v1.HandleFunc("/apps", apps.New).Methods(http.MethodPost)
 	v1.HandleFunc("/accounts/verify_credentials", accounts.VerifyCredentials).Methods("GET")
 	v1.HandleFunc("/accounts/{id}", m.AccountsFetch).Methods("GET")
 	v1.HandleFunc("/accounts/{id}/statuses", m.AccountsStatusesFetch).Methods("GET")
@@ -86,7 +88,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	v1.HandleFunc("/instance", instance.Index).Methods("GET")
 	v1.HandleFunc("/instance/peers", instance.Peers).Methods("GET")
 
-	v1.HandleFunc("/timelines/home", m.TimelinesHome).Methods("GET")
+	v1.HandleFunc("/timelines/home", timeline.Index).Methods("GET")
 
 	r.HandleFunc("/oauth/authorize", oauth.Authorize).Methods("GET", "POST")
 	r.HandleFunc("/oauth/token", oauth.Token).Methods("POST")

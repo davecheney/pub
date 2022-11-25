@@ -7,10 +7,10 @@ import (
 
 type User struct {
 	gorm.Model
-	Email             string
-	EncryptedPassword []byte
 	AccountID         uint
 	Account           Account
+	Email             string
+	EncryptedPassword []byte
 }
 
 func (u *User) comparePassword(password string) bool {
