@@ -14,7 +14,6 @@ type Account struct {
 	gorm.Model
 	Username       string `gorm:"uniqueIndex:idx_usernamedomain"`
 	Domain         string `gorm:"uniqueIndex:idx_usernamedomain"`
-	Acct           string
 	DisplayName    string
 	Locked         bool
 	Bot            bool
@@ -32,11 +31,15 @@ type Account struct {
 	Statuses []Status
 }
 
+func (a *Account) Acct() string {
+	return a.Username + "@" + a.Domain
+}
+
 func (a *Account) serialize() map[string]any {
 	return map[string]any{
 		"id":              strconv.Itoa(int(a.ID)),
 		"username":        a.Username,
-		"acct":            a.Acct,
+		"acct":            a.Acct(),
 		"display_name":    a.DisplayName,
 		"locked":          a.Locked,
 		"bot":             a.Bot,
@@ -75,22 +78,4 @@ func (a *Accounts) VerifyCredentials(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.MarshalFull(w, token.Account.serialize())
-}
-
-func (a *Accounts) findByID(id uint) (*Account, error) {
-	account := &Account{}
-	result := a.db.First(account, id)
-	return account, result.Error
-}
-
-func (a *Accounts) findByUserID(id uint) (*Account, error) {
-	account := &Account{}
-	result := a.db.Where("user_id = ?", id).First(account)
-	return account, result.Error
-}
-
-func (a *Accounts) findByAcct(acct string) (*Account, error) {
-	account := &Account{}
-	result := a.db.Where("acct = ?", acct[5:]).First(account)
-	return account, result.Error
 }

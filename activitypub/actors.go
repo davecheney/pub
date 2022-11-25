@@ -1,13 +1,17 @@
 package activitypub
 
 import (
+	"context"
 	"crypto"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"net/url"
 	"path"
 
+	"github.com/carlmjohnson/requests"
+	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 )
 
@@ -51,4 +55,46 @@ func (a *Actor) pemToPublicKey() (crypto.PublicKey, error) {
 		return nil, fmt.Errorf("pemToPublicKey: parsepkixpublickey: %w", err)
 	}
 	return publicKey, nil
+}
+
+type Actors struct {
+	db *gorm.DB
+}
+
+func NewActors(db *gorm.DB) *Actors {
+	return &Actors{
+		db: db,
+	}
+}
+
+// FindOrCreateActor finds an actor by id or creates a new one.
+func (a *Actors) FindOrCreateActor(id string) (*Actor, error) {
+	var actor Actor
+	err := a.db.Where("actor_id = ?", id).First(&actor).Error
+	if err == nil {
+		// found cached key
+		return &actor, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	var v map[string]interface{}
+	if err := requests.URL(id).Accept(`application/ld+json; profile="https://www.w3.org/ns/activitystreams"`).ToJSON(&v).Fetch(context.Background()); err != nil {
+		return nil, err
+	}
+
+	obj, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("fetchActor: jsonencode: %w", err)
+	}
+	actor = Actor{
+		ActorID:   id,
+		Type:      v["type"].(string),
+		Object:    obj,
+		PublicKey: v["publicKey"].(map[string]interface{})["publicKeyPem"].(string),
+	}
+	if err := a.db.Create(&actor).Error; err != nil {
+		return nil, fmt.Errorf("fetchActor: create: %w", err)
+	}
+	return &actor, nil
 }

@@ -12,10 +12,12 @@ require (
 	github.com/felixge/httpsnoop v1.0.1 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
+	golang.org/x/net v0.2.0 // indirect
 	golang.org/x/sys v0.2.0 // indirect
 )
 
 require (
+	github.com/carlmjohnson/requests v0.22.3
 	github.com/go-json-experiment/json v0.0.0-20221028162351-3fecd76f5acd
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/google/uuid v1.3.0

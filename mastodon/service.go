@@ -2,8 +2,8 @@ package mastodon
 
 import (
 	"fmt"
-	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -114,17 +114,33 @@ func (svc *Service) AccountsStatusesFetch(w http.ResponseWriter, r *http.Request
 }
 
 func (svc *Service) WellknownWebfinger(w http.ResponseWriter, r *http.Request) {
-	account, err := svc.accounts().findByAcct(r.URL.Query().Get("resource"))
+	resource := r.URL.Query().Get("resource")
+	u, err := url.Parse(resource)
 	if err != nil {
-		log.Println("findAccountByAcct:", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if u.Scheme != "acct" {
+		http.Error(w, "invalid scheme", http.StatusBadRequest)
+		return
+	}
+	parts := strings.Split(u.Opaque, "@")
+	if len(parts) != 2 {
+		http.Error(w, "invalid resource", http.StatusBadRequest)
+		return
+	}
+	username, domain := parts[0], parts[1]
+	var account Account
+	if err := svc.db.Where("username = ? AND domain = ?", username, domain).First(&account).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
+
 	webfinger := fmt.Sprintf("https://%s/@%s", account.Domain, account.Username)
 	self := fmt.Sprintf("https://%s/users/%s", account.Domain, account.Username)
 	w.Header().Set("Content-Type", "application/jrd+json")
 	json.MarshalFull(w, map[string]any{
-		"subject": account.Acct,
+		"subject": "acct:" + account.Acct(),
 		"aliases": []string{webfinger, self},
 		"links": []map[string]any{
 			{

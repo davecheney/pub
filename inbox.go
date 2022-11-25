@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"net/http"
+	"os"
 	"strings"
 
 	"github.com/go-json-experiment/json"
@@ -32,7 +32,8 @@ func (i *IndexCmd) Run(ctx *Context) error {
 	}
 
 	ip := &inboxProcessor{
-		db: db,
+		db:     db,
+		actors: activitypub.NewActors(db),
 	}
 
 	for _, activity := range activities {
@@ -45,7 +46,8 @@ func (i *IndexCmd) Run(ctx *Context) error {
 }
 
 type inboxProcessor struct {
-	db *gorm.DB
+	db     *gorm.DB
+	actors *activitypub.Actors
 }
 
 func (ip *inboxProcessor) Process(activity *activitypub.Activity) error {
@@ -60,35 +62,51 @@ func (ip *inboxProcessor) Process(activity *activitypub.Activity) error {
 	fmt.Println("process: id:", id, "type:", typ, "actor:", actorID)
 	// json.MarshalOptions{}.MarshalFull(json.EncodeOptions{Indent: "  "}, os.Stdout, act)
 	// fmt.Println()
-	actor, err := ip.fetchActor(actorID)
+	actor, err := ip.actors.FindOrCreateActor(actorID)
 	if err != nil {
 		return err
 	}
-	if err := ip.maybeCreateAccount(actor); err != nil {
+	account, err := ip.findOrCreateAccount(actor)
+	if err != nil {
 		return err
 	}
+	switch typ {
+	case "Create":
+		var create map[string]any
+		r := strings.NewReader(activity.Activity)
+		if err := json.UnmarshalFull(r, &create); err != nil {
+			return err
+		}
+		return ip.processCreate(account, create)
+	default:
+		return nil
+	}
+}
+
+func (ip *inboxProcessor) processCreate(account *mastodon.Account, obj map[string]any) error {
+	json.MarshalOptions{}.MarshalFull(json.EncodeOptions{Indent: "  "}, os.Stdout, obj)
+	fmt.Println()
 	return nil
 }
 
-func (ip *inboxProcessor) maybeCreateAccount(actor *activitypub.Actor) error {
+func (ip *inboxProcessor) findOrCreateAccount(actor *activitypub.Actor) (*mastodon.Account, error) {
 	var account mastodon.Account
 	err := ip.db.First(&account, "username = ? AND domain = ?", actor.Username(), actor.Domain()).Error
 	if err == nil {
 		// found cached key
-		return nil
+		return &account, nil
 	}
 
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return err
+		return nil, err
 	}
 	var obj map[string]any
 	if err := json.UnmarshalFull(bytes.NewReader(actor.Object), &obj); err != nil {
-		return err
+		return nil, err
 	}
 	account = mastodon.Account{
 		Username:    actor.Username(),
 		Domain:      actor.Domain(),
-		Acct:        actor.Username() + "@" + actor.Domain(),
 		DisplayName: obj["name"].(string),
 		Locked:      false,
 		Bot:         false,
@@ -97,54 +115,11 @@ func (ip *inboxProcessor) maybeCreateAccount(actor *activitypub.Actor) error {
 	}
 
 	if err := ip.db.Create(&account).Error; err != nil {
-		return err
+		return nil, err
 	}
 
 	// json.MarshalOptions{}.MarshalFull(json.EncodeOptions{Indent: "  "}, os.Stdout, actor.Object)
 	// fmt.Println()
 
-	return nil
-}
-
-func (ip *inboxProcessor) fetchActor(id string) (*activitypub.Actor, error) {
-	var actor activitypub.Actor
-	err := ip.db.Where("actor_id = ?", id).First(&actor).Error
-	if err == nil {
-		// found cached key
-		return &actor, nil
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", id, nil)
-	if err != nil {
-		return nil, fmt.Errorf("fetchActor: newrequest: %w", err)
-	}
-	req.Header.Set("Accept", `application/ld+json; profile="https://www.w3.org/ns/activitystreams"`)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("fetchActor: %v do: %w", req.URL, err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("fetchActor: %v status: %d", resp.Request.URL, resp.StatusCode)
-	}
-	var v map[string]interface{}
-	if err := json.UnmarshalFull(resp.Body, &v); err != nil {
-		return nil, fmt.Errorf("fetchActor: jsondecode: %w", err)
-	}
-	obj, err := json.Marshal(v)
-	if err != nil {
-		return nil, fmt.Errorf("fetchActor: jsonencode: %w", err)
-	}
-	actor = activitypub.Actor{
-		ActorID:   id,
-		Type:      v["type"].(string),
-		Object:    obj,
-		PublicKey: v["publicKey"].(map[string]interface{})["publicKeyPem"].(string),
-	}
-	if err := ip.db.Create(&actor).Error; err != nil {
-		return nil, fmt.Errorf("fetchActor: create: %w", err)
-	}
-	return &actor, nil
+	return &account, nil
 }
