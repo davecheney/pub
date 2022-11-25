@@ -5,16 +5,34 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"net/url"
+	"path"
 
 	"gorm.io/gorm"
 )
 
 type Actor struct {
 	gorm.Model
-	ActorID   string
+	ActorID   string `gorm:"uniqueIndex"`
 	Type      string
 	Object    []byte
 	PublicKey string
+}
+
+func (a *Actor) Username() string {
+	url, err := url.Parse(a.ActorID)
+	if err != nil {
+		panic(err)
+	}
+	return path.Base(url.Path)
+}
+
+func (a *Actor) Domain() string {
+	url, err := url.Parse(a.ActorID)
+	if err != nil {
+		panic(err)
+	}
+	return url.Host
 }
 
 func (Actor) TableName() string {

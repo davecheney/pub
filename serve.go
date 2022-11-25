@@ -21,7 +21,7 @@ type ServeCmd struct {
 
 func (s *ServeCmd) Run(ctx *Context) error {
 	dsn := s.DSN + "?charset=utf8mb4&parseTime=True&loc=Local"
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(mysql.Open(dsn), &ctx.Config)
 	if err != nil {
 		return err
 	}
@@ -66,39 +66,43 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	// 	return err
 	// }
 
-	mastodon := mastodon.NewService(db)
+	m := mastodon.NewService(db)
+	emojis := mastodon.NewEmojis(db)
+	statuses := mastodon.NewStatuses(db)
+	oauth := mastodon.NewOAuth(db)
+	accounts := mastodon.NewAccounts(db)
+	instance := mastodon.NewInstance(db)
 
 	r := mux.NewRouter()
 
 	v1 := r.PathPrefix("/api/v1").Subrouter()
-	v1.HandleFunc("/apps", mastodon.AppsCreate).Methods("POST")
-	v1.HandleFunc("/accounts/verify_credentials", mastodon.AccountsVerify).Methods("GET")
-	v1.HandleFunc("/accounts/{id}", mastodon.AccountsFetch).Methods("GET")
-	v1.HandleFunc("/accounts/{id}/statuses", mastodon.AccountsStatusesFetch).Methods("GET")
-	v1.HandleFunc("/statuses", mastodon.StatusesCreate).Methods("POST")
+	v1.HandleFunc("/apps", m.AppsCreate).Methods("POST")
+	v1.HandleFunc("/accounts/verify_credentials", accounts.VerifyCredentials).Methods("GET")
+	v1.HandleFunc("/accounts/{id}", m.AccountsFetch).Methods("GET")
+	v1.HandleFunc("/accounts/{id}/statuses", m.AccountsStatusesFetch).Methods("GET")
+	v1.HandleFunc("/statuses", statuses.Create).Methods("POST")
+	v1.HandleFunc("/custom_emojis", emojis.Index).Methods("GET")
 
-	v1.HandleFunc("/instance", mastodon.InstanceFetch).Methods("GET")
-	v1.HandleFunc("/instance/peers", mastodon.InstancePeers).Methods("GET")
+	v1.HandleFunc("/instance", instance.Index).Methods("GET")
+	v1.HandleFunc("/instance/peers", instance.Peers).Methods("GET")
 
-	v1.HandleFunc("/timelines/home", mastodon.TimelinesHome).Methods("GET")
+	v1.HandleFunc("/timelines/home", m.TimelinesHome).Methods("GET")
 
-	oauth := r.PathPrefix("/oauth").Subrouter()
-	oauth.HandleFunc("/authorize", mastodon.OAuthAuthorize).Methods("GET", "POST")
-	oauth.HandleFunc("/token", mastodon.OAuthToken).Methods("POST")
-	oauth.HandleFunc("/revoke", mastodon.OAuthRevoke).Methods("POST")
+	r.HandleFunc("/oauth/authorize", oauth.Authorize).Methods("GET", "POST")
+	r.HandleFunc("/oauth/token", oauth.Token).Methods("POST")
+	r.HandleFunc("/oauth/revoke", oauth.Revoke).Methods("POST")
 
 	wellknown := r.PathPrefix("/.well-known").Subrouter()
-	wellknown.HandleFunc("/webfinger", mastodon.WellknownWebfinger).Methods("GET")
+	wellknown.HandleFunc("/webfinger", m.WellknownWebfinger).Methods("GET")
 
+	users := activitypub.NewUsers(db)
+	r.HandleFunc("/users/{username}", users.Show).Methods("GET")
+	r.HandleFunc("/users/{username}/inbox", users.InboxCreate).Methods("POST")
 	activitypub := activitypub.NewService(db)
 
 	inbox := r.Path("/inbox").Subrouter()
 	inbox.Use(activitypub.ValidateSignature())
-	inbox.HandleFunc("", activitypub.InboxCreate).Methods("POST")
-
-	users := r.PathPrefix("/users").Subrouter()
-	users.HandleFunc("/{username}", activitypub.UsersShow).Methods("GET")
-	users.HandleFunc("/{username}/inbox", activitypub.InboxCreate).Methods("POST")
+	inbox.HandleFunc("", users.InboxCreate).Methods("POST")
 
 	r.Path("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "https://dave.cheney.net/", http.StatusFound)

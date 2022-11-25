@@ -2,8 +2,12 @@ package mastodon
 
 import (
 	"fmt"
+	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
+	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 )
 
@@ -53,4 +57,57 @@ func (s *Status) serialize() map[string]any {
 		"card":                   nil,
 		"poll":                   nil,
 	}
+}
+
+type Statuses struct {
+	db *gorm.DB
+}
+
+func NewStatuses(db *gorm.DB) *Statuses {
+	return &Statuses{db: db}
+}
+
+func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
+	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	var token Token
+	if err := s.db.Preload("Account").Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	var toot struct {
+		Status      string     `json:"status"`
+		InReplyToID *uint      `json:"in_reply_to_id,string"`
+		Sensitive   bool       `json:"sensitive"`
+		SpoilerText string     `json:"spoiler_text"`
+		Visibility  string     `json:"visibility"`
+		Language    string     `json:"language"`
+		ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
+	}
+	if err := json.UnmarshalFull(r.Body, &toot); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	status := &Status{
+		Account:     token.Account,
+		AccountID:   token.AccountID,
+		Sensitive:   toot.Sensitive,
+		SpoilerText: toot.SpoilerText,
+		Visibility:  toot.Visibility,
+		Language:    toot.Language,
+		Content:     toot.Status,
+	}
+	if err := s.db.Create(status).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	token.Account.LastStatusAt = time.Now()
+	token.Account.StatusesCount++
+	if err := s.db.Save(&token.Account).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.MarshalFull(w, status.serialize())
 }

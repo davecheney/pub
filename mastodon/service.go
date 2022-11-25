@@ -2,12 +2,10 @@ package mastodon
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -28,8 +26,8 @@ func NewService(db *gorm.DB) *Service {
 	}
 }
 
-func (svc *Service) accounts() *accounts {
-	return &accounts{db: svc.db}
+func (svc *Service) accounts() *Accounts {
+	return &Accounts{db: svc.db}
 }
 
 func (svc *Service) AppsCreate(w http.ResponseWriter, r *http.Request) {
@@ -67,174 +65,6 @@ func (svc *Service) AppsCreate(w http.ResponseWriter, r *http.Request) {
 		"client_secret": app.ClientSecret,
 		"vapid_key":     app.VapidKey,
 	})
-}
-
-func (svc *Service) InstanceFetch(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, &Instance{
-		URI:              "https://cheney.net/",
-		Title:            "Casa del Cheese",
-		ShortDescription: "🧀",
-		Email:            "dave@cheney.net",
-		Version:          "0.1.2",
-		Languages:        []string{"en"},
-	})
-}
-
-func (svc *Service) InstancePeers(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, []string{})
-}
-
-func (svc *Service) OAuthAuthorize(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case "GET":
-		svc.authorizeGet(w, r)
-	case "POST":
-		svc.authorizePost(w, r)
-	default:
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func (svc *Service) authorizeGet(w http.ResponseWriter, r *http.Request) {
-	clientID := r.FormValue("client_id")
-	redirectURI := r.FormValue("redirect_uri")
-	fmt.Println("/oauth/authorize(get): query:", r.URL.Query(), "form:", r.Form)
-	if clientID == "" {
-		http.Error(w, "client_id is required", http.StatusBadRequest)
-		return
-	}
-	if redirectURI == "" {
-		http.Error(w, "redirect_uri is required", http.StatusBadRequest)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html")
-	io.WriteString(w, `
-		<!DOCTYPE html>
-		<html>
-		<head>
-		<meta charset="utf-8">
-		<title>Authorize</title>
-		</head>
-		<body>
-		<form method="POST" action="/oauth/authorize">
-		<p><label>Email</label><input type="text" name="email"></p>
-		<p><label>Password</label><input type="password" name="password"></p>
-		<input type="hidden" name="client_id" value="`+clientID+`">
-		<input type="hidden" name="redirect_uri" value="`+redirectURI+`">
-		<input type="hidden" name="response_type" value="code"> 
-		<p><input type="submit" value="I solemnly swear that I am up to no good"></p>
-		</form>
-		</body>
-		</html>
-	`)
-}
-
-func (svc *Service) authorizePost(w http.ResponseWriter, r *http.Request) {
-	email := r.PostFormValue("email")
-	password := r.PostFormValue("password")
-	redirectURI := r.PostFormValue("redirect_uri")
-	clientID := r.PostFormValue("client_id")
-
-	var app Application
-	if err := svc.db.Where("client_id = ?", clientID).First(&app).Error; err != nil {
-		http.Error(w, "invalid client_id", http.StatusBadRequest)
-		return
-	}
-
-	var user User
-	if err := svc.db.Preload("Account").Where("email = ?", email).First(&user).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-	if !user.comparePassword(password) {
-		http.Error(w, "invalid password", http.StatusUnauthorized)
-		return
-	}
-
-	token := &Token{
-		UserID:            user.ID,
-		ApplicationID:     app.ID,
-		AccountID:         user.Account.ID,
-		AccessToken:       uuid.New().String(),
-		TokenType:         "bearer",
-		Scope:             "read write follow push",
-		AuthorizationCode: uuid.New().String(),
-	}
-	if err := svc.db.Create(token).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Location", redirectURI+"?code="+token.AuthorizationCode)
-	w.WriteHeader(302)
-}
-
-func (svc *Service) OAuthToken(w http.ResponseWriter, r *http.Request) {
-	var params struct {
-		ClientID     string `json:"client_id"`
-		ClientSecret string `json:"client_secret"`
-		GrantType    string `json:"grant_type"`
-		Code         string `json:"code"`
-		RedirectURI  string `json:"redirect_uri"`
-	}
-
-	if err := json.UnmarshalFull(r.Body, &params); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	var token Token
-	if err := svc.db.Where("authorization_code = ?", params.Code).First(&token).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-	var app Application
-	if err := svc.db.Where("client_id = ?", params.ClientID).First(&app).Error; err != nil {
-		http.Error(w, "invalid client_id", http.StatusBadRequest)
-		return
-	}
-
-	if token.ApplicationID != app.ID {
-		log.Println("client_id mismatch", token.ApplicationID, app.ID)
-		http.Error(w, "invalid client_id", http.StatusUnauthorized)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, map[string]any{
-		"access_token": token.AccessToken,
-		"token_type":   token.TokenType,
-		"scope":        token.Scope,
-		"created_at":   token.CreatedAt.Unix(),
-	})
-}
-
-func (svc *Service) OAuthRevoke(w http.ResponseWriter, r *http.Request) {
-	bearer := r.Header.Get("Authorization")
-	accessToken := strings.TrimPrefix(bearer, "Bearer ")
-	var token Token
-	if err := svc.db.Where("access_token = ?", accessToken).First(&token).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-	if err := svc.db.Delete(&token).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(204)
-}
-
-func (svc *Service) AccountsVerify(w http.ResponseWriter, r *http.Request) {
-	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-
-	var token Token
-	if err := svc.db.Preload("Account").Where("access_token = ?", accessToken).First(&token).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, token.Account.serialize())
 }
 
 func (svc *Service) AccountsFetch(w http.ResponseWriter, r *http.Request) {
@@ -336,49 +166,4 @@ func (svc *Service) TimelinesHome(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.MarshalFull(w, resp)
-}
-
-func (svc *Service) StatusesCreate(w http.ResponseWriter, r *http.Request) {
-	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	var token Token
-	if err := svc.db.Preload("Account").Where("access_token = ?", accessToken).First(&token).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-	var toot struct {
-		Status      string     `json:"status"`
-		InReplyToID *uint      `json:"in_reply_to_id,string"`
-		Sensitive   bool       `json:"sensitive"`
-		SpoilerText string     `json:"spoiler_text"`
-		Visibility  string     `json:"visibility"`
-		Language    string     `json:"language"`
-		ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
-	}
-	if err := json.UnmarshalFull(r.Body, &toot); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	status := &Status{
-		Account:     token.Account,
-		AccountID:   token.AccountID,
-		Sensitive:   toot.Sensitive,
-		SpoilerText: toot.SpoilerText,
-		Visibility:  toot.Visibility,
-		Language:    toot.Language,
-		Content:     toot.Status,
-	}
-	if err := svc.db.Create(status).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	token.Account.LastStatusAt = time.Now()
-	token.Account.StatusesCount++
-	if err := svc.db.Save(&token.Account).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, status.serialize())
 }

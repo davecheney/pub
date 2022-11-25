@@ -3,7 +3,6 @@ package activitypub
 import (
 	"crypto"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -11,7 +10,6 @@ import (
 	"github.com/go-json-experiment/json"
 
 	"github.com/go-fed/httpsig"
-	"github.com/gorilla/mux"
 	"gorm.io/gorm"
 )
 
@@ -25,45 +23,6 @@ func NewService(db *gorm.DB) *Service {
 	return &Service{
 		db: db,
 	}
-}
-
-func (svc *Service) InboxCreate(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	var v map[string]interface{}
-	if err := json.Unmarshal(body, &v); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	object, _ := v["object"].(map[string]interface{})
-	objectType, _ := object["type"].(string)
-
-	activity := &Activity{
-		Activity:     string(body),
-		ActivityType: v["type"].(string),
-		ObjectType:   objectType,
-	}
-	if err := svc.db.Create(activity).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusAccepted)
-}
-
-func (svc *Service) UsersShow(w http.ResponseWriter, r *http.Request) {
-	username := mux.Vars(r)["username"]
-	actor_id := fmt.Sprintf("https://cheney.net/users/%s", username)
-	var actor Actor
-	if err := svc.db.Where("actor_id = ?", actor_id).First(&actor).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-	w.Header().Set("Content-Type", "application/activity+json")
-	w.Write(actor.Object)
 }
 
 func (svc *Service) ValidateSignature() func(next http.Handler) http.Handler {

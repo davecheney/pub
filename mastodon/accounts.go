@@ -1,18 +1,19 @@
 package mastodon
 
 import (
+	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 )
 
 type Account struct {
 	gorm.Model
-	UserID uint
-
-	Username       string
-	Domain         string
+	Username       string `gorm:"uniqueIndex:idx_usernamedomain"`
+	Domain         string `gorm:"uniqueIndex:idx_usernamedomain"`
 	Acct           string
 	DisplayName    string
 	Locked         bool
@@ -27,6 +28,8 @@ type Account struct {
 	FollowingCount int
 	StatusesCount  int
 	LastStatusAt   time.Time
+
+	Statuses []Status
 }
 
 func (a *Account) serialize() map[string]any {
@@ -53,23 +56,40 @@ func (a *Account) serialize() map[string]any {
 	}
 }
 
-type accounts struct {
+type Accounts struct {
 	db *gorm.DB
 }
 
-func (a *accounts) findByID(id uint) (*Account, error) {
+func NewAccounts(db *gorm.DB) *Accounts {
+	return &Accounts{db: db}
+}
+
+func (a *Accounts) VerifyCredentials(w http.ResponseWriter, r *http.Request) {
+	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+
+	var token Token
+	if err := a.db.Preload("Account").Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.MarshalFull(w, token.Account.serialize())
+}
+
+func (a *Accounts) findByID(id uint) (*Account, error) {
 	account := &Account{}
 	result := a.db.First(account, id)
 	return account, result.Error
 }
 
-func (a *accounts) findByUserID(id uint) (*Account, error) {
+func (a *Accounts) findByUserID(id uint) (*Account, error) {
 	account := &Account{}
 	result := a.db.Where("user_id = ?", id).First(account)
 	return account, result.Error
 }
 
-func (a *accounts) findByAcct(acct string) (*Account, error) {
+func (a *Accounts) findByAcct(acct string) (*Account, error) {
 	account := &Account{}
 	result := a.db.Where("acct = ?", acct[5:]).First(account)
 	return account, result.Error

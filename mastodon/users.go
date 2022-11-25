@@ -9,8 +9,8 @@ type User struct {
 	gorm.Model
 	Email             string
 	EncryptedPassword []byte
-
-	Account Account `gorm:"foreignKey:ID"`
+	AccountID         uint
+	Account           Account
 }
 
 func (u *User) comparePassword(password string) bool {
