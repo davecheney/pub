@@ -14,13 +14,14 @@ import (
 type Status struct {
 	gorm.Model
 	AccountID          uint
-	Account            Account
+	Account            *Account
 	InReplyToID        *uint
 	InReplyToAccountID *uint
 	Sensitive          bool
 	SpoilerText        string
 	Visibility         string
 	Language           string
+	URI                string `gorm:"uniqueIndex"`
 	RepliesCount       int
 	ReblogsCount       int
 	FavouritesCount    int

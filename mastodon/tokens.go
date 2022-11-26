@@ -6,10 +6,8 @@ import (
 
 type Token struct {
 	gorm.Model
-	UserID            uint
-	User              User
 	AccountID         uint
-	Account           Account
+	Account           *Account
 	ApplicationID     uint
 	AccessToken       string
 	TokenType         string

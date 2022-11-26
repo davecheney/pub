@@ -18,7 +18,7 @@ type Account struct {
 	Locked         bool
 	Bot            bool
 	Note           string
-	URL            string
+	URL            string `gorm:"uniqueIndex:idx_url"`
 	Avatar         string
 	AvatarStatic   string
 	Header         string
@@ -27,6 +27,10 @@ type Account struct {
 	FollowingCount int
 	StatusesCount  int
 	LastStatusAt   time.Time
+
+	EncryptedPassword []byte // only used for local accounts
+	PublicKey         []byte
+	PrivateKey        []byte // only used for local accounts
 
 	Statuses []Status
 }

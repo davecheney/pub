@@ -8,15 +8,20 @@ import (
 
 	"github.com/go-json-experiment/json"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 type OAuth struct {
-	db *gorm.DB
+	db       *gorm.DB
+	instance *Instance
 }
 
-func NewOAuth(db *gorm.DB) *OAuth {
-	return &OAuth{db: db}
+func NewOAuth(db *gorm.DB, instance *Instance) *OAuth {
+	return &OAuth{
+		db:       db,
+		instance: instance,
+	}
 }
 
 func (o *OAuth) Authorize(w http.ResponseWriter, r *http.Request) {
@@ -51,7 +56,7 @@ func (o *OAuth) authorizeGet(w http.ResponseWriter, r *http.Request) {
 		</head>
 		<body>
 		<form method="POST" action="/oauth/authorize">
-		<p><label>Email</label><input type="text" name="email"></p>
+		<p><label>Username</label><input type="text" name="username"></p>
 		<p><label>Password</label><input type="password" name="password"></p>
 		<input type="hidden" name="client_id" value="`+clientID+`">
 		<input type="hidden" name="redirect_uri" value="`+redirectURI+`">
@@ -64,7 +69,7 @@ func (o *OAuth) authorizeGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
-	email := r.PostFormValue("email")
+	username := r.FormValue("username")
 	password := r.PostFormValue("password")
 	redirectURI := r.PostFormValue("redirect_uri")
 	clientID := r.PostFormValue("client_id")
@@ -75,20 +80,20 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var user User
-	if err := o.db.Preload("Account").Where("email = ?", email).First(&user).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+	var account Account
+	if err := o.db.Where("username = ?", username).First(&account).Error; err != nil {
+		http.Error(w, "invalid username", http.StatusUnauthorized)
 		return
 	}
-	if !user.comparePassword(password) {
+
+	if err := bcrypt.CompareHashAndPassword(account.EncryptedPassword, []byte(password)); err != nil {
 		http.Error(w, "invalid password", http.StatusUnauthorized)
 		return
 	}
 
 	token := &Token{
-		UserID:            user.ID,
 		ApplicationID:     app.ID,
-		AccountID:         user.Account.ID,
+		AccountID:         account.ID,
 		AccessToken:       uuid.New().String(),
 		TokenType:         "bearer",
 		Scope:             "read write follow push",

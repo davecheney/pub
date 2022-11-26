@@ -8,7 +8,7 @@ import (
 
 type Activity struct {
 	gorm.Model
-	Activity     string
+	Activity     map[string]interface{} `gorm:"serializer:json"`
 	ActivityType string
 	ObjectType   string
 	ProcessedAt  *time.Time

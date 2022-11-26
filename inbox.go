@@ -1,13 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
-
-	"github.com/go-json-experiment/json"
 
 	"github.com/davecheney/m/activitypub"
 	"github.com/davecheney/m/mastodon"
@@ -55,11 +51,7 @@ type inboxProcessor struct {
 }
 
 func (ip *inboxProcessor) Process(activity *activitypub.Activity) error {
-	var act map[string]any
-	r := strings.NewReader(activity.Activity)
-	if err := json.UnmarshalFull(r, &act); err != nil {
-		return err
-	}
+	act := activity.Activity
 	id, _ := act["id"].(string)
 	typ, _ := act["type"].(string)
 	actorID, _ := act["actor"].(string)
@@ -74,12 +66,8 @@ func (ip *inboxProcessor) Process(activity *activitypub.Activity) error {
 	}
 	switch typ {
 	case "Create":
-		var create map[string]any
-		r := strings.NewReader(activity.Activity)
-		if err := json.UnmarshalFull(r, &create); err != nil {
-			return err
-		}
-		return ip.processCreate(account, create["object"].(map[string]any))
+		create := act["object"].(map[string]any)
+		return ip.processCreate(account, create)
 	default:
 		return nil
 	}
@@ -155,10 +143,7 @@ func (ip *inboxProcessor) findOrCreateAccount(actor *activitypub.Actor) (*mastod
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
-	var obj map[string]any
-	if err := json.UnmarshalFull(bytes.NewReader(actor.Object), &obj); err != nil {
-		return nil, err
-	}
+	obj := actor.Object
 	account = mastodon.Account{
 		Username:    actor.Username(),
 		Domain:      actor.Domain(),

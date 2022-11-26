@@ -12,6 +12,8 @@ import (
 
 type Application struct {
 	gorm.Model
+	InstanceID   uint
+	Instance     *Instance
 	Name         string
 	Website      *string
 	RedirectURI  string
@@ -21,11 +23,15 @@ type Application struct {
 }
 
 type Applications struct {
-	db *gorm.DB
+	db       *gorm.DB
+	instance *Instance
 }
 
-func NewApplications(db *gorm.DB) *Applications {
-	return &Applications{db: db}
+func NewApplications(db *gorm.DB, instance *Instance) *Applications {
+	return &Applications{
+		db:       db,
+		instance: instance,
+	}
 }
 
 func (a *Applications) New(w http.ResponseWriter, r *http.Request) {
@@ -42,6 +48,7 @@ func (a *Applications) New(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("/api/v1/apps: params:", params)
 
 	app := &Application{
+		Instance:     a.instance,
 		Name:         params.ClientName,
 		Website:      params.Website,
 		ClientID:     uuid.New().String(),

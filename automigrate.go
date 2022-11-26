@@ -21,7 +21,6 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 		&mastodon.Instance{},
 		&mastodon.Status{},
 		&mastodon.Token{},
-		&mastodon.User{},
 
 		&activitypub.Actor{},
 		&activitypub.Activity{},

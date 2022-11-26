@@ -9,7 +9,7 @@ import (
 )
 
 type CreateInstanceCmd struct {
-	Domain string `help:"domain name of the instance to create"`
+	Domain string `required:"" help:"domain name of the instance to create"`
 }
 
 func (c *CreateInstanceCmd) Run(ctx *Context) error {

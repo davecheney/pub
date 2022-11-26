@@ -11,7 +11,6 @@ import (
 	"path"
 
 	"github.com/carlmjohnson/requests"
-	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 )
 
@@ -19,7 +18,7 @@ type Actor struct {
 	gorm.Model
 	ActorID   string `gorm:"uniqueIndex"`
 	Type      string
-	Object    []byte
+	Object    map[string]interface{} `gorm:"serializer:json"`
 	PublicKey string
 }
 
@@ -78,20 +77,16 @@ func (a *Actors) FindOrCreateActor(id string) (*Actor, error) {
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
-	var v map[string]interface{}
-	if err := requests.URL(id).Accept(`application/ld+json; profile="https://www.w3.org/ns/activitystreams"`).ToJSON(&v).Fetch(context.Background()); err != nil {
+	var obj map[string]interface{}
+	if err := requests.URL(id).Accept(`application/ld+json; profile="https://www.w3.org/ns/activitystreams"`).ToJSON(&obj).Fetch(context.Background()); err != nil {
 		return nil, err
 	}
 
-	obj, err := json.Marshal(v)
-	if err != nil {
-		return nil, fmt.Errorf("fetchActor: jsonencode: %w", err)
-	}
 	actor = Actor{
 		ActorID:   id,
-		Type:      v["type"].(string),
+		Type:      obj["type"].(string),
 		Object:    obj,
-		PublicKey: v["publicKey"].(map[string]interface{})["publicKeyPem"].(string),
+		PublicKey: obj["publicKey"].(map[string]interface{})["publicKeyPem"].(string),
 	}
 	if err := a.db.Create(&actor).Error; err != nil {
 		return nil, fmt.Errorf("fetchActor: create: %w", err)

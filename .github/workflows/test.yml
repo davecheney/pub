@@ -25,4 +25,7 @@ jobs:
       - name: Create first instance
         run: |
           m --debug --dsn runner@/test create-instance --domain example.com
+      - name: Create admin account
+        run: |
+          m --debug --dsn runner@/test create-account --username admin --domain example.com --password admin
         

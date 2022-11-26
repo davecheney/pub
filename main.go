@@ -18,9 +18,10 @@ type Context struct {
 
 var cli struct {
 	Debug bool   `help:"Enable debug mode."`
-	DSN   string `help:"data source name"`
+	DSN   string `required:"" help:"data source name"`
 
 	AutoMigrate    AutoMigrateCmd    `cmd:"" help:"Automigrate the database."`
+	CreateAccount  CreateAccountCmd  `cmd:"" help:"Create a new account."`
 	CreateInstance CreateInstanceCmd `cmd:"" help:"Create an instance."`
 	Serve          ServeCmd          `cmd:"" help:"Serve a local web server."`
 	Inbox          IndexCmd          `cmd:"" help:"Process the inbox."`

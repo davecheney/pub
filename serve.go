@@ -22,38 +22,19 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	// user := &mastodon.User{
-	// 	Email:             "dave@cheney.net",
-	// 	EncryptedPassword: []byte("$2a$04$0k4j6NbaaPSrGwDb0ufOK.KKYBCigiXk95YNUAQXk74CQVg4FUrre"),
-	// }
-	// if err := db.Create(user).Error; err != nil {
-	// 	return err
-	// }
-	// var user mastodon.User
-	// db.First(&user)
-	// user.Account = mastodon.Account{
-	// 	Username:    "dave",
-	// 	Domain:      "cheney.net",
-	// 	Acct:        "dave@cheney.net",
-	// 	DisplayName: "Dave Cheney",
-	// 	Locked:      false,
-	// 	Bot:         false,
-	// 	Note:        "I like cheese!",
-	// 	URL:         "https://cheney.net/@dave",
-	// 	Avatar:      "https://cheney.net/avatar.png",
-	// 	Header:      "https://cheney.net/header.png",
-	// }
-	// if err := db.Save(&user).Error; err != nil {
-	// 	return err
-	// }
+	// the instance this service represents
+	var theInstance mastodon.Instance
+	if err := db.First(&theInstance).Error; err != nil {
+		return err
+	}
 
 	m := mastodon.NewService(db)
 	emojis := mastodon.NewEmojis(db)
 	statuses := mastodon.NewStatuses(db)
-	oauth := mastodon.NewOAuth(db)
+	oauth := mastodon.NewOAuth(db, &theInstance)
 	accounts := mastodon.NewAccounts(db)
 	instance := mastodon.NewInstance(db)
-	apps := mastodon.NewApplications(db)
+	apps := mastodon.NewApplications(db, &theInstance)
 	timeline := mastodon.NewTimeline(db)
 
 	r := mux.NewRouter()
