@@ -2,11 +2,14 @@ package activitypub
 
 import (
 	"crypto"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
 
+	"github.com/davecheney/m/mastodon"
 	"github.com/go-fed/httpsig"
 	"gorm.io/gorm"
 )
@@ -23,8 +26,8 @@ func NewService(db *gorm.DB) *Service {
 	}
 }
 
-func (svc *Service) actors() *Actors {
-	return NewActors(svc.db)
+func (svc *Service) accounts() *mastodon.Accounts {
+	return mastodon.NewAccounts(svc.db)
 }
 
 func (svc *Service) ValidateSignature() func(next http.Handler) http.Handler {
@@ -52,11 +55,24 @@ func (svc *Service) ValidateSignature() func(next http.Handler) http.Handler {
 
 func (svc *Service) GetKey(keyId string) (crypto.PublicKey, error) {
 	actorId := trimKeyId(keyId)
-	actor, err := svc.actors().FindOrCreateActor(actorId)
+	account, err := svc.accounts().FindOrCreateAccount(actorId)
 	if err != nil {
-		return nil, fmt.Errorf("findorcreateactor: %w", err)
+		return nil, err
 	}
-	return actor.pemToPublicKey()
+	return pemToPublicKey([]byte(account.PublicKey))
+}
+
+func pemToPublicKey(key []byte) (crypto.PublicKey, error) {
+	block, _ := pem.Decode(key)
+	if block.Type != "PUBLIC KEY" {
+		return nil, fmt.Errorf("pemToPublicKey: invalid pem type: %s", block.Type)
+	}
+	var publicKey interface{}
+	var err error
+	if publicKey, err = x509.ParsePKIXPublicKey(block.Bytes); err != nil {
+		return nil, fmt.Errorf("pemToPublicKey: parsepkixpublickey: %w", err)
+	}
+	return publicKey, nil
 }
 
 // trimKeyId removes the #main-key suffix from the key id.

@@ -59,7 +59,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	wellknown := r.PathPrefix("/.well-known").Subrouter()
 	wellknown.HandleFunc("/webfinger", m.WellknownWebfinger).Methods("GET")
 
-	users := activitypub.NewUsers(db)
+	users := activitypub.NewUsers(db, &theInstance)
 	r.HandleFunc("/users/{username}", users.Show).Methods("GET")
 	r.HandleFunc("/users/{username}/inbox", users.InboxCreate).Methods("POST")
 	activitypub := activitypub.NewService(db)

@@ -25,8 +25,8 @@ func (i *IndexCmd) Run(ctx *Context) error {
 	}
 
 	ip := &inboxProcessor{
-		db:     db,
-		actors: activitypub.NewActors(db),
+		db:       db,
+		accounts: mastodon.NewAccounts(db),
 	}
 
 	for _, activity := range activities {
@@ -46,8 +46,8 @@ func (i *IndexCmd) Run(ctx *Context) error {
 }
 
 type inboxProcessor struct {
-	db     *gorm.DB
-	actors *activitypub.Actors
+	db       *gorm.DB
+	accounts *mastodon.Accounts
 }
 
 func (ip *inboxProcessor) Process(activity *activitypub.Activity) error {
@@ -56,11 +56,8 @@ func (ip *inboxProcessor) Process(activity *activitypub.Activity) error {
 	typ, _ := act["type"].(string)
 	actorID, _ := act["actor"].(string)
 	fmt.Println("process: id:", id, "type:", typ, "actor:", actorID)
-	actor, err := ip.actors.FindOrCreateActor(actorID)
-	if err != nil {
-		return err
-	}
-	account, err := ip.findOrCreateAccount(actor)
+
+	account, err := ip.accounts.FindOrCreateAccount(actorID)
 	if err != nil {
 		return err
 	}
@@ -130,32 +127,4 @@ func timeFromAny(v any) (time.Time, error) {
 	default:
 		return time.Time{}, errors.New("timeFromAny: invalid type")
 	}
-}
-
-func (ip *inboxProcessor) findOrCreateAccount(actor *activitypub.Actor) (*mastodon.Account, error) {
-	var account mastodon.Account
-	err := ip.db.First(&account, "username = ? AND domain = ?", actor.Username(), actor.Domain()).Error
-	if err == nil {
-		// found cached key
-		return &account, nil
-	}
-
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, err
-	}
-	obj := actor.Object
-	account = mastodon.Account{
-		Username:    actor.Username(),
-		Domain:      actor.Domain(),
-		DisplayName: obj["name"].(string),
-		Locked:      false,
-		Bot:         false,
-		Note:        obj["summary"].(string),
-		URL:         obj["url"].(string),
-	}
-
-	if err := ip.db.Create(&account).Error; err != nil {
-		return nil, err
-	}
-	return &account, nil
 }

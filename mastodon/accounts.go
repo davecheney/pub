@@ -1,11 +1,17 @@
 package mastodon
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"net/http"
+	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/carlmjohnson/requests"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 )
@@ -82,4 +88,54 @@ func (a *Accounts) VerifyCredentials(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.MarshalFull(w, token.Account.serialize())
+}
+
+// FindOrCreateAccount finds an account by username and domain, or creates a new
+// one if it doesn't exist.
+func (a *Accounts) FindOrCreateAccount(uri string) (*Account, error) {
+	username, domain, err := splitAcct(uri)
+	var account Account
+	err = a.db.Where("username = ? AND domain = ?", username, domain).First(&account).Error
+	if err == nil {
+		// found cached key
+		return &account, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	var obj map[string]interface{}
+	if err := requests.URL(uri).Accept(`application/ld+json; profile="https://www.w3.org/ns/activitystreams"`).ToJSON(&obj).Fetch(context.Background()); err != nil {
+		return nil, err
+	}
+
+	account = Account{
+		Username:       username,
+		Domain:         domain,
+		DisplayName:    obj["name"].(string),
+		Locked:         obj["manuallyApprovesFollowers"].(bool),
+		Bot:            obj["type"].(string) == "Service",
+		Note:           obj["summary"].(string),
+		URL:            obj["id"].(string),
+		Avatar:         obj["icon"].(map[string]interface{})["url"].(string),
+		AvatarStatic:   obj["icon"].(map[string]interface{})["url"].(string),
+		Header:         obj["image"].(map[string]interface{})["url"].(string),
+		HeaderStatic:   obj["image"].(map[string]interface{})["url"].(string),
+		FollowersCount: int(obj["followers"].(map[string]interface{})["totalItems"].(float64)),
+		FollowingCount: int(obj["following"].(map[string]interface{})["totalItems"].(float64)),
+		StatusesCount:  int(obj["outbox"].(map[string]interface{})["totalItems"].(float64)),
+		LastStatusAt:   time.Now(),
+		PublicKey:      []byte(obj["publicKey"].(map[string]interface{})["publicKeyPem"].(string)),
+	}
+	if err := a.db.Create(&account).Error; err != nil {
+		return nil, err
+	}
+	return &account, nil
+}
+
+func splitAcct(acct string) (string, string, error) {
+	url, err := url.Parse(acct)
+	if err != nil {
+		return "", "", fmt.Errorf("splitAcct: %w", err)
+	}
+	return path.Base(url.Path), url.Host, nil
 }
