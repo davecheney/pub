@@ -9,36 +9,17 @@ import (
 	"github.com/davecheney/m/mastodon"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
 type ServeCmd struct {
-	Addr        string `help:"address to listen"`
-	DSN         string `help:"data source name"`
-	AutoMigrate bool   `help:"auto migrate"`
+	Addr string `help:"address to listen"`
 }
 
 func (s *ServeCmd) Run(ctx *Context) error {
-	dsn := s.DSN + "?charset=utf8mb4&parseTime=True&loc=Local"
-	db, err := gorm.Open(mysql.Open(dsn), &ctx.Config)
+	db, err := gorm.Open(ctx.Dialector, &ctx.Config)
 	if err != nil {
 		return err
-	}
-
-	if s.AutoMigrate {
-		if err := db.AutoMigrate(
-			&mastodon.Status{},
-			&mastodon.User{},
-			&mastodon.Account{},
-			&mastodon.Application{},
-			&mastodon.Token{},
-
-			&activitypub.Actor{},
-			&activitypub.Activity{},
-		); err != nil {
-			return err
-		}
 	}
 
 	// user := &mastodon.User{

@@ -11,17 +11,14 @@ import (
 
 	"github.com/davecheney/m/activitypub"
 	"github.com/davecheney/m/mastodon"
-	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
 type IndexCmd struct {
-	DSN string `help:"data source name"`
 }
 
 func (i *IndexCmd) Run(ctx *Context) error {
-	dsn := i.DSN + "?charset=utf8mb4&parseTime=True&loc=Local"
-	db, err := gorm.Open(mysql.Open(dsn), &ctx.Config)
+	db, err := gorm.Open(ctx.Dialector, &ctx.Config)
 	if err != nil {
 		return err
 	}
