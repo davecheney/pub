@@ -8,6 +8,11 @@ import (
 )
 
 type Instance struct {
+	gorm.Model
+	Domain string `gorm:"uniqueIndex"`
+}
+
+type instance struct {
 	// The domain name of the instance.
 	URI string `json:"uri"`
 	// The title of the website.
@@ -53,7 +58,7 @@ func NewInstance(db *gorm.DB) *Instances {
 
 func (i *Instances) Index(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, &Instance{
+	json.MarshalFull(w, &instance{
 		URI:              "https://cheney.net/",
 		Title:            "Casa del Cheese",
 		ShortDescription: "🧀",

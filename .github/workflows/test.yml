@@ -21,5 +21,8 @@ jobs:
         run: go install -v ./...
       - name: Init database
         run: |
-          m --debug --dsn runner@/test auto-migrate 
+          m --debug --dsn runner@/test auto-migrate
+      - name: Create first instance
+        run: |
+          m --debug --dsn runner@/test create-instance --domain example.com
         

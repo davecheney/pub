@@ -16,11 +16,12 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 	}
 
 	return db.AutoMigrate(
-		&mastodon.Status{},
-		&mastodon.User{},
 		&mastodon.Account{},
 		&mastodon.Application{},
+		&mastodon.Instance{},
+		&mastodon.Status{},
 		&mastodon.Token{},
+		&mastodon.User{},
 
 		&activitypub.Actor{},
 		&activitypub.Activity{},
