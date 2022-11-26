@@ -2,21 +2,25 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"time"
 
+	"github.com/carlmjohnson/requests"
+	"github.com/davecheney/m/mastodon"
 	"github.com/go-fed/httpsig"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type FollowCmd struct {
@@ -25,9 +29,18 @@ type FollowCmd struct {
 }
 
 func (f *FollowCmd) Run(ctx *Context) error {
+	db, err := gorm.Open(ctx.Dialector, &ctx.Config)
+	if err != nil {
+		return err
+	}
+	var instance mastodon.Instance
+	if err := db.First(&instance).Error; err != nil {
+		return err
+	}
+
 	body, err := json.Marshal(map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
-		"id":       fmt.Sprintf("https://cheney.net/%s", uuid.New().String()),
+		"id":       fmt.Sprintf("https://%s/%s", instance.Domain, uuid.New().String()),
 		"type":     "Follow",
 		"object":   f.Object,
 		"actor":    f.Actor,
@@ -35,34 +48,27 @@ func (f *FollowCmd) Run(ctx *Context) error {
 	if err != nil {
 		return err
 	}
+	username, domain, err := parseActor(f.Actor)
+	var account mastodon.Account
+	if err := db.Where("username = ? AND domain = ?", username, domain).First(&account).Error; err != nil {
+		return err
+	}
 
-	req, err := http.NewRequest("GET", f.Actor, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Accept", `application/ld+json; profile="https://www.w3.org/ns/activitystreams"`)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("fetchActor: status: %d", resp.StatusCode)
-	}
 	var actor map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&actor); err != nil {
-		return fmt.Errorf("fetchActor: jsondecode: %w", err)
+	if err := requests.URL(f.Actor).Accept(`application/ld+json; profile="https://www.w3.org/ns/activitystreams"`).ToJSON(&actor).Fetch(context.Background()); err != nil {
+		return err
 	}
 
 	u, err := url.Parse(f.Object)
 	if err != nil {
 		return err
 	}
-	req, err = http.NewRequest("POST", fmt.Sprintf("%s://%s/inbox", u.Scheme, u.Host), bytes.NewReader(body))
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s://%s/inbox", u.Scheme, u.Host), bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/activity+json")
-	sign(req, body, actor["publicKey"].(map[string]interface{})["id"].(string))
+	sign(req, body, &account)
 
 	if ctx.Debug {
 		fmt.Printf("%s %s %s\n", req.Method, req.URL, req.Proto)
@@ -73,7 +79,7 @@ func (f *FollowCmd) Run(ctx *Context) error {
 
 	}
 
-	resp, err = http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -90,23 +96,17 @@ func (f *FollowCmd) Run(ctx *Context) error {
 	return nil
 }
 
-func sign(r *http.Request, body []byte, pubKeyId string) {
+func sign(r *http.Request, body []byte, account *mastodon.Account) {
 	r.Header.Set("Date", time.Now().UTC().Format("Mon, 02 Jan 2006 15:04:05 GMT")) // Date must be in GMT, not UTC 🤯
-	priv, err := ioutil.ReadFile("private.pem")
-	if err != nil {
-		log.Fatal(err)
-	}
-	privPem, _ := pem.Decode(priv)
-	var privPemBytes []byte
+	privPem, _ := pem.Decode(account.PrivateKey)
 	if privPem.Type != "RSA PRIVATE KEY" {
 		log.Fatal("expected RSA PRIVATE KEY")
 	}
 
-	privPemBytes = privPem.Bytes
-
 	var parsedKey interface{}
-	if parsedKey, err = x509.ParsePKCS1PrivateKey(privPemBytes); err != nil {
-		if parsedKey, err = x509.ParsePKCS8PrivateKey(privPemBytes); err != nil { // note this returns type `interface{}`
+	var err error
+	if parsedKey, err = x509.ParsePKCS1PrivateKey(privPem.Bytes); err != nil {
+		if parsedKey, err = x509.ParsePKCS8PrivateKey(privPem.Bytes); err != nil { // note this returns type `interface{}`
 			log.Fatal(err)
 		}
 	}
@@ -129,7 +129,15 @@ func sign(r *http.Request, body []byte, pubKeyId string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := signer.SignRequest(privateKey, pubKeyId, r, body); err != nil {
+	if err := signer.SignRequest(privateKey, account.PublicKeyID(), r, body); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func parseActor(acct string) (string, string, error) {
+	url, err := url.Parse(acct)
+	if err != nil {
+		return "", "", fmt.Errorf("splitAcct: %w", err)
+	}
+	return path.Base(url.Path), url.Host, nil
 }

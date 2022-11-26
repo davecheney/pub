@@ -24,6 +24,10 @@ func NewUsers(db *gorm.DB, instance *mastodon.Instance) *Users {
 	}
 }
 
+func (u *Users) accounts() *mastodon.Accounts {
+	return mastodon.NewAccounts(u.db)
+}
+
 func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 	username := mux.Vars(r)["username"]
 	var account mastodon.Account
@@ -109,7 +113,7 @@ func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 		"published":                 account.CreatedAt.UTC().Format(time.RFC3339),
 		"devices":                   fmt.Sprintf("https://%s/users/%s/devices", account.Domain, account.Username),
 		"publicKey": map[string]any{
-			"id":           fmt.Sprintf("https://%s/users/%s#main-key", account.Domain, account.Username),
+			"id":           account.PublicKeyID(),
 			"owner":        fmt.Sprintf("https://%s/users/%s", account.Domain, account.Username),
 			"publicKeyPem": string(account.PublicKey),
 		},
@@ -138,10 +142,17 @@ func (u *Users) InboxCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	account, err := u.accounts().FindOrCreateAccount(body["id"].(string))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	object, _ := body["object"].(map[string]interface{})
 	objectType, _ := object["type"].(string)
 
 	activity := &Activity{
+		Account:      account,
 		Activity:     body,
 		ActivityType: body["type"].(string),
 		ObjectType:   objectType,

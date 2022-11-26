@@ -1,10 +1,7 @@
 package main
 
 import (
-	"os"
-
 	"github.com/davecheney/m/mastodon"
-	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 )
 
@@ -20,8 +17,5 @@ func (c *CreateInstanceCmd) Run(ctx *Context) error {
 	instance := &mastodon.Instance{
 		Domain: c.Domain,
 	}
-	if err := db.Create(instance).Error; err != nil {
-		return err
-	}
-	return json.MarshalFull(os.Stdout, instance)
+	return db.Create(instance).Error
 }

@@ -45,6 +45,10 @@ func (a *Account) Acct() string {
 	return a.Username + "@" + a.Domain
 }
 
+func (a *Account) PublicKeyID() string {
+	return fmt.Sprintf("https://%s/users/%s#main-key", a.Domain, a.Username)
+}
+
 func (a *Account) serialize() map[string]any {
 	return map[string]any{
 		"id":              strconv.Itoa(int(a.ID)),
@@ -111,20 +115,21 @@ func (a *Accounts) FindOrCreateAccount(uri string) (*Account, error) {
 	account = Account{
 		Username:       username,
 		Domain:         domain,
-		DisplayName:    obj["name"].(string),
-		Locked:         obj["manuallyApprovesFollowers"].(bool),
-		Bot:            obj["type"].(string) == "Service",
-		Note:           obj["summary"].(string),
-		URL:            obj["id"].(string),
-		Avatar:         obj["icon"].(map[string]interface{})["url"].(string),
-		AvatarStatic:   obj["icon"].(map[string]interface{})["url"].(string),
-		Header:         obj["image"].(map[string]interface{})["url"].(string),
-		HeaderStatic:   obj["image"].(map[string]interface{})["url"].(string),
-		FollowersCount: int(obj["followers"].(map[string]interface{})["totalItems"].(float64)),
-		FollowingCount: int(obj["following"].(map[string]interface{})["totalItems"].(float64)),
-		StatusesCount:  int(obj["outbox"].(map[string]interface{})["totalItems"].(float64)),
+		DisplayName:    stringFromAny(obj["name"]),
+		Locked:         boolFromAny(obj["manuallyApprovesFollowers"]),
+		Bot:            stringFromAny(obj["type"]) == "Service",
+		Note:           stringFromAny(obj["summary"]),
+		URL:            stringFromAny(obj["id"]),
+		Avatar:         stringFromAny(mapFromAny(obj["icon"])["url"]),
+		AvatarStatic:   stringFromAny(mapFromAny(obj["icon"])["url"]),
+		Header:         stringFromAny(mapFromAny(obj["image"])["url"]),
+		HeaderStatic:   stringFromAny(mapFromAny(obj["image"])["url"]),
+		FollowersCount: 0,
+		FollowingCount: 0,
+		StatusesCount:  0,
 		LastStatusAt:   time.Now(),
-		PublicKey:      []byte(obj["publicKey"].(map[string]interface{})["publicKeyPem"].(string)),
+
+		PublicKey: []byte(stringFromAny(mapFromAny(obj["publicKey"])["publicKeyPem"])),
 	}
 	if err := a.db.Create(&account).Error; err != nil {
 		return nil, err
@@ -138,4 +143,19 @@ func splitAcct(acct string) (string, string, error) {
 		return "", "", fmt.Errorf("splitAcct: %w", err)
 	}
 	return path.Base(url.Path), url.Host, nil
+}
+
+func boolFromAny(v any) bool {
+	b, _ := v.(bool)
+	return b
+}
+
+func stringFromAny(v any) string {
+	s, _ := v.(string)
+	return s
+}
+
+func mapFromAny(v any) map[string]any {
+	m, _ := v.(map[string]any)
+	return m
 }
