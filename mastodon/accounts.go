@@ -24,7 +24,6 @@ type Account struct {
 	Locked         bool
 	Bot            bool
 	Note           string
-	URL            string `gorm:"uniqueIndex:idx_url"`
 	Avatar         string
 	AvatarStatic   string
 	Header         string
@@ -59,7 +58,7 @@ func (a *Account) serialize() map[string]any {
 		"bot":             a.Bot,
 		"created_at":      a.CreatedAt.Format("2006-01-02T15:04:05.006Z"),
 		"note":            a.Note,
-		"url":             a.URL,
+		"url":             fmt.Sprintf("https://%s/@%s", a.Domain, a.Username),
 		"avatar":          a.Avatar,
 		"avatar_static":   a.Avatar,
 		"header":          a.Header,
@@ -119,7 +118,6 @@ func (a *Accounts) FindOrCreateAccount(uri string) (*Account, error) {
 		Locked:         boolFromAny(obj["manuallyApprovesFollowers"]),
 		Bot:            stringFromAny(obj["type"]) == "Service",
 		Note:           stringFromAny(obj["summary"]),
-		URL:            stringFromAny(obj["id"]),
 		Avatar:         stringFromAny(mapFromAny(obj["icon"])["url"]),
 		AvatarStatic:   stringFromAny(mapFromAny(obj["icon"])["url"]),
 		Header:         stringFromAny(mapFromAny(obj["image"])["url"]),

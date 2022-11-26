@@ -142,7 +142,8 @@ func (u *Users) InboxCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	account, err := u.accounts().FindOrCreateAccount(body["id"].(string))
+	actor := stringFromAny(body["actor"])
+	account, err := u.accounts().FindOrCreateAccount(actor)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -162,4 +163,9 @@ func (u *Users) InboxCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusAccepted)
+}
+
+func stringFromAny(v any) string {
+	s, _ := v.(string)
+	return s
 }
