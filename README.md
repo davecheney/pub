@@ -66,9 +66,15 @@ Start m:
 m --debug --dsn 'm:m@/m' serve
 ```    
 
+### Getting online
+
+m doesn't have a web interface, so you'll need to use a Mastodon app to interact with it.
+You'll need to put m behind a reverse proxy, and configure the reverse proxy to forward requests to m.
+TLS is also required, so you'll need to configure TLS for your reverse proxy, probably using [Let's Encrypt](https://letsencrypt.org/).
 
 ## Acknowledgements 
 
 m would not be possible without these amazing projects
 
-- github.com/alecthomas/kong
+- [Kong](github.com/alecthomas/kong)
+- [Gorm](github.com/jinzhu/gorm)
