@@ -4,6 +4,7 @@ import (
 	"github.com/alecthomas/kong"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -28,7 +29,15 @@ var cli struct {
 func main() {
 	ctx := kong.Parse(&cli)
 	err := ctx.Run(&Context{
-		Debug:     cli.Debug,
+		Debug: cli.Debug,
+		Config: gorm.Config{
+			Logger: logger.Default.LogMode(func() logger.LogLevel {
+				if cli.Debug {
+					return logger.Info
+				}
+				return logger.Warn
+			}()),
+		},
 		Dialector: mysql.Open(cli.DSN + "?charset=utf8mb4&parseTime=True&loc=Local"),
 	})
 	ctx.FatalIfErrorf(err)

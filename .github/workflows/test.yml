@@ -1,0 +1,25 @@
+name: Test
+on:
+  push:
+    branches: [main]
+  pull_request: {}
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '~1.19.2' # The Go version to download (if necessary) and use.
+      - uses: ankane/setup-mariadb@v1
+        with:
+          database: test
+      - name: install
+        run: go install -v ./...
+      - name: Init database
+        run: |
+          m --debug --dsn runner@/test auto-migrate 
+        
