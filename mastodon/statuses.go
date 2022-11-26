@@ -1,12 +1,15 @@
 package mastodon
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/carlmjohnson/requests"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 )
@@ -22,6 +25,7 @@ type Status struct {
 	Visibility         string
 	Language           string
 	URI                string `gorm:"uniqueIndex"`
+	URL                string
 	RepliesCount       int
 	ReblogsCount       int
 	FavouritesCount    int
@@ -38,8 +42,8 @@ func (s *Status) serialize() map[string]any {
 		"spoiler_text":           s.SpoilerText,
 		"visibility":             s.Visibility,
 		"language":               s.Language,
-		"uri":                    fmt.Sprintf("https://cheney.net/users/%s/statuses/%d", s.Account.Username, s.ID),
-		"url":                    fmt.Sprintf("https://cheney.net/@%s/%d", s.Account.Username, s.ID),
+		"uri":                    s.URI,
+		"url":                    s.URL,
 		"replies_count":          s.RepliesCount,
 		"reblogs_count":          s.ReblogsCount,
 		"favourites_count":       s.FavouritesCount,
@@ -66,6 +70,10 @@ type Statuses struct {
 
 func NewStatuses(db *gorm.DB) *Statuses {
 	return &Statuses{db: db}
+}
+
+func (s *Statuses) accounts() *Accounts {
+	return NewAccounts(s.db)
 }
 
 func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
@@ -111,4 +119,81 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.MarshalFull(w, status.serialize())
+}
+
+func (s *Statuses) FindOrCreateStatus(uri string) (*Status, error) {
+	var status Status
+	err := s.db.Preload("Account").Where("uri = ?", uri).First(&status).Error
+	if err == nil {
+		return &status, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	var obj map[string]interface{}
+	if err := requests.URL(uri).Accept(`application/ld+json; profile="https://www.w3.org/ns/activitystreams"`).ToJSON(&obj).Fetch(context.Background()); err != nil {
+		return nil, err
+	}
+	// json.MarshalOptions{}.MarshalFull(json.EncodeOptions{Indent: "  "}, os.Stdout, obj)
+	// fmt.Println()
+
+	if obj["type"] != "Note" {
+		return nil, fmt.Errorf("unsupported type %q", obj["type"])
+	}
+
+	var inReplyTo *Status
+	if inReplyToAtomUri, ok := obj["inReplyToAtomUri"].(string); ok {
+		inReplyTo, err = s.FindOrCreateStatus(inReplyToAtomUri)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	account, err := s.accounts().FindOrCreateAccount(stringFromAny(obj["attributedTo"]))
+	if err != nil {
+		return nil, err
+	}
+	status = Status{
+		Model: gorm.Model{
+			CreatedAt: timeFromAny(obj["published"]),
+		},
+		Account:   account,
+		AccountID: account.ID,
+		InReplyToID: func() *uint {
+			if inReplyTo != nil {
+				return &inReplyTo.ID
+			}
+			return nil
+		}(),
+		InReplyToAccountID: func() *uint {
+			if inReplyTo != nil {
+				return &inReplyTo.AccountID
+			}
+			return nil
+		}(),
+		Sensitive:   boolFromAny(obj["sensitive"]),
+		SpoilerText: stringFromAny(obj["summary"]),
+		Visibility:  "public",
+		Language:    stringFromAny(obj["language"]),
+		URI:         stringFromAny(obj["atomUri"]),
+		URL:         stringFromAny(obj["url"]),
+
+		Content: stringFromAny(obj["content"]),
+	}
+	if err := s.db.Create(&status).Error; err != nil {
+		return nil, err
+	}
+	return &status, nil
+}
+
+func timeFromAny(v any) time.Time {
+	switch v := v.(type) {
+	case string:
+		t, _ := time.Parse(time.RFC3339, v)
+		return t
+	case time.Time:
+		return v
+	default:
+		return time.Time{}
+	}
 }

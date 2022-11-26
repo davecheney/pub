@@ -1,7 +1,6 @@
 package mastodon
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -41,11 +40,18 @@ func (a *Applications) New(w http.ResponseWriter, r *http.Request) {
 		RedirectURIs string  `json:"redirect_uris"`
 		Scopes       string  `json:"scopes"`
 	}
-	if err := json.UnmarshalFull(r.Body, &params); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	switch r.Header.Get("Content-Type") {
+	case "application/json":
+		if err := json.UnmarshalFull(r.Body, &params); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	default:
+		params.ClientName = r.FormValue("client_name")
+		params.Website = ptr(r.FormValue("website"))
+		params.RedirectURIs = r.FormValue("redirect_uris")
+		params.Scopes = r.FormValue("scopes")
 	}
-	fmt.Println("/api/v1/apps: params:", params)
 
 	app := &Application{
 		Instance:     a.instance,
@@ -70,4 +76,8 @@ func (a *Applications) New(w http.ResponseWriter, r *http.Request) {
 		"client_secret": app.ClientSecret,
 		"vapid_key":     app.VapidKey,
 	})
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

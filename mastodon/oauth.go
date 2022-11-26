@@ -116,10 +116,18 @@ func (o *OAuth) Token(w http.ResponseWriter, r *http.Request) {
 		Code         string `json:"code"`
 		RedirectURI  string `json:"redirect_uri"`
 	}
-
-	if err := json.UnmarshalFull(r.Body, &params); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	switch r.Header.Get("Content-Type") {
+	case "application/json":
+		if err := json.UnmarshalFull(r.Body, &params); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	default:
+		params.ClientID = r.FormValue("client_id")
+		params.ClientSecret = r.FormValue("client_secret")
+		params.GrantType = r.FormValue("grant_type")
+		params.Code = r.FormValue("code")
+		params.RedirectURI = r.FormValue("redirect_uri")
 	}
 	var token Token
 	if err := o.db.Where("authorization_code = ?", params.Code).First(&token).Error; err != nil {
