@@ -52,7 +52,9 @@ func (a *Account) BeforeCreate(tx *gorm.DB) error {
 		return err
 	}
 	instance = Instance{
-		Domain: a.Domain,
+		Domain:  a.Domain,
+		AdminID: nil,
+		Admin:   nil,
 	}
 	return tx.Create(&instance).Error
 }

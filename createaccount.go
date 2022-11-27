@@ -60,7 +60,7 @@ func (c *CreateAccountCmd) Run(ctx *Context) error {
 		if err := db.Where("domain = ?", account.Domain).First(&instance).Error; err != nil {
 			return err
 		}
-		instance.AdminAccountID = &account.ID
+		instance.AdminID = &account.ID
 		return db.Save(&instance).Error
 	}
 	return nil

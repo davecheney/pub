@@ -1,7 +1,6 @@
 package mastodon
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 
@@ -11,17 +10,16 @@ import (
 
 type Instance struct {
 	gorm.Model
-	Domain           string   `gorm:"uniqueIndex;size:64"`
-	AdminAccountID   *uint    `gorm:"index"`
-	Admin            *Account `gorm:"-"`
+	Domain           string `gorm:"uniqueIndex;size:64"`
+	AdminID          *uint
+	Admin            *Account
 	SourceURL        string
 	Title            string `gorm:"size:64"`
 	ShortDescription string
 	Description      string
 	Thumbnail        string `gorm:"size:64"`
 
-	Rules    []InstanceRule `gorm:"foreignKey:InstanceID"`
-	Accounts []Account      `gorm:"foreignKey:Domain;references:Domain"`
+	Rules []InstanceRule `gorm:"foreignKey:InstanceID"`
 }
 
 func (i *Instance) serialiseRules() []map[string]any {
@@ -210,16 +208,9 @@ func NewInstances(db *gorm.DB, domain string) *Instances {
 
 func (i *Instances) IndexV1(w http.ResponseWriter, r *http.Request) {
 	var instance Instance
-	if err := i.db.Where("domain = ?", i.domain).First(&instance).Error; err != nil {
+	if err := i.db.Preload("Admin").Where("domain = ?", i.domain).First(&instance).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
-	}
-	err := i.db.Where("id = ?", instance.AdminAccountID).First(&instance.Admin).Error
-	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -228,17 +219,11 @@ func (i *Instances) IndexV1(w http.ResponseWriter, r *http.Request) {
 
 func (i *Instances) IndexV2(w http.ResponseWriter, r *http.Request) {
 	var instance Instance
-	if err := i.db.Where("domain = ?", i.domain).First(&instance).Error; err != nil {
+	if err := i.db.Model(&Instance{}).Preload("Admin").Where("domain = ?", i.domain).First(&instance).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	err := i.db.Where("id = ?", instance.AdminAccountID).First(&instance.Admin).Error
-	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.MarshalFull(w, instance.serializeV2())
 }

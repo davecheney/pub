@@ -39,7 +39,10 @@ func main() {
 				return logger.Warn
 			}()),
 		},
-		Dialector: mysql.Open(cli.DSN + "?charset=utf8mb4&parseTime=True&loc=Local"),
+		Dialector: mysql.New(mysql.Config{
+			DSN:                       cli.DSN + "?charset=utf8mb4&parseTime=True&loc=Local",
+			SkipInitializeWithVersion: false, // auto configure based on currently MySQL version
+		}),
 	})
 	ctx.FatalIfErrorf(err)
 }
