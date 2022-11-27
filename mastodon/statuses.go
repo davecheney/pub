@@ -36,8 +36,8 @@ func (s *Status) serialize() map[string]any {
 	return map[string]any{
 		"id":                     strconv.Itoa(int(s.ID)),
 		"created_at":             s.CreatedAt.UTC().Format("2006-01-02T15:04:05.006Z"),
-		"in_reply_to_id":         s.InReplyToID,
-		"in_reply_to_account_id": s.InReplyToAccountID,
+		"in_reply_to_id":         stringOrNull(s.InReplyToID),
+		"in_reply_to_account_id": stringOrNull(s.InReplyToAccountID),
 		"sensitive":              s.Sensitive,
 		"spoiler_text":           s.SpoilerText,
 		"visibility":             s.Visibility,
@@ -196,4 +196,11 @@ func timeFromAny(v any) time.Time {
 	default:
 		return time.Time{}
 	}
+}
+
+func stringOrNull(v *uint) any {
+	if v == nil {
+		return nil
+	}
+	return strconv.Itoa(int(*v))
 }
