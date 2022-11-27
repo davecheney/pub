@@ -1,9 +1,7 @@
 package mastodon
 
 import (
-	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -72,52 +70,4 @@ func (svc *Service) AccountsStatusesFetch(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("Content-Type", "application/json")
 	json.MarshalFull(w, resp)
-}
-
-func (svc *Service) WellknownWebfinger(w http.ResponseWriter, r *http.Request) {
-	resource := r.URL.Query().Get("resource")
-	u, err := url.Parse(resource)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if u.Scheme != "acct" {
-		http.Error(w, "invalid scheme", http.StatusBadRequest)
-		return
-	}
-	parts := strings.Split(u.Opaque, "@")
-	if len(parts) != 2 {
-		http.Error(w, "invalid resource", http.StatusBadRequest)
-		return
-	}
-	username, domain := parts[0], parts[1]
-	var account Account
-	if err := svc.db.Where("username = ? AND domain = ?", username, domain).First(&account).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-
-	webfinger := fmt.Sprintf("https://%s/@%s", account.Domain, account.Username)
-	self := fmt.Sprintf("https://%s/users/%s", account.Domain, account.Username)
-	w.Header().Set("Content-Type", "application/jrd+json")
-	json.MarshalFull(w, map[string]any{
-		"subject": "acct:" + account.Acct(),
-		"aliases": []string{webfinger, self},
-		"links": []map[string]any{
-			{
-				"rel":  "http://webfinger.net/rel/profile-page",
-				"type": "text/html",
-				"href": webfinger,
-			},
-			{
-				"rel":  "self",
-				"type": "application/activity+json",
-				"href": self,
-			},
-			{
-				"rel":      "http://ostatus.org/schema/1.0/subscribe",
-				"template": fmt.Sprintf("https://%s/authorize_interaction?uri={uri}", account.Domain),
-			},
-		},
-	})
 }

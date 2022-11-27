@@ -56,8 +56,10 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	r.HandleFunc("/oauth/token", oauth.Token).Methods("POST")
 	r.HandleFunc("/oauth/revoke", oauth.Revoke).Methods("POST")
 
-	wellknown := r.PathPrefix("/.well-known").Subrouter()
-	wellknown.HandleFunc("/webfinger", m.WellknownWebfinger).Methods("GET")
+	wk := r.PathPrefix("/.well-known").Subrouter()
+	wellknown := mastodon.NewWellKnown(db, &theInstance)
+	wk.HandleFunc("/webfinger", wellknown.Webfinger).Methods("GET")
+	wk.HandleFunc("/host-meta", wellknown.HostMeta).Methods("GET")
 
 	users := activitypub.NewUsers(db, &theInstance)
 	r.HandleFunc("/users/{username}", users.Show).Methods("GET")
