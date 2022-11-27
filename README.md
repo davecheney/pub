@@ -32,7 +32,7 @@ GRANT ALL PRIVILEGES ON m.* TO 'm'@'localhost';
 Install m:
 
 ```bash
-go get github.com/davecheney/m
+go install github.com/davecheney/m@latest
 ```
 Create/migrate the database:
 
