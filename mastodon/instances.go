@@ -49,13 +49,13 @@ func (i *Instance) serializeV1() map[string]any {
 		"description":       i.Description,
 		"email":             i.Admin.Email,
 		"version":           "3.5.3",
-		"urls":              []any{},
+		"urls":              map[string]any{},
 		"stats": map[string]any{
 			"user_count":   0,
 			"status_count": 0,
 			"domain_count": 0,
 		},
-		"thumbnail":         i.Thumbnail,
+		"thumbnail":         stringOrDefault(i.Thumbnail, "https://files.mastodon.social/site_uploads/files/000/000/001/original/vlcsnap-2018-08-27-16h43m11s127.png"),
 		"languages":         []any{"en"},
 		"registrations":     false,
 		"approval_required": false,
@@ -246,4 +246,11 @@ func (i *Instances) IndexV2(w http.ResponseWriter, r *http.Request) {
 func (i *Instances) Peers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.MarshalFull(w, []string{})
+}
+
+func stringOrDefault(s string, def string) string {
+	if s == "" {
+		return def
+	}
+	return s
 }

@@ -36,22 +36,28 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	accounts := mastodon.NewAccounts(db)
 	instance := mastodon.NewInstances(db, theInstance.Domain)
 	apps := mastodon.NewApplications(db, &theInstance)
-	timeline := mastodon.NewTimeline(db)
+	timelines := mastodon.NewTimeslines(db, &theInstance)
+	notifications := mastodon.NewNotifications(db)
+	filters := mastodon.NewFilters(db)
 
 	r := mux.NewRouter()
 
 	v1 := r.PathPrefix("/api/v1").Subrouter()
 	v1.HandleFunc("/apps", apps.New).Methods(http.MethodPost)
 	v1.HandleFunc("/accounts/verify_credentials", accounts.VerifyCredentials).Methods("GET")
+	v1.HandleFunc("/accounts/relationships", accounts.Relationships).Methods("GET")
 	v1.HandleFunc("/accounts/{id}", m.AccountsFetch).Methods("GET")
 	v1.HandleFunc("/accounts/{id}/statuses", m.AccountsStatusesFetch).Methods("GET")
 	v1.HandleFunc("/statuses", statuses.Create).Methods("POST")
 	v1.HandleFunc("/custom_emojis", emojis.Index).Methods("GET")
+	v1.HandleFunc("/notifications", notifications.Index).Methods("GET")
+	v1.HandleFunc("/filters", filters.Index).Methods("GET")
 
 	v1.HandleFunc("/instance", instance.IndexV1).Methods("GET")
 	v1.HandleFunc("/instance/peers", instance.Peers).Methods("GET")
 
-	v1.HandleFunc("/timelines/home", timeline.Index).Methods("GET")
+	v1.HandleFunc("/timelines/home", timelines.Index).Methods("GET")
+	v1.HandleFunc("/timelines/public", timelines.Index).Methods("GET")
 
 	v2 := r.PathPrefix("/api/v2").Subrouter()
 	v2.HandleFunc("/instance", instance.IndexV2).Methods("GET")

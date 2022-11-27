@@ -18,9 +18,11 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 	return db.AutoMigrate(
 		&activitypub.Activity{},
 
-		&mastodon.Application{},
-		&mastodon.Instance{}, &mastodon.InstanceRule{},
 		&mastodon.Account{},
+		&mastodon.Application{},
+		&mastodon.ClientFilter{},
+		&mastodon.Instance{}, &mastodon.InstanceRule{},
+		&mastodon.Notification{},
 		&mastodon.Status{},
 		&mastodon.Token{},
 	)

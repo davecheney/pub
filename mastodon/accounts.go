@@ -76,10 +76,10 @@ func (a *Account) serialize() map[string]any {
 		"created_at":      a.CreatedAt.Format("2006-01-02T15:04:05.006Z"),
 		"note":            a.Note,
 		"url":             fmt.Sprintf("https://%s/@%s", a.Domain, a.Username),
-		"avatar":          a.Avatar,
-		"avatar_static":   a.Avatar,
-		"header":          a.Header,
-		"header_static":   a.Header,
+		"avatar":          stringOrDefault(a.Avatar, fmt.Sprintf("https://%s/avatar.png", a.Domain)),
+		"avatar_static":   stringOrDefault(a.AvatarStatic, fmt.Sprintf("https://%s/avatar.png", a.Domain)),
+		"header":          stringOrDefault(a.Header, fmt.Sprintf("https://%s/header.png", a.Domain)),
+		"header_static":   stringOrDefault(a.HeaderStatic, fmt.Sprintf("https://%s/header.png", a.Domain)),
 		"followers_count": a.FollowersCount,
 		"following_count": a.FollowingCount,
 		"statuses_count":  a.StatusesCount,
@@ -108,6 +108,25 @@ func (a *Accounts) VerifyCredentials(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.MarshalFull(w, token.Account.serialize())
+}
+
+func (a *Accounts) Relationships(w http.ResponseWriter, r *http.Request) {
+	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+
+	var token Token
+	if err := a.db.Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	var account Account
+	id := r.URL.Query().Get("id")
+	if err := a.db.Where("id = ?", id).First(&account).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	// todo
 }
 
 // FindOrCreateAccount finds an account by username and domain, or creates a new

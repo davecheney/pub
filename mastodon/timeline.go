@@ -9,17 +9,19 @@ import (
 	"gorm.io/gorm"
 )
 
-type Timeline struct {
-	db *gorm.DB
+type Timelines struct {
+	db     *gorm.DB
+	domain string
 }
 
-func NewTimeline(db *gorm.DB) *Timeline {
-	return &Timeline{
-		db: db,
+func NewTimeslines(db *gorm.DB, instance *Instance) *Timelines {
+	return &Timelines{
+		db:     db,
+		domain: instance.Domain,
 	}
 }
 
-func (t *Timeline) Index(w http.ResponseWriter, r *http.Request) {
+func (t *Timelines) Index(w http.ResponseWriter, r *http.Request) {
 	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	var token Token
 	if err := t.db.Preload("Account").Where("access_token = ?", accessToken).First(&token).Error; err != nil {
@@ -42,7 +44,35 @@ func (t *Timeline) Index(w http.ResponseWriter, r *http.Request) {
 	json.MarshalFull(w, resp)
 }
 
-func (t *Timeline) paginate(r *http.Request) func(db *gorm.DB) *gorm.DB {
+func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
+	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	var token Token
+	if err := t.db.Preload("Account").Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	var statuses []Status
+	scope := t.db.Scopes(t.paginate(r)).Preload("Account")
+	local := r.URL.Query().Get("local")
+	if local == "1" {
+		scope = scope.Where("domain = ?", t.domain)
+	}
+	if err := scope.Find(&statuses).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var resp []any
+	for _, status := range statuses {
+		resp = append(resp, status.serialize())
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.MarshalFull(w, resp)
+}
+
+func (t *Timelines) paginate(r *http.Request) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		q := r.URL.Query()
 		limit, _ := strconv.Atoi(q.Get("limit"))
