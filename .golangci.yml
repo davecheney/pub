@@ -19,6 +19,7 @@ linters:
     - exhaustruct
     - forbidigo
     - funlen
+    - gci
     - gochecknoglobals
     - gocognit
     - goconst
