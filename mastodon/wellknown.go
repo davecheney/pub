@@ -39,9 +39,8 @@ func (w *WellKnown) Webfinger(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, "invalid resource", http.StatusBadRequest)
 		return
 	}
-	username, domain := parts[0], parts[1]
 	var account Account
-	if err := w.db.Where("username = ? AND domain = ?", username, domain).First(&account).Error; err != nil {
+	if err := w.db.Where("username = ? AND domain = ?", parts[0], w.instance.Domain).First(&account).Error; err != nil {
 		http.Error(rw, err.Error(), http.StatusNotFound)
 		return
 	}

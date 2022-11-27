@@ -20,12 +20,11 @@ var cli struct {
 	Debug bool   `help:"Enable debug mode."`
 	DSN   string `required:"" help:"data source name"`
 
-	AutoMigrate    AutoMigrateCmd    `cmd:"" help:"Automigrate the database."`
-	CreateAccount  CreateAccountCmd  `cmd:"" help:"Create a new account."`
-	CreateInstance CreateInstanceCmd `cmd:"" help:"Create an instance."`
-	Serve          ServeCmd          `cmd:"" help:"Serve a local web server."`
-	Inbox          IndexCmd          `cmd:"" help:"Process the inbox."`
-	Follow         FollowCmd         `cmd:"" help:"Follow an object."`
+	AutoMigrate   AutoMigrateCmd   `cmd:"" help:"Automigrate the database."`
+	CreateAccount CreateAccountCmd `cmd:"" help:"Create a new account."`
+	Serve         ServeCmd         `cmd:"" help:"Serve a local web server."`
+	Inbox         IndexCmd         `cmd:"" help:"Process the inbox."`
+	Follow        FollowCmd        `cmd:"" help:"Follow an object."`
 }
 
 func main() {

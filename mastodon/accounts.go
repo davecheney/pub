@@ -18,9 +18,10 @@ import (
 
 type Account struct {
 	gorm.Model
-	Username       string `gorm:"uniqueIndex:idx_usernamedomain"`
-	Domain         string `gorm:"uniqueIndex:idx_usernamedomain"`
-	DisplayName    string
+	Username       string `gorm:"uniqueIndex:idx_usernamedomain;size:64"`
+	Domain         string `gorm:"uniqueIndex:idx_usernamedomain;size:64"`
+	DisplayName    string `gorm:"size:64"`
+	Email          string `gorm:"size:64"`
 	Locked         bool
 	Bot            bool
 	Note           string
@@ -38,6 +39,22 @@ type Account struct {
 	PrivateKey        []byte // only used for local accounts
 
 	Statuses []Status
+}
+
+// Ensure there is an instance when creating an account
+func (a *Account) BeforeCreate(tx *gorm.DB) error {
+	var instance Instance
+	err := tx.Where("domain = ?", a.Domain).First(&instance).Error
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	instance = Instance{
+		Domain: a.Domain,
+	}
+	return tx.Create(&instance).Error
 }
 
 func (a *Account) Acct() string {

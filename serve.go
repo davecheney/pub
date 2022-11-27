@@ -13,7 +13,8 @@ import (
 )
 
 type ServeCmd struct {
-	Addr string `help:"address to listen"`
+	Addr   string `help:"address to listen"`
+	Domain string `required:"" help:"domain name of the instance"`
 }
 
 func (s *ServeCmd) Run(ctx *Context) error {
@@ -24,7 +25,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 
 	// the instance this service represents
 	var theInstance mastodon.Instance
-	if err := db.First(&theInstance).Error; err != nil {
+	if err := db.Where("domain = ?", s.Domain).First(&theInstance).Error; err != nil {
 		return err
 	}
 
@@ -33,7 +34,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	statuses := mastodon.NewStatuses(db)
 	oauth := mastodon.NewOAuth(db, &theInstance)
 	accounts := mastodon.NewAccounts(db)
-	instance := mastodon.NewInstance(db)
+	instance := mastodon.NewInstances(db, theInstance.Domain)
 	apps := mastodon.NewApplications(db, &theInstance)
 	timeline := mastodon.NewTimeline(db)
 
@@ -47,10 +48,13 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	v1.HandleFunc("/statuses", statuses.Create).Methods("POST")
 	v1.HandleFunc("/custom_emojis", emojis.Index).Methods("GET")
 
-	v1.HandleFunc("/instance", instance.Index).Methods("GET")
+	v1.HandleFunc("/instance", instance.IndexV1).Methods("GET")
 	v1.HandleFunc("/instance/peers", instance.Peers).Methods("GET")
 
 	v1.HandleFunc("/timelines/home", timeline.Index).Methods("GET")
+
+	v2 := r.PathPrefix("/api/v2").Subrouter()
+	v2.HandleFunc("/instance", instance.IndexV2).Methods("GET")
 
 	r.HandleFunc("/oauth/authorize", oauth.Authorize).Methods("GET", "POST")
 	r.HandleFunc("/oauth/token", oauth.Token).Methods("POST")

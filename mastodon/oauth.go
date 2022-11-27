@@ -56,7 +56,7 @@ func (o *OAuth) authorizeGet(w http.ResponseWriter, r *http.Request) {
 		</head>
 		<body>
 		<form method="POST" action="/oauth/authorize">
-		<p><label>Username</label><input type="text" name="username"></p>
+		<p><label>Email</label><input type="text" name="email"></p>
 		<p><label>Password</label><input type="password" name="password"></p>
 		<input type="hidden" name="client_id" value="`+clientID+`">
 		<input type="hidden" name="redirect_uri" value="`+redirectURI+`">
@@ -69,7 +69,7 @@ func (o *OAuth) authorizeGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
-	username := r.FormValue("username")
+	email := r.FormValue("email")
 	password := r.PostFormValue("password")
 	redirectURI := r.PostFormValue("redirect_uri")
 	clientID := r.PostFormValue("client_id")
@@ -81,7 +81,7 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var account Account
-	if err := o.db.Where("username = ?", username).First(&account).Error; err != nil {
+	if err := o.db.Where("email = ?", email).First(&account).Error; err != nil {
 		http.Error(w, "invalid username", http.StatusUnauthorized)
 		return
 	}

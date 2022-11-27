@@ -42,18 +42,10 @@ m --debug --dsn 'm:m@/m' auto-migrate
 
 ### Setup
 
-Create an instance that represents your server:
-
-```bash
-m --debug --dsn 'm:m@/m' create-instance --domain example.com
-```
-
-Choose wisely, this is permanent.
-
 Create an account for yourself:
 
 ```bash
-m --debug --dsn 'm:m@/m' create-account --username you --domain example.com --password 🤫
+m --debug --dsn 'm:m@/m' create-account --email you@domain.com --password 🤫 --admin
 ```
 
 This account will be known as `@you@domain.com` in the Fediverse.
@@ -63,7 +55,7 @@ This account will be known as `@you@domain.com` in the Fediverse.
 Start m:
 
 ```bash
-m --debug --dsn 'm:m@/m' serve
+m --debug --dsn 'm:m@/m' serve --domain domain.com
 ```    
 
 ### Getting online

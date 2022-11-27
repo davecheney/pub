@@ -1,7 +1,9 @@
 package mastodon
 
 import (
+	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
@@ -9,63 +11,236 @@ import (
 
 type Instance struct {
 	gorm.Model
-	Domain string `gorm:"uniqueIndex"`
+	Domain           string   `gorm:"uniqueIndex;size:64"`
+	AdminAccountID   *uint    `gorm:"index"`
+	Admin            *Account `gorm:"-"`
+	SourceURL        string
+	Title            string `gorm:"size:64"`
+	ShortDescription string
+	Description      string
+	Thumbnail        string `gorm:"size:64"`
+
+	Rules    []InstanceRule `gorm:"foreignKey:InstanceID"`
+	Accounts []Account      `gorm:"foreignKey:Domain;references:Domain"`
 }
 
-type instance struct {
-	// The domain name of the instance.
-	URI string `json:"uri"`
-	// The title of the website.
-	Title string `json:"title"`
-	// Admin-defined description of the Mastodon site.
-	Description string `json:"description,omitempty"`
-	// A shorter description defined by the admin.
-	ShortDescription string `json:"short_description,omitempty"`
-	// An email that may be contacted for any inquiries.
-	Email string `json:"email"`
-	//  The version of Mastodon installed on the instance.
-	Version string `json:"version"`
-	// Primary languages of the website and its staff.
-	Languages []string `json:"languages"`
-	// Whether registrations are enabled.
-	Registrations bool `json:"registrations"`
-	// Whether registrations require moderator approval.
-	ApprovalRequired bool `json:"approval_required"`
-	// Whether invites are enabled.
-	InvitesEnabled bool `json:"invites_enabled"`
-	// URLs of interest for clients apps.
-	URLs map[string]any `json:"urls"`
-	// Statistics about how much information the instance contains.
-	Stats struct {
-		// The number of users on the instance.
-		UserCount int `json:"user_count"`
-		// The number of statuses on the instance.
-		StatusCount int `json:"status_count"`
-		// The number of domains federated with the instance.
-		DomainCount int `json:"domain_count"`
-	} `json:"stats"`
+func (i *Instance) serialiseRules() []map[string]any {
+	rules := make([]map[string]any, len(i.Rules))
+	for i, rule := range i.Rules {
+		rules[i] = map[string]any{
+			"id":   strconv.Itoa(int(rule.ID)),
+			"text": rule.Text,
+		}
+	}
+	return rules
 }
 
-type Instances struct {
-	db *gorm.DB
+type InstanceRule struct {
+	gorm.Model
+	InstanceID uint
+	Text       string
 }
 
-func NewInstance(db *gorm.DB) *Instances {
-	return &Instances{
-		db: db,
+func (i *Instance) serializeV1() map[string]any {
+	return map[string]any{
+		"uri":               i.Domain,
+		"title":             i.Title,
+		"short_description": i.ShortDescription,
+		"description":       i.Description,
+		"email":             i.Admin.Email,
+		"version":           "3.5.3",
+		"urls":              []any{},
+		"stats": map[string]any{
+			"user_count":   0,
+			"status_count": 0,
+			"domain_count": 0,
+		},
+		"thumbnail":         i.Thumbnail,
+		"languages":         []any{"en"},
+		"registrations":     false,
+		"approval_required": false,
+		"invites_enabled":   true,
+		"configuration": map[string]any{
+			"statuses": map[string]any{
+				"max_characters":              500,
+				"max_media_attachments":       4,
+				"characters_reserved_per_url": 23,
+			},
+			"media_attachments": map[string]any{
+				"supported_mime_types": []string{
+					"image/jpeg",
+					"image/png",
+					"image/gif",
+					"image/webp",
+					"video/webm",
+					"video/mp4",
+					"video/quicktime",
+					"video/ogg",
+					"audio/wave",
+					"audio/wav",
+					"audio/x-wav",
+					"audio/x-pn-wave",
+					"audio/vnd.wave",
+					"audio/ogg",
+					"audio/vorbis",
+					"audio/mpeg",
+					"audio/mp3",
+					"audio/webm",
+					"audio/flac",
+					"audio/aac",
+					"audio/m4a",
+					"audio/x-m4a",
+					"audio/mp4",
+					"audio/3gpp",
+					"video/x-ms-asf",
+				},
+				"image_size_limit":       10485760,
+				"image_matrix_limit":     16777216,
+				"video_size_limit":       41943040,
+				"video_frame_rate_limit": 60,
+				"video_matrix_limit":     2304000,
+			},
+			"polls": map[string]any{
+				"max_options":               4,
+				"max_characters_per_option": 50,
+				"min_expiration":            300,
+				"max_expiration":            2629746,
+			},
+		},
+		"contact_account": i.Admin.serialize(),
+		"rules":           i.serialiseRules(),
 	}
 }
 
-func (i *Instances) Index(w http.ResponseWriter, r *http.Request) {
+func (i *Instance) serializeV2() map[string]any {
+	return map[string]any{
+		"domain":      i.Domain,
+		"title":       i.Title,
+		"version":     "4.0.0rc1",
+		"source_url":  i.SourceURL,
+		"description": i.Description,
+		"usage": map[string]any{
+			"users": map[string]any{
+				"active_month": 0,
+			},
+		},
+		"thumbnail": map[string]any{},
+		"languages": []any{"en"},
+		"configuration": map[string]any{
+			"urls": map[string]any{
+				"accounts": map[string]any{
+					"max_featured_tags": 10,
+				},
+				"statuses": map[string]any{
+					"max_characters":              500,
+					"max_media_attachments":       4,
+					"characters_reserved_per_url": 23,
+				},
+				"media_attachments": map[string]any{
+					"supported_mime_types": []string{
+						"image/jpeg",
+						"image/png",
+						"image/gif",
+						"image/heic",
+						"image/heif",
+						"image/webp",
+						"video/webm",
+						"video/mp4",
+						"video/quicktime",
+						"video/ogg",
+						"audio/wave",
+						"audio/wav",
+						"audio/x-wav",
+						"audio/x-pn-wave",
+						"audio/vnd.wave",
+						"audio/ogg",
+						"audio/vorbis",
+						"audio/mpeg",
+						"audio/mp3",
+						"audio/webm",
+						"audio/flac",
+						"audio/aac",
+						"audio/m4a",
+						"audio/x-m4a",
+						"audio/mp4",
+						"audio/3gpp",
+						"video/x-ms-asf",
+					},
+					"image_size_limit":       10485760,
+					"image_matrix_limit":     16777216,
+					"video_size_limit":       41943040,
+					"video_frame_rate_limit": 60,
+					"video_matrix_limit":     2304000,
+				},
+				"polls": map[string]any{
+					"max_options":               4,
+					"max_characters_per_option": 50,
+					"min_expiration":            300,
+					"max_expiration":            2629746,
+				},
+				"translation": map[string]any{
+					"enabled": false,
+				},
+			},
+			"registrations": map[string]any{
+				"enabled":           false,
+				"approval_required": false,
+				"message":           nil,
+			},
+			"contact": map[string]any{
+				"email":   i.Admin.Email,
+				"account": i.Admin.serialize(),
+			},
+			"rules": i.serialiseRules(),
+		},
+	}
+}
+
+type Instances struct {
+	db     *gorm.DB
+	domain string
+}
+
+func NewInstances(db *gorm.DB, domain string) *Instances {
+	return &Instances{
+		db:     db,
+		domain: domain,
+	}
+}
+
+func (i *Instances) IndexV1(w http.ResponseWriter, r *http.Request) {
+	var instance Instance
+	if err := i.db.Where("domain = ?", i.domain).First(&instance).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	err := i.db.Where("id = ?", instance.AdminAccountID).First(&instance.Admin).Error
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, &instance{
-		URI:              "https://cheney.net/",
-		Title:            "Casa del Cheese",
-		ShortDescription: "🧀",
-		Email:            "dave@cheney.net",
-		Version:          "0.1.2",
-		Languages:        []string{"en"},
-	})
+	json.MarshalFull(w, instance.serializeV1())
+}
+
+func (i *Instances) IndexV2(w http.ResponseWriter, r *http.Request) {
+	var instance Instance
+	if err := i.db.Where("domain = ?", i.domain).First(&instance).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	err := i.db.Where("id = ?", instance.AdminAccountID).First(&instance.Admin).Error
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.MarshalFull(w, instance.serializeV2())
 }
 
 func (i *Instances) Peers(w http.ResponseWriter, r *http.Request) {
