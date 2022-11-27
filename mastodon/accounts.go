@@ -41,6 +41,20 @@ type Account struct {
 	Statuses []Status
 }
 
+func (a *Account) AfterCreate(tx *gorm.DB) error {
+	// update count of accounts on instance
+	var instance Instance
+	if err := tx.Where("domain = ?", a.Domain).First(&instance).Error; err != nil {
+		return err
+	}
+	var count int64
+	if err := tx.Model(&Account{}).Where("domain = ?", a.Domain).Count(&count).Error; err != nil {
+		return err
+	}
+	instance.AccountsCount = int(count)
+	return tx.Save(&instance).Error
+}
+
 func (a *Account) Acct() string {
 	return a.Username + "@" + a.Domain
 }

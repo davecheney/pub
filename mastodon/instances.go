@@ -18,6 +18,7 @@ type Instance struct {
 	ShortDescription string
 	Description      string
 	Thumbnail        string `gorm:"size:64"`
+	AccountsCount    int    `gorm:"default:0;not null"`
 
 	Rules    []InstanceRule `gorm:"foreignKey:InstanceID"`
 	Accounts []Account      `gorm:"foreignKey:Domain;references:Domain"`
