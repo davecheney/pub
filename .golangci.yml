@@ -1,6 +1,4 @@
 run:
-  skip-dirs:
-    - appinsights
   go: '1.19'
 
 linters:
@@ -61,7 +59,7 @@ linters:
 
 linters-settings:
   gofumpt:
-    module-path: github.com/github/copilot-proxy
+    module-path: github.com/davecheney/m
   gosec:
     excludes:
     - G112 # Potential slowloris attack

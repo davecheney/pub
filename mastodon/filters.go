@@ -19,7 +19,7 @@ type ClientFilter struct {
 	WholeWord    bool
 	Context      []string `gorm:"serializer:json"`
 	ExpiresAt    time.Time
-	Irriversible bool
+	Irreversible bool
 }
 
 func (c *ClientFilter) serialize() map[string]any {

@@ -32,12 +32,12 @@ func (i *IndexCmd) Run(ctx *Context) error {
 		statuses: mastodon.NewStatuses(db),
 	}
 
-	for _, activity := range activities {
-		if err := ip.Process(&activity); err != nil {
+	for i := range activities {
+		if err := ip.Process(&activities[i]); err != nil {
 			fmt.Println(err)
 			continue
 		}
-		if err := db.Delete(&activity).Error; err != nil {
+		if err := db.Delete(&activities[i]).Error; err != nil {
 			return err
 		}
 	}
