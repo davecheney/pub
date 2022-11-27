@@ -23,6 +23,10 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		return err
 	}
 
+	if err := configureDB(db); err != nil {
+		return err
+	}
+
 	// the instance this service represents
 	var theInstance mastodon.Instance
 	if err := db.Where("domain = ?", s.Domain).First(&theInstance).Error; err != nil {
@@ -91,4 +95,22 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		ReadTimeout:  15 * time.Second,
 	}
 	return svr.ListenAndServe()
+}
+
+func configureDB(db *gorm.DB) error {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return err
+	}
+
+	// SetMaxIdleConns sets the maximum number of connections in the idle connection pool.
+	sqlDB.SetMaxIdleConns(10)
+
+	// SetMaxOpenConns sets the maximum number of open connections to the database.
+	sqlDB.SetMaxOpenConns(100)
+
+	// SetConnMaxLifetime sets the maximum amount of time a connection may be reused.
+	sqlDB.SetConnMaxLifetime(time.Hour)
+
+	return nil
 }

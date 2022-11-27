@@ -19,7 +19,8 @@ type Instance struct {
 	Description      string
 	Thumbnail        string `gorm:"size:64"`
 
-	Rules []InstanceRule `gorm:"foreignKey:InstanceID"`
+	Rules    []InstanceRule `gorm:"foreignKey:InstanceID"`
+	Accounts []Account      `gorm:"foreignKey:Domain;references:Domain"`
 }
 
 func (i *Instance) serialiseRules() []map[string]any {
@@ -208,7 +209,11 @@ func NewInstances(db *gorm.DB, domain string) *Instances {
 
 func (i *Instances) IndexV1(w http.ResponseWriter, r *http.Request) {
 	var instance Instance
-	if err := i.db.Preload("Admin").Where("domain = ?", i.domain).First(&instance).Error; err != nil {
+	if err := i.db.Where("domain = ?", i.domain).First(&instance).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	if err := i.db.Where("id = ?", instance.AdminID).First(&instance.Admin).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -223,6 +228,10 @@ func (i *Instances) IndexV2(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
+	if err := i.db.Where("id = ?", instance.AdminID).First(&instance.Admin).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.MarshalFull(w, instance.serializeV2())
@@ -231,6 +240,23 @@ func (i *Instances) IndexV2(w http.ResponseWriter, r *http.Request) {
 func (i *Instances) Peers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.MarshalFull(w, []string{})
+}
+
+func (i *Instances) FindOrCreateInstance(domain string) (*Instance, error) {
+	var instance Instance
+	if err := i.db.Where("domain = ?", domain).First(&instance).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			instance = Instance{
+				Domain: domain,
+			}
+			if err := i.db.Create(&instance).Error; err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
+	}
+	return &instance, nil
 }
 
 func stringOrDefault(s string, def string) string {

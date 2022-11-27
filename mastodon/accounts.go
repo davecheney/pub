@@ -41,24 +41,6 @@ type Account struct {
 	Statuses []Status
 }
 
-// Ensure there is an instance when creating an account
-func (a *Account) BeforeCreate(tx *gorm.DB) error {
-	var instance Instance
-	err := tx.Where("domain = ?", a.Domain).First(&instance).Error
-	if err == nil {
-		return nil
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return err
-	}
-	instance = Instance{
-		Domain:  a.Domain,
-		AdminID: nil,
-		Admin:   nil,
-	}
-	return tx.Create(&instance).Error
-}
-
 func (a *Account) Acct() string {
 	return a.Username + "@" + a.Domain
 }
@@ -69,8 +51,9 @@ func (a *Account) PublicKeyID() string {
 
 func (a *Account) serialize() map[string]any {
 	return map[string]any{
-		"id":              strconv.Itoa(int(a.ID)),
-		"username":        a.Username,
+		"id":       strconv.Itoa(int(a.ID)),
+		"username": a.Username,
+
 		"acct":            a.Acct(),
 		"display_name":    a.DisplayName,
 		"locked":          a.Locked,
@@ -97,6 +80,10 @@ type Accounts struct {
 
 func NewAccounts(db *gorm.DB) *Accounts {
 	return &Accounts{db: db}
+}
+
+func (a *Accounts) instances() *Instances {
+	return NewInstances(a.db, "")
 }
 
 func (a *Accounts) VerifyCredentials(w http.ResponseWriter, r *http.Request) {
@@ -135,8 +122,13 @@ func (a *Accounts) Relationships(w http.ResponseWriter, r *http.Request) {
 // one if it doesn't exist.
 func (a *Accounts) FindOrCreateAccount(uri string) (*Account, error) {
 	username, domain, err := splitAcct(uri)
+	instance, err := a.instances().FindOrCreateInstance(domain)
+	if err != nil {
+		return nil, err
+	}
+
 	var account Account
-	err = a.db.Where("username = ? AND domain = ?", username, domain).First(&account).Error
+	err = a.db.Where("username = ? AND domain = ?", username, instance.Domain).First(&account).Error
 	if err == nil {
 		// found cached key
 		return &account, nil
