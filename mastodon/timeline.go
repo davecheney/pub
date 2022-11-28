@@ -1,6 +1,7 @@
 package mastodon
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -10,14 +11,14 @@ import (
 )
 
 type Timelines struct {
-	db     *gorm.DB
-	domain string
+	db       *gorm.DB
+	instance *Instance
 }
 
 func NewTimeslines(db *gorm.DB, instance *Instance) *Timelines {
 	return &Timelines{
-		db:     db,
-		domain: instance.Domain,
+		db:       db,
+		instance: instance,
 	}
 }
 
@@ -30,17 +31,21 @@ func (t *Timelines) Index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var statuses []Status
-	if err := t.db.Scopes(t.paginate(r)).Preload("Account").Find(&statuses).Error; err != nil {
+	scope := t.db.Scopes(t.paginate(r)).Joins("Account")
+	if err := scope.Order("statuses.id desc").Find(&statuses).Error; err != nil {
+		fmt.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 	var resp []any
 	for _, status := range statuses {
 		resp = append(resp, status.serialize())
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	if len(statuses) > 0 {
+		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/home?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/home?min_id=%d>; rel=\"prev\"", t.instance.Domain, statuses[len(statuses)-1].ID, t.instance.Domain, statuses[0].ID))
+	}
 	json.MarshalFull(w, resp)
 }
 
@@ -54,27 +59,34 @@ func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
 
 	var statuses []Status
 	scope := t.db.Scopes(t.paginate(r)).Preload("Account")
-	local := r.URL.Query().Get("local")
-	if local == "1" {
-		scope = scope.Where("domain = ?", t.domain)
+	switch r.URL.Query().Get("local") {
+	case "":
+		scope = scope.Joins("Account")
+	default:
+		scope = scope.Joins("Account").Where("Account.instance_id = ?", t.instance.ID)
 	}
-	if err := scope.Find(&statuses).Error; err != nil {
+
+	if err := scope.Order("statuses.id desc").Find(&statuses).Error; err != nil {
+		fmt.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 	var resp []any
 	for _, status := range statuses {
 		resp = append(resp, status.serialize())
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	if len(statuses) > 0 {
+		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/public?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/public?min_id=%d>; rel=\"prev\"", t.instance.Domain, statuses[len(statuses)-1].ID, t.instance.Domain, statuses[0].ID))
+	}
 	json.MarshalFull(w, resp)
 }
 
 func (t *Timelines) paginate(r *http.Request) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		q := r.URL.Query()
+
 		limit, _ := strconv.Atoi(q.Get("limit"))
 		switch {
 		case limit > 40:
@@ -82,6 +94,20 @@ func (t *Timelines) paginate(r *http.Request) func(db *gorm.DB) *gorm.DB {
 		case limit <= 0:
 			limit = 20
 		}
-		return db.Limit(limit).Order("id desc")
+		db = db.Limit(limit)
+
+		sinceID, _ := strconv.Atoi(r.URL.Query().Get("since_id"))
+		if sinceID > 0 {
+			db = db.Where("statuses.id > ?", sinceID)
+		}
+		minID, _ := strconv.Atoi(r.URL.Query().Get("min_id"))
+		if minID > 0 {
+			db = db.Where("statuses.id > ?", minID)
+		}
+		maxID, _ := strconv.Atoi(r.URL.Query().Get("max_id"))
+		if maxID > 0 {
+			db = db.Where("statuses.id < ?", maxID)
+		}
+		return db
 	}
 }

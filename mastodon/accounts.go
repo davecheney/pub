@@ -46,21 +46,6 @@ type Account struct {
 	Statuses []Status
 }
 
-type AccountList struct {
-	gorm.Model
-	AccountID     uint
-	Title         string `gorm:"size:64"`
-	RepliesPolicy string `gorm:"size:64"`
-}
-
-func (a *AccountList) serialize() map[string]any {
-	return map[string]any{
-		"id":             strconv.Itoa(int(a.ID)),
-		"title":          a.Title,
-		"replies_policy": a.RepliesPolicy,
-	}
-}
-
 func (a *Account) AfterCreate(tx *gorm.DB) error {
 	// update count of accounts on instance
 	var instance Instance
@@ -85,22 +70,27 @@ func (a *Account) Acct() string {
 	return a.Username + "@" + a.Domain
 }
 
+func (a *Account) URL() string {
+	return fmt.Sprintf("https://%s/@%s", a.Domain, a.Username)
+}
+
 func (a *Account) PublicKeyID() string {
 	return fmt.Sprintf("https://%s/users/%s#main-key", a.Domain, a.Username)
 }
 
 func (a *Account) serialize() map[string]any {
 	return map[string]any{
-		"id":       strconv.Itoa(int(a.ID)),
-		"username": a.Username,
-
+		"id":              strconv.Itoa(int(a.ID)),
+		"username":        a.Username,
 		"acct":            a.Acct(),
 		"display_name":    a.DisplayName,
 		"locked":          a.Locked,
 		"bot":             a.Bot,
+		"discoverable":    true,
+		"group":           false, // todo
 		"created_at":      a.CreatedAt.Format("2006-01-02T15:04:05.006Z"),
 		"note":            a.Note,
-		"url":             fmt.Sprintf("https://%s/@%s", a.Domain, a.Username),
+		"url":             a.URL(),
 		"avatar":          stringOrDefault(a.Avatar, fmt.Sprintf("https://%s/avatar.png", a.Domain)),
 		"avatar_static":   stringOrDefault(a.AvatarStatic, fmt.Sprintf("https://%s/avatar.png", a.Domain)),
 		"header":          stringOrDefault(a.Header, fmt.Sprintf("https://%s/header.png", a.Domain)),
@@ -108,7 +98,8 @@ func (a *Account) serialize() map[string]any {
 		"followers_count": a.FollowersCount,
 		"following_count": a.FollowingCount,
 		"statuses_count":  a.StatusesCount,
-		"last_status_at":  a.LastStatusAt.Format("2006-01-02T15:04:05.006Z"),
+		"last_status_at":  a.LastStatusAt.Format("2006-01-02"),
+		"noindex":         false, // todo
 		"emojis":          []map[string]any{},
 		"fields":          []map[string]any{},
 	}
@@ -268,6 +259,21 @@ func splitAcct(acct string) (string, string, error) {
 		return "", "", fmt.Errorf("splitAcct: %w", err)
 	}
 	return path.Base(url.Path), url.Host, nil
+}
+
+type AccountList struct {
+	gorm.Model
+	AccountID     uint
+	Title         string `gorm:"size:64"`
+	RepliesPolicy string `gorm:"size:64"`
+}
+
+func (a *AccountList) serialize() map[string]any {
+	return map[string]any{
+		"id":             strconv.Itoa(int(a.ID)),
+		"title":          a.Title,
+		"replies_policy": a.RepliesPolicy,
+	}
 }
 
 func boolFromAny(v any) bool {

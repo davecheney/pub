@@ -34,6 +34,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	}
 
 	r := mux.NewRouter()
+	r = r.Host(theInstance.Domain).Subrouter()
 
 	v1 := r.PathPrefix("/api/v1").Subrouter()
 	apps := mastodon.NewApplications(db, &theInstance)
@@ -63,7 +64,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 
 	timelines := mastodon.NewTimeslines(db, &theInstance)
 	v1.HandleFunc("/timelines/home", timelines.Index).Methods("GET")
-	v1.HandleFunc("/timelines/public", timelines.Index).Methods("GET")
+	v1.HandleFunc("/timelines/public", timelines.Public).Methods("GET")
 
 	lists := mastodon.NewLists(db, &theInstance)
 	v1.HandleFunc("/lists", lists.Index).Methods("GET")

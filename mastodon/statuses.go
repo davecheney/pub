@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -13,6 +15,8 @@ import (
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 )
+
+// <https://hachyderm.io/api/v1/timelines/public?max_id=109419674974114267>; rel="next", <https://hachyderm.io/api/v1/timelines/public?min_id=109419683346234802>; rel="prev"
 
 type Status struct {
 	gorm.Model
@@ -44,6 +48,12 @@ func (s *Status) AfterCreate(tx *gorm.DB) error {
 	return account.Instance.updateStatusesCount(tx)
 }
 
+func (s *Status) url() string {
+	u, _ := url.Parse(s.URI)
+	id := path.Base(u.Path)
+	return fmt.Sprintf("%s://%s/@%s/%s", u.Scheme, s.Account.Domain, s.Account.Username, id)
+}
+
 func (s *Status) serialize() map[string]any {
 	return map[string]any{
 		"id":                     strconv.Itoa(int(s.ID)),
@@ -55,7 +65,7 @@ func (s *Status) serialize() map[string]any {
 		"visibility":             s.Visibility,
 		"language":               "en", // s.Language,
 		"uri":                    s.URI,
-		"url":                    nil, // s.URL,
+		"url":                    s.url(),
 		"replies_count":          s.RepliesCount,
 		"reblogs_count":          s.ReblogsCount,
 		"favourites_count":       s.FavouritesCount,
