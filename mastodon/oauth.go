@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/http/httputil"
 
 	"github.com/go-json-experiment/json"
 	"github.com/google/uuid"
@@ -35,6 +36,8 @@ func (o *OAuth) Authorize(w http.ResponseWriter, r *http.Request) {
 }
 
 func (o *OAuth) authorizeGet(w http.ResponseWriter, r *http.Request) {
+	buf, _ := httputil.DumpRequest(r, false)
+	log.Println("authorizeGet", string(buf))
 	clientID := r.FormValue("client_id")
 	redirectURI := r.FormValue("redirect_uri")
 	if clientID == "" {
@@ -68,6 +71,8 @@ func (o *OAuth) authorizeGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
+	buf, _ := httputil.DumpRequest(r, false)
+	log.Println("authorizePost", string(buf))
 	email := r.FormValue("email")
 	password := r.PostFormValue("password")
 	redirectURI := r.PostFormValue("redirect_uri")
@@ -108,6 +113,9 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (o *OAuth) Token(w http.ResponseWriter, r *http.Request) {
+	buf, _ := httputil.DumpRequest(r, false)
+	log.Println("token", string(buf))
+
 	var params struct {
 		ClientID     string `json:"client_id"`
 		ClientSecret string `json:"client_secret"`

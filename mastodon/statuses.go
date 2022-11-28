@@ -42,8 +42,7 @@ func (s *Status) AfterCreate(tx *gorm.DB) error {
 	if err := tx.Model(&Status{}).Where("account_id = ?", s.AccountID).Count(&count).Error; err != nil {
 		return err
 	}
-	account.StatusesCount = int(count)
-	return tx.Save(&account).Error
+	return tx.Model(&account).Update("statuses_count", count).Error
 }
 
 func (s *Status) serialize() map[string]any {
@@ -55,26 +54,27 @@ func (s *Status) serialize() map[string]any {
 		"sensitive":              s.Sensitive,
 		"spoiler_text":           s.SpoilerText,
 		"visibility":             s.Visibility,
-		"language":               s.Language,
+		"language":               "en", // s.Language,
 		"uri":                    s.URI,
-		"url":                    s.URL,
+		"url":                    nil, // s.URL,
 		"replies_count":          s.RepliesCount,
 		"reblogs_count":          s.ReblogsCount,
 		"favourites_count":       s.FavouritesCount,
-		"favourited":             false,
-		"reblogged":              false,
-		"muted":                  false,
-		"bookmarked":             false,
-		"content":                s.Content,
-		"reblog":                 nil,
-		"application":            nil,
-		"account":                s.Account.serialize(),
-		"media_attachments":      []map[string]any{},
-		"mentions":               []map[string]any{},
-		"tags":                   []map[string]any{},
-		"emojis":                 []map[string]any{},
-		"card":                   nil,
-		"poll":                   nil,
+		// "favourited":             false,
+		// "reblogged":              false,
+		// "muted":                  false,
+		// "bookmarked":             false,
+		"content":           s.Content,
+		"text":              nil,
+		"reblog":            nil,
+		"application":       nil,
+		"account":           s.Account.serialize(),
+		"media_attachments": []map[string]any{},
+		"mentions":          []map[string]any{},
+		"tags":              []map[string]any{},
+		"emojis":            []map[string]any{},
+		"card":              nil,
+		"poll":              nil,
 	}
 }
 

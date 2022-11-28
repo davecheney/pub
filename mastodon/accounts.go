@@ -13,6 +13,7 @@ import (
 
 	"github.com/carlmjohnson/requests"
 	"github.com/go-json-experiment/json"
+	"github.com/gorilla/mux"
 	"gorm.io/gorm"
 )
 
@@ -41,7 +42,23 @@ type Account struct {
 	PublicKey         []byte
 	PrivateKey        []byte // only used for local accounts
 
+	Lists    []AccountList
 	Statuses []Status
+}
+
+type AccountList struct {
+	gorm.Model
+	AccountID     uint
+	Title         string `gorm:"size:64"`
+	RepliesPolicy string `gorm:"size:64"`
+}
+
+func (a *AccountList) serialize() map[string]any {
+	return map[string]any{
+		"id":             strconv.Itoa(int(a.ID)),
+		"title":          a.Title,
+		"replies_policy": a.RepliesPolicy,
+	}
 }
 
 func (a *Account) AfterCreate(tx *gorm.DB) error {
@@ -54,8 +71,7 @@ func (a *Account) AfterCreate(tx *gorm.DB) error {
 	if err := tx.Model(&Account{}).Where("domain = ?", a.Domain).Count(&count).Error; err != nil {
 		return err
 	}
-	instance.AccountsCount = int(count)
-	return tx.Save(&instance).Error
+	return tx.Model(&instance).Update("accounts_count", count).Error
 }
 
 func (a *Account) Acct() string {
@@ -105,6 +121,24 @@ func NewAccounts(db *gorm.DB, instance *Instance) *Accounts {
 
 func (a *Accounts) instances() *Instances {
 	return NewInstances(a.db, a.instance)
+}
+
+func (a *Accounts) Show(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	var token Token
+	if err := a.db.Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	var account Account
+	if err := a.db.Where("id = ?", id).First(&account).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.MarshalFull(w, account.serialize())
 }
 
 func (a *Accounts) VerifyCredentials(w http.ResponseWriter, r *http.Request) {

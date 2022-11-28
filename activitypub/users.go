@@ -149,14 +149,13 @@ func (u *Users) InboxCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	object, _ := body["object"].(map[string]interface{})
-	objectType, _ := object["type"].(string)
+	object := mapFromAny(body["object"])
 
 	activity := &Activity{
 		Account:      account,
 		Activity:     body,
 		ActivityType: stringFromAny(body["type"]),
-		ObjectType:   objectType,
+		ObjectType:   stringFromAny(object["type"]),
 	}
 	if err := u.db.Create(activity).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -168,4 +167,9 @@ func (u *Users) InboxCreate(w http.ResponseWriter, r *http.Request) {
 func stringFromAny(v any) string {
 	s, _ := v.(string)
 	return s
+}
+
+func mapFromAny(v any) map[string]any {
+	m, _ := v.(map[string]any)
+	return m
 }
