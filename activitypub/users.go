@@ -25,7 +25,7 @@ func NewUsers(db *gorm.DB, instance *mastodon.Instance) *Users {
 }
 
 func (u *Users) accounts() *mastodon.Accounts {
-	return mastodon.NewAccounts(u.db)
+	return mastodon.NewAccounts(u.db, u.instance)
 }
 
 func (u *Users) Show(w http.ResponseWriter, r *http.Request) {

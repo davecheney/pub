@@ -35,10 +35,10 @@ func (s *ServeCmd) Run(ctx *Context) error {
 
 	m := mastodon.NewService(db)
 	emojis := mastodon.NewEmojis(db)
-	statuses := mastodon.NewStatuses(db)
+	statuses := mastodon.NewStatuses(db, &theInstance)
 	oauth := mastodon.NewOAuth(db, &theInstance)
-	accounts := mastodon.NewAccounts(db)
-	instance := mastodon.NewInstances(db, theInstance.Domain)
+	accounts := mastodon.NewAccounts(db, &theInstance)
+	instance := mastodon.NewInstances(db, &theInstance)
 	apps := mastodon.NewApplications(db, &theInstance)
 	timelines := mastodon.NewTimeslines(db, &theInstance)
 	notifications := mastodon.NewNotifications(db)
@@ -78,7 +78,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	users := activitypub.NewUsers(db, &theInstance)
 	r.HandleFunc("/users/{username}", users.Show).Methods("GET")
 	r.HandleFunc("/users/{username}/inbox", users.InboxCreate).Methods("POST")
-	activitypub := activitypub.NewService(db)
+	activitypub := activitypub.NewService(db, &theInstance)
 
 	inbox := r.Path("/inbox").Subrouter()
 	inbox.Use(activitypub.ValidateSignature())

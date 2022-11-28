@@ -12,12 +12,18 @@ import (
 	"gorm.io/gorm"
 )
 
-type IndexCmd struct {
+type InboxCmd struct {
+	Domain string `required:"" help:"domain name of the instance"`
 }
 
-func (i *IndexCmd) Run(ctx *Context) error {
+func (i *InboxCmd) Run(ctx *Context) error {
 	db, err := gorm.Open(ctx.Dialector, &ctx.Config)
 	if err != nil {
+		return err
+	}
+
+	var instance mastodon.Instance
+	if err := db.Where("domain = ?", i.Domain).First(&instance).Error; err != nil {
 		return err
 	}
 
@@ -28,8 +34,8 @@ func (i *IndexCmd) Run(ctx *Context) error {
 
 	ip := &inboxProcessor{
 		db:       db,
-		accounts: mastodon.NewAccounts(db),
-		statuses: mastodon.NewStatuses(db),
+		accounts: mastodon.NewAccounts(db, &instance),
+		statuses: mastodon.NewStatuses(db, &instance),
 	}
 
 	for i := range activities {

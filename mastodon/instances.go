@@ -197,24 +197,20 @@ func (i *Instance) serializeV2() map[string]any {
 }
 
 type Instances struct {
-	db     *gorm.DB
-	domain string
+	db       *gorm.DB
+	instance *Instance
 }
 
-func NewInstances(db *gorm.DB, domain string) *Instances {
+func NewInstances(db *gorm.DB, instance *Instance) *Instances {
 	return &Instances{
-		db:     db,
-		domain: domain,
+		db:       db,
+		instance: instance,
 	}
 }
 
 func (i *Instances) IndexV1(w http.ResponseWriter, r *http.Request) {
 	var instance Instance
-	if err := i.db.Where("domain = ?", i.domain).First(&instance).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-	if err := i.db.Where("id = ?", instance.AdminID).First(&instance.Admin).Error; err != nil {
+	if err := i.db.Model(&Instance{}).Preload("Admin").Where("domain = ?", i.instance.Domain).First(&instance).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -225,11 +221,7 @@ func (i *Instances) IndexV1(w http.ResponseWriter, r *http.Request) {
 
 func (i *Instances) IndexV2(w http.ResponseWriter, r *http.Request) {
 	var instance Instance
-	if err := i.db.Model(&Instance{}).Preload("Admin").Where("domain = ?", i.domain).First(&instance).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-	if err := i.db.Where("id = ?", instance.AdminID).First(&instance.Admin).Error; err != nil {
+	if err := i.db.Model(&Instance{}).Preload("Admin").Where("domain = ?", i.instance.Domain).First(&instance).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}

@@ -23,7 +23,7 @@ var cli struct {
 	AutoMigrate   AutoMigrateCmd   `cmd:"" help:"Automigrate the database."`
 	CreateAccount CreateAccountCmd `cmd:"" help:"Create a new account."`
 	Serve         ServeCmd         `cmd:"" help:"Serve a local web server."`
-	Inbox         IndexCmd         `cmd:"" help:"Process the inbox."`
+	Inbox         InboxCmd         `cmd:"" help:"Process the inbox."`
 	Follow        FollowCmd        `cmd:"" help:"Follow an object."`
 }
 
