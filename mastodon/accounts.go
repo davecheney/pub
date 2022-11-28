@@ -164,6 +164,8 @@ func (a *Accounts) FindOrCreateAccount(uri string) (*Account, error) {
 	account = Account{
 		Username:       username,
 		Domain:         domain,
+		InstanceID:     instance.ID,
+		Instance:       instance,
 		DisplayName:    stringFromAny(obj["name"]),
 		Locked:         boolFromAny(obj["manuallyApprovesFollowers"]),
 		Bot:            stringFromAny(obj["type"]) == "Service",
