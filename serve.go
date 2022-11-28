@@ -33,23 +33,22 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	m := mastodon.NewService(db)
-	emojis := mastodon.NewEmojis(db)
-	statuses := mastodon.NewStatuses(db, &theInstance)
-
-	accounts := mastodon.NewAccounts(db, &theInstance)
-
 	r := mux.NewRouter()
 
 	v1 := r.PathPrefix("/api/v1").Subrouter()
 	apps := mastodon.NewApplications(db, &theInstance)
 	v1.HandleFunc("/apps", apps.New).Methods(http.MethodPost)
 
+	accounts := mastodon.NewAccounts(db, &theInstance)
 	v1.HandleFunc("/accounts/verify_credentials", accounts.VerifyCredentials).Methods("GET")
 	v1.HandleFunc("/accounts/relationships", accounts.Relationships).Methods("GET")
 	v1.HandleFunc("/accounts/{id}", accounts.Show).Methods("GET")
-	v1.HandleFunc("/accounts/{id}/statuses", m.AccountsStatusesFetch).Methods("GET")
+	v1.HandleFunc("/accounts/{id}/statuses", accounts.StatusesShow).Methods("GET")
+
+	statuses := mastodon.NewStatuses(db, &theInstance)
 	v1.HandleFunc("/statuses", statuses.Create).Methods("POST")
+
+	emojis := mastodon.NewEmojis(db)
 	v1.HandleFunc("/custom_emojis", emojis.Index).Methods("GET")
 
 	notifications := mastodon.NewNotifications(db)
@@ -57,7 +56,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 
 	instance := mastodon.NewInstances(db, &theInstance)
 	v1.HandleFunc("/instance", instance.IndexV1).Methods("GET")
-	v1.HandleFunc("/instance/peers", instance.Peers).Methods("GET")
+	v1.HandleFunc("/instance/peers", instance.PeersShow).Methods("GET")
 
 	filters := mastodon.NewFilters(db)
 	v1.HandleFunc("/filters", filters.Index).Methods("GET")

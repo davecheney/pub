@@ -249,9 +249,21 @@ func (i *Instances) IndexV2(w http.ResponseWriter, r *http.Request) {
 	json.MarshalFull(w, instance.serializeV2())
 }
 
-func (i *Instances) Peers(w http.ResponseWriter, r *http.Request) {
+func (i *Instances) PeersShow(w http.ResponseWriter, r *http.Request) {
+	var instances []Instance
+	if err := i.db.Model(&Instance{}).Preload("Admin").Where("domain != ?", i.instance.Domain).Find(&instances).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	var resp []string
+	for _, instance := range instances {
+		resp = append(resp, instance.Domain)
+	}
 	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, []string{})
+	json.MarshalFull(w, resp)
 }
 
 func (i *Instances) FindOrCreateInstance(domain string) (*Instance, error) {

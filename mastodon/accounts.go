@@ -177,6 +177,39 @@ func (a *Accounts) Relationships(w http.ResponseWriter, r *http.Request) {
 	// todo
 }
 
+func (a *Accounts) StatusesShow(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	var token Token
+	if err := a.db.Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	var statuses []Status
+	tx := a.db.Preload("Account").Where("account_id = ?", id)
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 1 || limit > 40 {
+		limit = 20
+	}
+	tx = tx.Limit(limit)
+	sinceID, _ := strconv.Atoi(r.URL.Query().Get("since_id"))
+	if sinceID > 0 {
+		tx = tx.Where("id > ?", sinceID)
+	}
+	if err := tx.Order("id desc").Find(&statuses).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var resp []any
+	for _, status := range statuses {
+		resp = append(resp, status.serialize())
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.MarshalFull(w, resp)
+}
+
 // FindOrCreateAccount finds an account by username and domain, or creates a new
 // one if it doesn't exist.
 func (a *Accounts) FindOrCreateAccount(uri string) (*Account, error) {
