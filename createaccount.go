@@ -42,8 +42,11 @@ func (c *CreateAccountCmd) Run(ctx *Context) error {
 	domain := parts[1]
 
 	account := &mastodon.Account{
-		Username:    username,
-		Domain:      domain,
+		Username: username,
+		Domain:   domain,
+		Instance: &mastodon.Instance{
+			Domain: domain,
+		},
 		DisplayName: username,
 		Email:       c.Email,
 		Locked:      false,

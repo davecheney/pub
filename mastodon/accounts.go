@@ -18,10 +18,11 @@ import (
 
 type Account struct {
 	gorm.Model
-	Username       string `gorm:"uniqueIndex:idx_usernamedomain;size:64"`
-	Domain         string `gorm:"uniqueIndex:idx_usernamedomain;size:64"`
-	DisplayName    string `gorm:"size:64"`
-	Email          string `gorm:"size:64"`
+	Domain         string    `gorm:"uniqueIndex:idx_domainusername;size:64"`
+	Username       string    `gorm:"uniqueIndex:idx_domainusername;size:64"`
+	Instance       *Instance `gorm:"foreignKey:Domain;references:Domain"`
+	DisplayName    string    `gorm:"size:64"`
+	Email          string    `gorm:"size:64"`
 	Locked         bool
 	Bot            bool
 	Note           string
