@@ -78,3 +78,15 @@ func (w *WellKnown) HostMeta(rw http.ResponseWriter, r *http.Request) {
 		<Link rel="lrdd" template="https://`+w.instance.Domain+`/.well-known/webfinger?resource={uri}"/>
 		</XRD>`)
 }
+
+func (w *WellKnown) NodeInfo(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json")
+	json.MarshalFull(rw, map[string]any{
+		"links": []map[string]any{
+			{
+				"rel":  "http://nodeinfo.diaspora.software/ns/schema/2.0",
+				"href": fmt.Sprintf("https://%s/nodeinfo/2.0", w.instance.Domain),
+			},
+		},
+	})
+}

@@ -80,6 +80,11 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	wellknown := mastodon.NewWellKnown(db, &theInstance)
 	wk.HandleFunc("/webfinger", wellknown.Webfinger).Methods("GET")
 	wk.HandleFunc("/host-meta", wellknown.HostMeta).Methods("GET")
+	wk.HandleFunc("/nodeinfo", wellknown.NodeInfo).Methods("GET")
+
+	ni := r.PathPrefix("/nodeinfo").Subrouter()
+	nodeinfo := mastodon.NewNodeInfo(db, theInstance.Domain)
+	ni.HandleFunc("/2.0", nodeinfo.Get).Methods("GET")
 
 	users := activitypub.NewUsers(db, &theInstance)
 	r.HandleFunc("/users/{username}", users.Show).Methods("GET")

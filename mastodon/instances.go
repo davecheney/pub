@@ -36,6 +36,33 @@ func (i *Instance) serialiseRules() []map[string]any {
 	return rules
 }
 
+func (i *Instance) serializeNodeInfo() map[string]any {
+	return map[string]any{
+		"version": "2.0", // https://github.com/jhass/nodeinfo/blob/main/schemas/2.0/schema.json
+		"software": map[string]any{
+			"name":    "https://github.com/davecheney/m",
+			"version": "0.0.0-devel",
+		},
+		"protocols": []string{
+			"activitypub",
+		},
+		"services": map[string]any{
+			"outbound": []any{},
+			"inbound":  []any{},
+		},
+		"usage": map[string]any{
+			"users": map[string]any{
+				"total":          i.AccountsCount,
+				"activeMonth":    0,
+				"activeHalfyear": 0,
+			},
+			"localPosts": i.StatusesCount,
+		},
+		"openRegistrations": false,
+		"metadata":          map[string]any{},
+	}
+}
+
 func (i *Instance) updateAccountsCount(tx *gorm.DB) error {
 	var count int64
 	err := tx.Model(&Account{}).Where("instance_id = ?", i.ID).Count(&count).Error
