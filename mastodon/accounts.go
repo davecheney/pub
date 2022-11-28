@@ -67,11 +67,15 @@ func (a *Account) AfterCreate(tx *gorm.DB) error {
 	if err := tx.Where("domain = ?", a.Domain).First(&instance).Error; err != nil {
 		return err
 	}
+	return instance.updateAccountsCount(tx)
+}
+
+func (a *Account) updateStatusesCount(tx *gorm.DB) error {
 	var count int64
-	if err := tx.Model(&Account{}).Where("domain = ?", a.Domain).Count(&count).Error; err != nil {
+	if err := tx.Model(&Status{}).Where("account_id = ?", a.ID).Count(&count).Error; err != nil {
 		return err
 	}
-	return tx.Model(&instance).Update("accounts_count", count).Error
+	return tx.Model(a).Update("statuses_count", count).Error
 }
 
 func (a *Account) Acct() string {

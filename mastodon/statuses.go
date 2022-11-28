@@ -35,14 +35,13 @@ type Status struct {
 func (s *Status) AfterCreate(tx *gorm.DB) error {
 	// update count of statuses on account
 	var account Account
-	if err := tx.Where("id = ?", s.AccountID).First(&account).Error; err != nil {
+	if err := tx.Preload("Instance").Where("id = ?", s.AccountID).First(&account).Error; err != nil {
 		return err
 	}
-	var count int64
-	if err := tx.Model(&Status{}).Where("account_id = ?", s.AccountID).Count(&count).Error; err != nil {
+	if err := account.updateStatusesCount(tx); err != nil {
 		return err
 	}
-	return tx.Model(&account).Update("statuses_count", count).Error
+	return account.Instance.updateStatusesCount(tx)
 }
 
 func (s *Status) serialize() map[string]any {

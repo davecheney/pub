@@ -19,6 +19,7 @@ type Instance struct {
 	Description      string
 	Thumbnail        string `gorm:"size:64"`
 	AccountsCount    int    `gorm:"default:0;not null"`
+	StatusesCount    int    `gorm:"default:0;not null"`
 
 	Rules    []InstanceRule `gorm:"foreignKey:InstanceID"`
 	Accounts []Account
@@ -33,6 +34,24 @@ func (i *Instance) serialiseRules() []map[string]any {
 		}
 	}
 	return rules
+}
+
+func (i *Instance) updateAccountsCount(tx *gorm.DB) error {
+	var count int64
+	err := tx.Model(&Account{}).Where("instance_id = ?", i.ID).Count(&count).Error
+	if err != nil {
+		return err
+	}
+	return tx.Model(i).Update("accounts_count", count).Error
+}
+
+func (i *Instance) updateStatusesCount(tx *gorm.DB) error {
+	var count int64
+	err := tx.Model(&Status{}).Joins("Account").Where("instance_id = ?", i.ID).Count(&count).Error
+	if err != nil {
+		return err
+	}
+	return tx.Model(i).Update("statuses_count", count).Error
 }
 
 type InstanceRule struct {
