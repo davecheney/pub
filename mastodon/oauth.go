@@ -4,7 +4,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/go-json-experiment/json"
 	"github.com/google/uuid"
@@ -155,10 +154,24 @@ func (o *OAuth) Token(w http.ResponseWriter, r *http.Request) {
 }
 
 func (o *OAuth) Revoke(w http.ResponseWriter, r *http.Request) {
-	bearer := r.Header.Get("Authorization")
-	accessToken := strings.TrimPrefix(bearer, "Bearer ")
+	var params struct {
+		ClientID     string `json:"client_id"`
+		ClientSecret string `json:"client_secret"`
+		Token        string `json:"token"`
+	}
 	var token Token
-	if err := o.db.Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+	switch r.Header.Get("Content-Type") {
+	case "application/json":
+		if err := json.UnmarshalFull(r.Body, &params); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	default:
+		params.ClientID = r.FormValue("client_id")
+		params.ClientSecret = r.FormValue("client_secret")
+		params.Token = r.FormValue("token")
+	}
+	if err := o.db.Where("access_token = ?", params.Token).First(&token).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -166,5 +179,5 @@ func (o *OAuth) Revoke(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(204)
+	w.WriteHeader(200)
 }

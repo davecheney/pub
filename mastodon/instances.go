@@ -20,7 +20,8 @@ type Instance struct {
 	Thumbnail        string `gorm:"size:64"`
 	AccountsCount    int    `gorm:"default:0;not null"`
 
-	Rules []InstanceRule `gorm:"foreignKey:InstanceID"`
+	Rules    []InstanceRule `gorm:"foreignKey:InstanceID"`
+	Accounts []Account
 }
 
 func (i *Instance) serialiseRules() []map[string]any {
@@ -50,7 +51,7 @@ func (i *Instance) serializeV1() map[string]any {
 		"version":           "3.5.3",
 		"urls":              map[string]any{},
 		"stats": map[string]any{
-			"user_count":   0,
+			"user_count":   i.AccountsCount,
 			"status_count": 0,
 			"domain_count": 0,
 		},

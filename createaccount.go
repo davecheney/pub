@@ -41,15 +41,25 @@ func (c *CreateAccountCmd) Run(ctx *Context) error {
 	username := parts[0]
 	domain := parts[1]
 
-	account := &mastodon.Account{
-		Username: username,
-		Domain:   domain,
-		Instance: &mastodon.Instance{
+	var instance mastodon.Instance
+	if err := db.Where("domain = ?", domain).First(&instance).Error; err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		instance = mastodon.Instance{
 			Domain: domain,
-		},
+		}
+	}
+
+	account := &mastodon.Account{
+		Username:    username,
+		Domain:      domain,
+		InstanceID:  instance.ID,
+		Instance:    &instance,
 		DisplayName: username,
 		Email:       c.Email,
 		Locked:      false,
+		Local:       true,
 
 		EncryptedPassword: passwd,
 		PrivateKey:        keypair.privateKey,

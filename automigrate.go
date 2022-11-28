@@ -15,13 +15,17 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 		return err
 	}
 
+	if err := db.AutoMigrate(&mastodon.Instance{}, &mastodon.InstanceRule{}); err != nil {
+		return err
+	}
+
 	return db.AutoMigrate(
 		&activitypub.Activity{},
 
 		&mastodon.Account{},
 		&mastodon.Application{},
 		&mastodon.ClientFilter{},
-		&mastodon.Instance{}, &mastodon.InstanceRule{},
+
 		&mastodon.Notification{},
 		&mastodon.Status{},
 		&mastodon.Token{},

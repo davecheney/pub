@@ -18,11 +18,13 @@ import (
 
 type Account struct {
 	gorm.Model
-	Domain         string    `gorm:"uniqueIndex:idx_domainusername;size:64"`
-	Username       string    `gorm:"uniqueIndex:idx_domainusername;size:64"`
-	Instance       *Instance `gorm:"foreignKey:Domain;references:Domain"`
-	DisplayName    string    `gorm:"size:64"`
-	Email          string    `gorm:"size:64"`
+	InstanceID     uint
+	Instance       *Instance
+	Domain         string `gorm:"uniqueIndex:idx_domainusername;size:64"`
+	Username       string `gorm:"uniqueIndex:idx_domainusername;size:64"`
+	DisplayName    string `gorm:"size:64"`
+	Email          string `gorm:"size:64"`
+	Local          bool
 	Locked         bool
 	Bot            bool
 	Note           string
@@ -30,9 +32,9 @@ type Account struct {
 	AvatarStatic   string
 	Header         string
 	HeaderStatic   string
-	FollowersCount int
-	FollowingCount int
-	StatusesCount  int
+	FollowersCount int `gorm:"default:0;not null"`
+	FollowingCount int `gorm:"default:0;not null"`
+	StatusesCount  int `gorm:"default:0;not null"`
 	LastStatusAt   time.Time
 
 	EncryptedPassword []byte // only used for local accounts
@@ -57,6 +59,9 @@ func (a *Account) AfterCreate(tx *gorm.DB) error {
 }
 
 func (a *Account) Acct() string {
+	if a.Local {
+		return a.Username
+	}
 	return a.Username + "@" + a.Domain
 }
 

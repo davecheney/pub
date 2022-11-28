@@ -32,6 +32,20 @@ type Status struct {
 	Content            string
 }
 
+func (s *Status) AfterCreate(tx *gorm.DB) error {
+	// update count of statuses on account
+	var account Account
+	if err := tx.Where("id = ?", s.AccountID).First(&account).Error; err != nil {
+		return err
+	}
+	var count int64
+	if err := tx.Model(&Status{}).Where("account_id = ?", s.AccountID).Count(&count).Error; err != nil {
+		return err
+	}
+	account.StatusesCount = int(count)
+	return tx.Save(&account).Error
+}
+
 func (s *Status) serialize() map[string]any {
 	return map[string]any{
 		"id":                     strconv.Itoa(int(s.ID)),
