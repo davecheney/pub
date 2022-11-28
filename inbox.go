@@ -3,8 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"net/url"
-	"strings"
 	"time"
 
 	"github.com/davecheney/m/activitypub"
@@ -130,18 +128,6 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 		return err
 	}
 	return nil
-}
-
-func actorFromStatusURI(uri string) (string, error) {
-	u, err := url.Parse(uri)
-	if err != nil {
-		return "", err
-	}
-	parts := strings.Split(u.Path, "/")
-	if len(parts) < 3 {
-		return "", errors.New("actorFromStatusURI: invalid path")
-	}
-	return fmt.Sprintf("%s://%s/users/%s", u.Scheme, u.Host, parts[2]), nil
 }
 
 func boolFromAny(v any) bool {

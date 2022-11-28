@@ -155,7 +155,7 @@ func (u *Users) InboxCreate(w http.ResponseWriter, r *http.Request) {
 	activity := &Activity{
 		Account:      account,
 		Activity:     body,
-		ActivityType: body["type"].(string),
+		ActivityType: stringFromAny(body["type"]),
 		ObjectType:   objectType,
 	}
 	if err := u.db.Create(activity).Error; err != nil {

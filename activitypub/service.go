@@ -61,7 +61,7 @@ func (svc *Service) GetKey(keyId string) (crypto.PublicKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	return pemToPublicKey([]byte(account.PublicKey))
+	return pemToPublicKey(account.PublicKey)
 }
 
 func pemToPublicKey(key []byte) (crypto.PublicKey, error) {

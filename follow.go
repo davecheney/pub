@@ -49,6 +49,9 @@ func (f *FollowCmd) Run(ctx *Context) error {
 		return err
 	}
 	username, domain, err := parseActor(f.Actor)
+	if err != nil {
+		return err
+	}
 	var account mastodon.Account
 	if err := db.Where("username = ? AND domain = ?", username, domain).First(&account).Error; err != nil {
 		return err

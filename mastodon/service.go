@@ -22,10 +22,6 @@ func NewService(db *gorm.DB) *Service {
 	}
 }
 
-func (svc *Service) accounts() *Accounts {
-	return &Accounts{db: svc.db}
-}
-
 func (svc *Service) AccountsFetch(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")

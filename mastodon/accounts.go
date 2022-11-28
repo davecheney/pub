@@ -143,6 +143,9 @@ func (a *Accounts) Relationships(w http.ResponseWriter, r *http.Request) {
 // one if it doesn't exist.
 func (a *Accounts) FindOrCreateAccount(uri string) (*Account, error) {
 	username, domain, err := splitAcct(uri)
+	if err != nil {
+		return nil, err
+	}
 	instance, err := a.instances().FindOrCreateInstance(domain)
 	if err != nil {
 		return nil, err
