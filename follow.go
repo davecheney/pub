@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/carlmjohnson/requests"
-	"github.com/davecheney/m/mastodon"
+	"github.com/davecheney/m/m"
 	"github.com/go-fed/httpsig"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -33,7 +33,7 @@ func (f *FollowCmd) Run(ctx *Context) error {
 	if err != nil {
 		return err
 	}
-	var instance mastodon.Instance
+	var instance m.Instance
 	if err := db.First(&instance).Error; err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func (f *FollowCmd) Run(ctx *Context) error {
 	if err != nil {
 		return err
 	}
-	var account mastodon.Account
+	var account m.Account
 	if err := db.Where("username = ? AND domain = ?", username, domain).First(&account).Error; err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (f *FollowCmd) Run(ctx *Context) error {
 	return nil
 }
 
-func sign(r *http.Request, body []byte, account *mastodon.Account) {
+func sign(r *http.Request, body []byte, account *m.Account) {
 	r.Header.Set("Date", time.Now().UTC().Format("Mon, 02 Jan 2006 15:04:05 GMT")) // Date must be in GMT, not UTC 🤯
 	privPem, _ := pem.Decode(account.PrivateKey)
 	if privPem.Type != "RSA PRIVATE KEY" {

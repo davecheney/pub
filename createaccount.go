@@ -8,7 +8,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/davecheney/m/mastodon"
+	"github.com/davecheney/m/m"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -41,17 +41,17 @@ func (c *CreateAccountCmd) Run(ctx *Context) error {
 	username := parts[0]
 	domain := parts[1]
 
-	var instance mastodon.Instance
+	var instance m.Instance
 	if err := db.Where("domain = ?", domain).First(&instance).Error; err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
-		instance = mastodon.Instance{
+		instance = m.Instance{
 			Domain: domain,
 		}
 	}
 
-	account := &mastodon.Account{
+	account := &m.Account{
 		Username:    username,
 		Domain:      domain,
 		InstanceID:  instance.ID,
@@ -69,7 +69,7 @@ func (c *CreateAccountCmd) Run(ctx *Context) error {
 		return err
 	}
 	if c.Admin {
-		var instance mastodon.Instance
+		var instance m.Instance
 		if err := db.Where("domain = ?", account.Domain).First(&instance).Error; err != nil {
 			return err
 		}

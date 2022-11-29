@@ -1,4 +1,4 @@
-package mastodon
+package m
 
 import (
 	"net/http"

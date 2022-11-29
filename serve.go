@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/davecheney/m/activitypub"
-	"github.com/davecheney/m/mastodon"
+	"github.com/davecheney/m/m"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"gorm.io/gorm"
@@ -28,7 +28,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	}
 
 	// the instance this service represents
-	var theInstance mastodon.Instance
+	var theInstance m.Instance
 	if err := db.Where("domain = ?", s.Domain).First(&theInstance).Error; err != nil {
 		return err
 	}
@@ -37,54 +37,54 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	r = r.Host(theInstance.Domain).Subrouter()
 
 	v1 := r.PathPrefix("/api/v1").Subrouter()
-	apps := mastodon.NewApplications(db, &theInstance)
+	apps := m.NewApplications(db, &theInstance)
 	v1.HandleFunc("/apps", apps.New).Methods(http.MethodPost)
 
-	accounts := mastodon.NewAccounts(db, &theInstance)
+	accounts := m.NewAccounts(db, &theInstance)
 	v1.HandleFunc("/accounts/verify_credentials", accounts.VerifyCredentials).Methods("GET")
 	v1.HandleFunc("/accounts/relationships", accounts.Relationships).Methods("GET")
 	v1.HandleFunc("/accounts/{id}", accounts.Show).Methods("GET")
 	v1.HandleFunc("/accounts/{id}/statuses", accounts.StatusesShow).Methods("GET")
 
-	statuses := mastodon.NewStatuses(db, &theInstance)
+	statuses := m.NewStatuses(db, &theInstance)
 	v1.HandleFunc("/statuses", statuses.Create).Methods("POST")
 
-	emojis := mastodon.NewEmojis(db)
+	emojis := m.NewEmojis(db)
 	v1.HandleFunc("/custom_emojis", emojis.Index).Methods("GET")
 
-	notifications := mastodon.NewNotifications(db)
+	notifications := m.NewNotifications(db)
 	v1.HandleFunc("/notifications", notifications.Index).Methods("GET")
 
-	instance := mastodon.NewInstances(db, &theInstance)
+	instance := m.NewInstances(db, &theInstance)
 	v1.HandleFunc("/instance", instance.IndexV1).Methods("GET")
 	v1.HandleFunc("/instance/peers", instance.PeersShow).Methods("GET")
 
-	filters := mastodon.NewFilters(db)
+	filters := m.NewFilters(db)
 	v1.HandleFunc("/filters", filters.Index).Methods("GET")
 
-	timelines := mastodon.NewTimeslines(db, &theInstance)
+	timelines := m.NewTimeslines(db, &theInstance)
 	v1.HandleFunc("/timelines/home", timelines.Index).Methods("GET")
 	v1.HandleFunc("/timelines/public", timelines.Public).Methods("GET")
 
-	lists := mastodon.NewLists(db, &theInstance)
+	lists := m.NewLists(db, &theInstance)
 	v1.HandleFunc("/lists", lists.Index).Methods("GET")
 
 	v2 := r.PathPrefix("/api/v2").Subrouter()
 	v2.HandleFunc("/instance", instance.IndexV2).Methods("GET")
 
-	oauth := mastodon.NewOAuth(db, &theInstance)
+	oauth := m.NewOAuth(db, &theInstance)
 	r.HandleFunc("/oauth/authorize", oauth.Authorize).Methods("GET", "POST")
 	r.HandleFunc("/oauth/token", oauth.Token).Methods("POST")
 	r.HandleFunc("/oauth/revoke", oauth.Revoke).Methods("POST")
 
 	wk := r.PathPrefix("/.well-known").Subrouter()
-	wellknown := mastodon.NewWellKnown(db, &theInstance)
+	wellknown := m.NewWellKnown(db, &theInstance)
 	wk.HandleFunc("/webfinger", wellknown.Webfinger).Methods("GET")
 	wk.HandleFunc("/host-meta", wellknown.HostMeta).Methods("GET")
 	wk.HandleFunc("/nodeinfo", wellknown.NodeInfo).Methods("GET")
 
 	ni := r.PathPrefix("/nodeinfo").Subrouter()
-	nodeinfo := mastodon.NewNodeInfo(db, theInstance.Domain)
+	nodeinfo := m.NewNodeInfo(db, theInstance.Domain)
 	ni.HandleFunc("/2.0", nodeinfo.Get).Methods("GET")
 
 	users := activitypub.NewUsers(db, &theInstance)

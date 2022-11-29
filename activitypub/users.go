@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/davecheney/m/mastodon"
+	"github.com/davecheney/m/m"
 	"github.com/go-json-experiment/json"
 
 	"github.com/gorilla/mux"
@@ -14,23 +14,23 @@ import (
 
 type Users struct {
 	db       *gorm.DB
-	instance *mastodon.Instance
+	instance *m.Instance
 }
 
-func NewUsers(db *gorm.DB, instance *mastodon.Instance) *Users {
+func NewUsers(db *gorm.DB, instance *m.Instance) *Users {
 	return &Users{
 		db:       db,
 		instance: instance,
 	}
 }
 
-func (u *Users) accounts() *mastodon.Accounts {
-	return mastodon.NewAccounts(u.db, u.instance)
+func (u *Users) accounts() *m.Accounts {
+	return m.NewAccounts(u.db, u.instance)
 }
 
 func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 	username := mux.Vars(r)["username"]
-	var account mastodon.Account
+	var account m.Account
 	if err := u.db.Where("username = ? and domain = ?", username, u.instance.Domain).First(&account).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return

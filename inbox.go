@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/davecheney/m/activitypub"
-	"github.com/davecheney/m/mastodon"
+	"github.com/davecheney/m/m"
 	"gorm.io/gorm"
 )
 
@@ -20,7 +20,7 @@ func (i *InboxCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	var instance mastodon.Instance
+	var instance m.Instance
 	if err := db.Where("domain = ?", i.Domain).First(&instance).Error; err != nil {
 		return err
 	}
@@ -32,8 +32,8 @@ func (i *InboxCmd) Run(ctx *Context) error {
 
 	ip := &inboxProcessor{
 		db:       db,
-		accounts: mastodon.NewAccounts(db, &instance),
-		statuses: mastodon.NewStatuses(db, &instance),
+		accounts: m.NewAccounts(db, &instance),
+		statuses: m.NewStatuses(db, &instance),
 	}
 
 	for i := range activities {
@@ -51,8 +51,8 @@ func (i *InboxCmd) Run(ctx *Context) error {
 
 type inboxProcessor struct {
 	db       *gorm.DB
-	accounts *mastodon.Accounts
-	statuses *mastodon.Statuses
+	accounts *m.Accounts
+	statuses *m.Statuses
 }
 
 func (ip *inboxProcessor) Process(activity *activitypub.Activity) error {
@@ -91,14 +91,14 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 		return err
 	}
 
-	var inReplyTo *mastodon.Status
+	var inReplyTo *m.Status
 	if inReplyToAtomUri, ok := obj["inReplyTo"].(string); ok {
 		inReplyTo, err = ip.statuses.FindOrCreateStatus(inReplyToAtomUri)
 		if err != nil {
 			return err
 		}
 	}
-	status := mastodon.Status{
+	status := m.Status{
 		Model: gorm.Model{
 			CreatedAt: published,
 		},

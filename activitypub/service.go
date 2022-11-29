@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/davecheney/m/mastodon"
+	"github.com/davecheney/m/m"
 	"github.com/go-fed/httpsig"
 	"gorm.io/gorm"
 )
@@ -17,19 +17,19 @@ import (
 // Service implements a Mastodon service.
 type Service struct {
 	db       *gorm.DB
-	instance *mastodon.Instance
+	instance *m.Instance
 }
 
 // NewService returns a new instance of Service.
-func NewService(db *gorm.DB, instance *mastodon.Instance) *Service {
+func NewService(db *gorm.DB, instance *m.Instance) *Service {
 	return &Service{
 		db:       db,
 		instance: instance,
 	}
 }
 
-func (svc *Service) accounts() *mastodon.Accounts {
-	return mastodon.NewAccounts(svc.db, svc.instance)
+func (svc *Service) accounts() *m.Accounts {
+	return m.NewAccounts(svc.db, svc.instance)
 }
 
 func (svc *Service) ValidateSignature() func(next http.Handler) http.Handler {
