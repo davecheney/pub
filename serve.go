@@ -66,13 +66,12 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	v1.HandleFunc("/timelines/home", timelines.Index).Methods("GET")
 	v1.HandleFunc("/timelines/public", timelines.Public).Methods("GET")
 
-	lists := api.Lists()
-	v1.HandleFunc("/lists", lists.Index).Methods("GET")
+	v1.HandleFunc("/lists", api.Lists().Index).Methods("GET")
 
 	v2 := r.PathPrefix("/api/v2").Subrouter()
 	v2.HandleFunc("/instance", instance.IndexV2).Methods("GET")
 
-	oauth := api.OAuth()
+	oauth := svc.OAuth()
 	r.HandleFunc("/oauth/authorize", oauth.Authorize).Methods("GET", "POST")
 	r.HandleFunc("/oauth/token", oauth.Token).Methods("POST")
 	r.HandleFunc("/oauth/revoke", oauth.Revoke).Methods("POST")
@@ -81,11 +80,10 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	wellknown := svc.WellKnown()
 	wk.HandleFunc("/webfinger", wellknown.Webfinger).Methods("GET")
 	wk.HandleFunc("/host-meta", wellknown.HostMeta).Methods("GET")
-	wk.HandleFunc("/nodeinfo", wellknown.NodeInfo).Methods("GET")
+	wk.HandleFunc("/nodeinfo", svc.NodeInfo().Index).Methods("GET")
 
 	ni := r.PathPrefix("/nodeinfo").Subrouter()
-	nodeinfo := svc.NodeInfo()
-	ni.HandleFunc("/2.0", nodeinfo.Get).Methods("GET")
+	ni.HandleFunc("/2.0", svc.NodeInfo().Show).Methods("GET")
 
 	users := activitypub.NewUsers(db, svc)
 	r.HandleFunc("/users/{username}", users.Show).Methods("GET")
@@ -95,6 +93,12 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	inbox := r.Path("/inbox").Subrouter()
 	inbox.Use(activitypub.ValidateSignature())
 	inbox.HandleFunc("", users.InboxCreate).Methods("POST")
+
+	r.Path("/robots.txt").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		// no robots, especially not you Bingbot!
+		w.Write([]byte("User-agent: *\nDisallow: /"))
+	})
 
 	r.Path("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "https://dave.cheney.net/", http.StatusFound)

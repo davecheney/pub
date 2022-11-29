@@ -24,7 +24,7 @@ func (t *Timelines) Index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var statuses []Status
-	scope := t.db.Scopes(t.paginate(r)).Joins("Account")
+	scope := t.db.Scopes(t.paginate(r)).Joins("Account").Where("visibility = ?", "public")
 	if err := scope.Order("statuses.id desc").Find(&statuses).Error; err != nil {
 		fmt.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -51,7 +51,7 @@ func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var statuses []Status
-	scope := t.db.Scopes(t.paginate(r)).Preload("Account")
+	scope := t.db.Scopes(t.paginate(r)).Preload("Account").Where("visibility = ?", "public")
 	switch r.URL.Query().Get("local") {
 	case "":
 		scope = scope.Joins("Account")

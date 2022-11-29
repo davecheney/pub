@@ -27,24 +27,31 @@ func (s *Service) API() *API {
 	}
 }
 
-func (s *Service) WellKnown() *WellKnown {
-	return &WellKnown{
-		db:       s.db,
-		instance: s.instance,
-	}
+// Domain returns the domain of the instance.
+func (s *Service) Domain() string {
+	return s.instance.Domain
 }
 
 // NodeInfo returns a NodeInfo REST resource.
 func (s *Service) NodeInfo() *NodeInfo {
 	return &NodeInfo{
 		db:     s.db,
-		domain: s.instance.Domain,
+		domain: s.Domain(),
 	}
 }
 
-// Domain returns the domain of the instance.
-func (s *Service) Domain() string {
-	return s.instance.Domain
+func (s *Service) OAuth() *OAuth {
+	return &OAuth{
+		db:       s.db,
+		instance: s.instance,
+	}
+}
+
+func (s *Service) WellKnown() *WellKnown {
+	return &WellKnown{
+		db:       s.db,
+		instance: s.instance,
+	}
 }
 
 // API rerpesents the root of a Mastodon capable REST API.
@@ -95,13 +102,6 @@ func (a *API) Lists() *Lists {
 func (a *API) Notifications() *Notifications {
 	return &Notifications{
 		db: a.service.db,
-	}
-}
-
-func (a *API) OAuth() *OAuth {
-	return &OAuth{
-		db:       a.service.db,
-		instance: a.service.instance,
 	}
 }
 
