@@ -286,7 +286,11 @@ func (i *Instances) PeersShow(w http.ResponseWriter, r *http.Request) {
 	json.MarshalFull(w, resp)
 }
 
-func (i *Instances) FindOrCreateInstance(domain string) (*Instance, error) {
+type instances struct {
+	db *gorm.DB
+}
+
+func (i *instances) FindOrCreateInstance(domain string) (*Instance, error) {
 	var instance Instance
 	if err := i.db.Where("domain = ?", domain).First(&instance).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {

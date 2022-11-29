@@ -110,15 +110,11 @@ type Accounts struct {
 	service *Service
 }
 
-func (a *Accounts) instances() *Instances {
-	return a.service.API().Instances() // TODO: these methods should not be on the REST API
-}
-
 func (a *Accounts) Show(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	var token Token
-	if err := a.db.Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+	_, err := a.service.tokens().FindByAccessToken(accessToken)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
@@ -134,9 +130,8 @@ func (a *Accounts) Show(w http.ResponseWriter, r *http.Request) {
 
 func (a *Accounts) VerifyCredentials(w http.ResponseWriter, r *http.Request) {
 	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-
-	var token Token
-	if err := a.db.Preload("Account").Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+	token, err := a.service.tokens().FindByAccessToken(accessToken)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
@@ -147,9 +142,8 @@ func (a *Accounts) VerifyCredentials(w http.ResponseWriter, r *http.Request) {
 
 func (a *Accounts) Relationships(w http.ResponseWriter, r *http.Request) {
 	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-
-	var token Token
-	if err := a.db.Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+	_, err := a.service.tokens().FindByAccessToken(accessToken)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
@@ -167,8 +161,8 @@ func (a *Accounts) Relationships(w http.ResponseWriter, r *http.Request) {
 func (a *Accounts) StatusesShow(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	var token Token
-	if err := a.db.Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+	_, err := a.service.tokens().FindByAccessToken(accessToken)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
@@ -197,14 +191,19 @@ func (a *Accounts) StatusesShow(w http.ResponseWriter, r *http.Request) {
 	json.MarshalFull(w, resp)
 }
 
+type accounts struct {
+	db      *gorm.DB
+	service *Service
+}
+
 // FindOrCreateAccount finds an account by username and domain, or creates a new
 // one if it doesn't exist.
-func (a *Accounts) FindOrCreateAccount(uri string) (*Account, error) {
+func (a *accounts) FindOrCreateAccount(uri string) (*Account, error) {
 	username, domain, err := splitAcct(uri)
 	if err != nil {
 		return nil, err
 	}
-	instance, err := a.instances().FindOrCreateInstance(domain)
+	instance, err := a.service.instances().FindOrCreateInstance(domain)
 	if err != nil {
 		return nil, err
 	}

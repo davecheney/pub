@@ -31,9 +31,8 @@ func (i *InboxCmd) Run(ctx *Context) error {
 	}
 
 	ip := &inboxProcessor{
-		db:       db,
-		accounts: svc.API().Accounts(), // TODO: these methods should not be on the REST API
-		statuses: svc.API().Statuses(), // TODO: these methods should not be on the REST API
+		db:      db,
+		service: svc,
 	}
 
 	for i := range activities {
@@ -50,9 +49,8 @@ func (i *InboxCmd) Run(ctx *Context) error {
 }
 
 type inboxProcessor struct {
-	db       *gorm.DB
-	accounts *m.Accounts
-	statuses *m.Statuses
+	db      *gorm.DB
+	service *m.Service
 }
 
 func (ip *inboxProcessor) Process(activity *activitypub.Activity) error {
@@ -81,7 +79,7 @@ func (ip *inboxProcessor) processCreate(obj map[string]any) error {
 }
 
 func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
-	account, err := ip.accounts.FindOrCreateAccount(stringFromAny(obj["attributedTo"]))
+	account, err := ip.service.Accounts().FindOrCreateAccount(stringFromAny(obj["attributedTo"]))
 	if err != nil {
 		return err
 	}
@@ -93,7 +91,7 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 
 	var inReplyTo *m.Status
 	if inReplyToAtomUri, ok := obj["inReplyTo"].(string); ok {
-		inReplyTo, err = ip.statuses.FindOrCreateStatus(inReplyToAtomUri)
+		inReplyTo, err = ip.service.Statuses().FindOrCreateStatus(inReplyToAtomUri)
 		if err != nil {
 			return err
 		}

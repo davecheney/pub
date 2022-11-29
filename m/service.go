@@ -54,6 +54,31 @@ func (s *Service) WellKnown() *WellKnown {
 	}
 }
 
+func (s *Service) tokens() *tokens {
+	return &tokens{
+		db: s.db,
+	}
+}
+
+func (s *Service) Statuses() *statuses {
+	return &statuses{
+		db: s.db,
+	}
+}
+
+func (s *Service) Accounts() *accounts {
+	return &accounts{
+		db:      s.db,
+		service: s,
+	}
+}
+
+func (s *Service) instances() *instances {
+	return &instances{
+		db: s.db,
+	}
+}
+
 // API rerpesents the root of a Mastodon capable REST API.
 type API struct {
 	service *Service
@@ -70,6 +95,13 @@ func (a *API) Applications() *Applications {
 	return &Applications{
 		db:       a.service.db,
 		instance: a.service.instance,
+	}
+}
+
+func (a *API) Conversations() *Conversations {
+	return &Conversations{
+		db:      a.service.db,
+		service: a.service,
 	}
 }
 

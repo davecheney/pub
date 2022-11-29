@@ -92,10 +92,6 @@ type Statuses struct {
 	service *Service
 }
 
-func (s *Statuses) accounts() *Accounts {
-	return s.service.API().Accounts() // TODO: fix this
-}
-
 func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	var token Token
@@ -141,7 +137,12 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 	json.MarshalFull(w, status.serialize())
 }
 
-func (s *Statuses) FindOrCreateStatus(uri string) (*Status, error) {
+type statuses struct {
+	db      *gorm.DB
+	service *Service
+}
+
+func (s *statuses) FindOrCreateStatus(uri string) (*Status, error) {
 	var status Status
 	err := s.db.Preload("Account").Where("uri = ?", uri).First(&status).Error
 	if err == nil {
@@ -169,7 +170,7 @@ func (s *Statuses) FindOrCreateStatus(uri string) (*Status, error) {
 		}
 	}
 
-	account, err := s.accounts().FindOrCreateAccount(stringFromAny(obj["attributedTo"]))
+	account, err := s.service.Accounts().FindOrCreateAccount(stringFromAny(obj["attributedTo"]))
 	if err != nil {
 		return nil, err
 	}

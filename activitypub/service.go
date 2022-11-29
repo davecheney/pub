@@ -57,7 +57,7 @@ func (svc *Service) ValidateSignature() func(next http.Handler) http.Handler {
 
 func (svc *Service) GetKey(keyId string) (crypto.PublicKey, error) {
 	actorId := trimKeyId(keyId)
-	account, err := svc.accounts().FindOrCreateAccount(actorId)
+	account, err := svc.service.Accounts().FindOrCreateAccount(actorId)
 	if err != nil {
 		return nil, err
 	}

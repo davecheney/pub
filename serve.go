@@ -46,6 +46,9 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	v1.HandleFunc("/accounts/{id}", accounts.Show).Methods("GET")
 	v1.HandleFunc("/accounts/{id}/statuses", accounts.StatusesShow).Methods("GET")
 
+	conversations := api.Conversations()
+	v1.HandleFunc("/conversations", conversations.Index).Methods("GET")
+
 	statuses := api.Statuses()
 	v1.HandleFunc("/statuses", statuses.Create).Methods("POST")
 

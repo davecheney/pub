@@ -24,10 +24,6 @@ func NewUsers(db *gorm.DB, service *m.Service) *Users {
 	}
 }
 
-func (u *Users) accounts() *m.Accounts {
-	return u.service.API().Accounts() // TODO: this is a bit of a hack
-}
-
 func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 	username := mux.Vars(r)["username"]
 	var account m.Account
@@ -143,7 +139,7 @@ func (u *Users) InboxCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	actor := stringFromAny(body["actor"])
-	account, err := u.accounts().FindOrCreateAccount(actor)
+	account, err := u.service.Accounts().FindOrCreateAccount(actor)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
