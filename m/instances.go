@@ -247,13 +247,6 @@ type Instances struct {
 	instance *Instance
 }
 
-func NewInstances(db *gorm.DB, instance *Instance) *Instances {
-	return &Instances{
-		db:       db,
-		instance: instance,
-	}
-}
-
 func (i *Instances) IndexV1(w http.ResponseWriter, r *http.Request) {
 	var instance Instance
 	if err := i.db.Model(&Instance{}).Preload("Admin").Where("domain = ?", i.instance.Domain).First(&instance).Error; err != nil {

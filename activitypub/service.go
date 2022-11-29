@@ -16,20 +16,20 @@ import (
 
 // Service implements a Mastodon service.
 type Service struct {
-	db       *gorm.DB
-	instance *m.Instance
+	db      *gorm.DB
+	service *m.Service
 }
 
 // NewService returns a new instance of Service.
-func NewService(db *gorm.DB, instance *m.Instance) *Service {
+func NewService(db *gorm.DB, service *m.Service) *Service {
 	return &Service{
-		db:       db,
-		instance: instance,
+		db:      db,
+		service: service,
 	}
 }
 
 func (svc *Service) accounts() *m.Accounts {
-	return m.NewAccounts(svc.db, svc.instance)
+	return svc.service.API().Accounts() //
 }
 
 func (svc *Service) ValidateSignature() func(next http.Handler) http.Handler {

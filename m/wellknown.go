@@ -16,13 +16,6 @@ type WellKnown struct {
 	instance *Instance
 }
 
-func NewWellKnown(db *gorm.DB, instance *Instance) *WellKnown {
-	return &WellKnown{
-		db:       db,
-		instance: instance,
-	}
-}
-
 func (w *WellKnown) Webfinger(rw http.ResponseWriter, r *http.Request) {
 	resource := r.URL.Query().Get("resource")
 	u, err := url.Parse(resource)

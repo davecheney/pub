@@ -26,14 +26,7 @@ type Applications struct {
 	instance *Instance
 }
 
-func NewApplications(db *gorm.DB, instance *Instance) *Applications {
-	return &Applications{
-		db:       db,
-		instance: instance,
-	}
-}
-
-func (a *Applications) New(w http.ResponseWriter, r *http.Request) {
+func (a *Applications) Create(w http.ResponseWriter, r *http.Request) {
 	var params struct {
 		ClientName   string  `json:"client_name"`
 		Website      *string `json:"website"`

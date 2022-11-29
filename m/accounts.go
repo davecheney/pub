@@ -106,16 +106,12 @@ func (a *Account) serialize() map[string]any {
 }
 
 type Accounts struct {
-	db       *gorm.DB
-	instance *Instance
-}
-
-func NewAccounts(db *gorm.DB, instance *Instance) *Accounts {
-	return &Accounts{db: db, instance: instance}
+	db      *gorm.DB
+	service *Service
 }
 
 func (a *Accounts) instances() *Instances {
-	return NewInstances(a.db, a.instance)
+	return a.service.API().Instances() // TODO: these methods should not be on the REST API
 }
 
 func (a *Accounts) Show(w http.ResponseWriter, r *http.Request) {

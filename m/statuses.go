@@ -88,16 +88,12 @@ func (s *Status) serialize() map[string]any {
 }
 
 type Statuses struct {
-	db       *gorm.DB
-	instance *Instance
-}
-
-func NewStatuses(db *gorm.DB, instance *Instance) *Statuses {
-	return &Statuses{db: db, instance: instance}
+	db      *gorm.DB
+	service *Service
 }
 
 func (s *Statuses) accounts() *Accounts {
-	return NewAccounts(s.db, s.instance)
+	return s.service.API().Accounts() // TODO: fix this
 }
 
 func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {

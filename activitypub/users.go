@@ -13,25 +13,25 @@ import (
 )
 
 type Users struct {
-	db       *gorm.DB
-	instance *m.Instance
+	db      *gorm.DB
+	service *m.Service
 }
 
-func NewUsers(db *gorm.DB, instance *m.Instance) *Users {
+func NewUsers(db *gorm.DB, service *m.Service) *Users {
 	return &Users{
-		db:       db,
-		instance: instance,
+		db:      db,
+		service: service,
 	}
 }
 
 func (u *Users) accounts() *m.Accounts {
-	return m.NewAccounts(u.db, u.instance)
+	return u.service.API().Accounts() // TODO: this is a bit of a hack
 }
 
 func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 	username := mux.Vars(r)["username"]
 	var account m.Account
-	if err := u.db.Where("username = ? and domain = ?", username, u.instance.Domain).First(&account).Error; err != nil {
+	if err := u.db.Where("username = ? and domain = ?", username, u.service.Domain()).First(&account).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}

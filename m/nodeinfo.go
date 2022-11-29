@@ -12,13 +12,6 @@ type NodeInfo struct {
 	domain string
 }
 
-func NewNodeInfo(db *gorm.DB, domain string) *NodeInfo {
-	return &NodeInfo{
-		db:     db,
-		domain: domain,
-	}
-}
-
 func (ni *NodeInfo) Get(w http.ResponseWriter, r *http.Request) {
 	var instance Instance
 	if err := ni.db.Where("domain = ?", ni.domain).First(&instance).Error; err != nil {

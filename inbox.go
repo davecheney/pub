@@ -20,8 +20,8 @@ func (i *InboxCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	var instance m.Instance
-	if err := db.Where("domain = ?", i.Domain).First(&instance).Error; err != nil {
+	svc, err := m.NewService(db, i.Domain)
+	if err != nil {
 		return err
 	}
 
@@ -32,8 +32,8 @@ func (i *InboxCmd) Run(ctx *Context) error {
 
 	ip := &inboxProcessor{
 		db:       db,
-		accounts: m.NewAccounts(db, &instance),
-		statuses: m.NewStatuses(db, &instance),
+		accounts: svc.API().Accounts(), // TODO: these methods should not be on the REST API
+		statuses: svc.API().Statuses(), // TODO: these methods should not be on the REST API
 	}
 
 	for i := range activities {

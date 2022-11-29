@@ -37,12 +37,6 @@ type Filters struct {
 	db *gorm.DB
 }
 
-func NewFilters(db *gorm.DB) *Filters {
-	return &Filters{
-		db: db,
-	}
-}
-
 func (f *Filters) Index(w http.ResponseWriter, r *http.Request) {
 	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 

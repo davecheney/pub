@@ -27,70 +27,70 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	// the instance this service represents
-	var theInstance m.Instance
-	if err := db.Where("domain = ?", s.Domain).First(&theInstance).Error; err != nil {
+	svc, err := m.NewService(db, s.Domain)
+	if err != nil {
 		return err
 	}
 
 	r := mux.NewRouter()
-	r = r.Host(theInstance.Domain).Subrouter()
+	r = r.Host(s.Domain).Subrouter()
 
 	v1 := r.PathPrefix("/api/v1").Subrouter()
-	apps := m.NewApplications(db, &theInstance)
-	v1.HandleFunc("/apps", apps.New).Methods(http.MethodPost)
+	api := svc.API()
+	apps := api.Applications()
+	v1.HandleFunc("/apps", apps.Create).Methods(http.MethodPost)
 
-	accounts := m.NewAccounts(db, &theInstance)
+	accounts := api.Accounts()
 	v1.HandleFunc("/accounts/verify_credentials", accounts.VerifyCredentials).Methods("GET")
 	v1.HandleFunc("/accounts/relationships", accounts.Relationships).Methods("GET")
 	v1.HandleFunc("/accounts/{id}", accounts.Show).Methods("GET")
 	v1.HandleFunc("/accounts/{id}/statuses", accounts.StatusesShow).Methods("GET")
 
-	statuses := m.NewStatuses(db, &theInstance)
+	statuses := api.Statuses()
 	v1.HandleFunc("/statuses", statuses.Create).Methods("POST")
 
-	emojis := m.NewEmojis(db)
+	emojis := api.Emojis()
 	v1.HandleFunc("/custom_emojis", emojis.Index).Methods("GET")
 
-	notifications := m.NewNotifications(db)
+	notifications := api.Notifications()
 	v1.HandleFunc("/notifications", notifications.Index).Methods("GET")
 
-	instance := m.NewInstances(db, &theInstance)
+	instance := api.Instances()
 	v1.HandleFunc("/instance", instance.IndexV1).Methods("GET")
 	v1.HandleFunc("/instance/peers", instance.PeersShow).Methods("GET")
 
-	filters := m.NewFilters(db)
+	filters := api.Filters()
 	v1.HandleFunc("/filters", filters.Index).Methods("GET")
 
-	timelines := m.NewTimeslines(db, &theInstance)
+	timelines := api.Timelines()
 	v1.HandleFunc("/timelines/home", timelines.Index).Methods("GET")
 	v1.HandleFunc("/timelines/public", timelines.Public).Methods("GET")
 
-	lists := m.NewLists(db, &theInstance)
+	lists := api.Lists()
 	v1.HandleFunc("/lists", lists.Index).Methods("GET")
 
 	v2 := r.PathPrefix("/api/v2").Subrouter()
 	v2.HandleFunc("/instance", instance.IndexV2).Methods("GET")
 
-	oauth := m.NewOAuth(db, &theInstance)
+	oauth := api.OAuth()
 	r.HandleFunc("/oauth/authorize", oauth.Authorize).Methods("GET", "POST")
 	r.HandleFunc("/oauth/token", oauth.Token).Methods("POST")
 	r.HandleFunc("/oauth/revoke", oauth.Revoke).Methods("POST")
 
 	wk := r.PathPrefix("/.well-known").Subrouter()
-	wellknown := m.NewWellKnown(db, &theInstance)
+	wellknown := svc.WellKnown()
 	wk.HandleFunc("/webfinger", wellknown.Webfinger).Methods("GET")
 	wk.HandleFunc("/host-meta", wellknown.HostMeta).Methods("GET")
 	wk.HandleFunc("/nodeinfo", wellknown.NodeInfo).Methods("GET")
 
 	ni := r.PathPrefix("/nodeinfo").Subrouter()
-	nodeinfo := m.NewNodeInfo(db, theInstance.Domain)
+	nodeinfo := svc.NodeInfo()
 	ni.HandleFunc("/2.0", nodeinfo.Get).Methods("GET")
 
-	users := activitypub.NewUsers(db, &theInstance)
+	users := activitypub.NewUsers(db, svc)
 	r.HandleFunc("/users/{username}", users.Show).Methods("GET")
 	r.HandleFunc("/users/{username}/inbox", users.InboxCreate).Methods("POST")
-	activitypub := activitypub.NewService(db, &theInstance)
+	activitypub := activitypub.NewService(db, svc)
 
 	inbox := r.Path("/inbox").Subrouter()
 	inbox.Use(activitypub.ValidateSignature())

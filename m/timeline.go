@@ -15,13 +15,6 @@ type Timelines struct {
 	instance *Instance
 }
 
-func NewTimeslines(db *gorm.DB, instance *Instance) *Timelines {
-	return &Timelines{
-		db:       db,
-		instance: instance,
-	}
-}
-
 func (t *Timelines) Index(w http.ResponseWriter, r *http.Request) {
 	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	var token Token
