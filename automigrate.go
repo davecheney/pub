@@ -21,9 +21,10 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 		&m.Account{}, &m.AccountList{},
 		&m.Application{},
 		&m.Conversation{},
-
 		&m.ClientFilter{},
+		&m.Favourite{},
 		&m.Instance{}, &m.InstanceRule{},
+		&m.Marker{},
 		&m.Notification{},
 		&m.Status{},
 		&m.Token{},

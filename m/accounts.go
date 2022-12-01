@@ -42,8 +42,10 @@ type Account struct {
 	PublicKey         []byte
 	PrivateKey        []byte // only used for local accounts
 
-	Lists    []AccountList
-	Statuses []Status
+	Lists      []AccountList
+	Statuses   []Status
+	Markers    []Marker
+	Favourites []Favourite
 }
 
 func (a *Account) AfterCreate(tx *gorm.DB) error {
@@ -138,24 +140,6 @@ func (a *Accounts) VerifyCredentials(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.MarshalFull(w, token.Account.serialize())
-}
-
-func (a *Accounts) Relationships(w http.ResponseWriter, r *http.Request) {
-	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	_, err := a.service.tokens().FindByAccessToken(accessToken)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	var account Account
-	id := r.URL.Query().Get("id")
-	if err := a.db.Where("id = ?", id).First(&account).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-
-	// todo
 }
 
 func (a *Accounts) StatusesShow(w http.ResponseWriter, r *http.Request) {

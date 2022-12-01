@@ -33,6 +33,8 @@ type Status struct {
 	ReblogsCount       int    `gorm:"not null;default:0"`
 	FavouritesCount    int    `gorm:"not null;default:0"`
 	Content            string
+
+	Favourites []Favourite
 }
 
 func (s *Status) AfterCreate(tx *gorm.DB) error {
@@ -48,7 +50,10 @@ func (s *Status) AfterCreate(tx *gorm.DB) error {
 }
 
 func (s *Status) url() string {
-	u, _ := url.Parse(s.URI)
+	u, err := url.Parse(s.URI)
+	if err != nil {
+		return ""
+	}
 	id := path.Base(u.Path)
 	return fmt.Sprintf("%s://%s/@%s/%s", u.Scheme, s.Account.Domain, s.Account.Username, id)
 }

@@ -27,12 +27,6 @@ func (s *Service) API() *API {
 	}
 }
 
-func (s *Service) Contexts() *Contexts {
-	return &Contexts{
-		service: s,
-	}
-}
-
 // Domain returns the domain of the instance.
 func (s *Service) Domain() string {
 	return s.instance.Domain
@@ -112,6 +106,12 @@ func (a *API) Applications() *Applications {
 	}
 }
 
+func (a *API) Contexts() *Contexts {
+	return &Contexts{
+		service: a.service,
+	}
+}
+
 func (a *API) Conversations() *Conversations {
 	return &Conversations{
 		db:      a.service.db,
@@ -125,7 +125,13 @@ func (a *API) Emojis() *Emojis {
 	}
 }
 
-func (a API) Filters() *Filters {
+func (a *API) Favourites() *Favourites {
+	return &Favourites{
+		db: a.service.db,
+	}
+}
+
+func (a *API) Filters() *Filters {
 	return &Filters{
 		db: a.service.db,
 	}
@@ -145,9 +151,22 @@ func (a *API) Lists() *Lists {
 	}
 }
 
+func (a *API) Markers() *Markers {
+	return &Markers{
+		db:      a.service.db,
+		service: a.service,
+	}
+}
+
 func (a *API) Notifications() *Notifications {
 	return &Notifications{
 		db: a.service.db,
+	}
+}
+
+func (a *API) Relationships() *Relationships {
+	return &Relationships{
+		service: a.service,
 	}
 }
 

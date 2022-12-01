@@ -40,19 +40,25 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	apps := api.Applications()
 	v1.HandleFunc("/apps", apps.Create).Methods(http.MethodPost)
 
-	accounts := api.Accounts()
-	v1.HandleFunc("/accounts/verify_credentials", accounts.VerifyCredentials).Methods("GET")
-	v1.HandleFunc("/accounts/relationships", accounts.Relationships).Methods("GET")
-	v1.HandleFunc("/accounts/{id}", accounts.Show).Methods("GET")
-	v1.HandleFunc("/accounts/{id}/statuses", accounts.StatusesShow).Methods("GET")
+	accounts := v1.PathPrefix("/accounts").Subrouter()
+	accounts.HandleFunc("/verify_credentials", api.Accounts().VerifyCredentials).Methods("GET")
+	accounts.HandleFunc("/relationships", api.Relationships().Show).Methods("GET")
+	accounts.HandleFunc("/markers", api.Markers().Index).Methods("GET")
+
+	account := accounts.PathPrefix("/{id:[0-9]+}").Subrouter()
+	account.HandleFunc("", api.Accounts().Show).Methods("GET")
+	account.HandleFunc("/statuses", api.Accounts().StatusesShow).Methods("GET")
 
 	conversations := api.Conversations()
 	v1.HandleFunc("/conversations", conversations.Index).Methods("GET")
 
-	statuses := api.Statuses()
-	v1.HandleFunc("/statuses", statuses.Create).Methods("POST")
-	v1.HandleFunc("/statuses/{id}", statuses.Show).Methods("GET")
-	v1.HandleFunc("/statuses/{id}/context", svc.Contexts().Show).Methods("GET")
+	statuses := v1.PathPrefix("/statuses").Subrouter()
+	statuses.HandleFunc("/", api.Statuses().Create).Methods("POST")
+
+	status := statuses.PathPrefix("/{id:[0-9]+}").Subrouter()
+	status.HandleFunc("", api.Statuses().Show).Methods("GET")
+	status.HandleFunc("/context", api.Contexts().Show).Methods("GET")
+	status.HandleFunc("/favourite", api.Favourites().Create).Methods("POST")
 
 	emojis := api.Emojis()
 	v1.HandleFunc("/custom_emojis", emojis.Index).Methods("GET")
