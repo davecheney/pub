@@ -78,8 +78,8 @@ func thread(id uint, statuses []Status) ([]*Status, []*Status) {
 	}
 
 	var ancestors []*Status
-	var l = ids[id]
-	for l.parent != nil {
+	var l = ids[id].parent
+	for l != nil {
 		ancestors = append(ancestors, l.status)
 		l = l.parent
 	}
