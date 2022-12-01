@@ -2,8 +2,8 @@ package m
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
-	"time"
 
 	"github.com/go-json-experiment/json"
 	"github.com/gorilla/mux"
@@ -11,10 +11,8 @@ import (
 )
 
 type Favourite struct {
-	ID        uint `gorm:"primarykey"`
-	CreatedAt time.Time
-	AccountID uint `gorm:"uniqueIndex:idx_account_status"`
-	StatusID  uint `gorm:"uniqueIndex:idx_account_status"`
+	AccountID uint `gorm:"primaryKey"`
+	StatusID  uint `gorm:"primaryKey"`
 }
 
 func (f *Favourite) AfterCreate(tx *gorm.DB) error {
@@ -90,4 +88,29 @@ func (f *Favourites) Destroy(w http.ResponseWriter, r *http.Request) {
 	status.FavouritesCount--
 	w.Header().Set("Content-Type", "application/json")
 	json.MarshalFull(w, status.serialize())
+}
+
+func (f *Favourites) Show(w http.ResponseWriter, r *http.Request) {
+	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	var token Token
+	if err := f.db.Preload("Account").Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	id, _ := strconv.Atoi(mux.Vars(r)["id"])
+	status := Status{
+		ID: uint(id),
+	}
+	var favourites []Account
+	if err := f.db.Model(&status).Association("FavouritedBy").Find(&favourites); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	var resp []interface{}
+	for _, favourite := range favourites {
+		resp = append(resp, favourite.serialize())
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.MarshalFull(w, resp)
 }

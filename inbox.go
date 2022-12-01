@@ -125,9 +125,7 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 	}
 
 	status := m.Status{
-		Model: gorm.Model{
-			CreatedAt: published,
-		},
+		CreatedAt:      published,
 		AccountID:      account.ID,
 		Account:        account,
 		ConversationID: conversationID,

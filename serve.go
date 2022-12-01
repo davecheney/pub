@@ -60,6 +60,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	status.HandleFunc("/context", api.Contexts().Show).Methods("GET")
 	status.HandleFunc("/favourite", api.Favourites().Create).Methods("POST")
 	status.HandleFunc("/unfavourite", api.Favourites().Destroy).Methods("POST")
+	status.HandleFunc("/favourited_by", api.Favourites().Show).Methods("GET")
 
 	emojis := api.Emojis()
 	v1.HandleFunc("/custom_emojis", emojis.Index).Methods("GET")

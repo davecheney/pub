@@ -18,7 +18,9 @@ import (
 )
 
 type Status struct {
-	gorm.Model
+	ID                 uint `gorm:"primarykey"`
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 	AccountID          uint
 	Account            *Account
 	ConversationID     uint
@@ -34,7 +36,7 @@ type Status struct {
 	FavouritesCount    int    `gorm:"not null;default:0"`
 	Content            string
 
-	Favourites []Favourite
+	FavouritedBy []Account `gorm:"many2many:favourites;"`
 }
 
 func (s *Status) AfterCreate(tx *gorm.DB) error {
@@ -218,9 +220,7 @@ func (s *statuses) FindOrCreateStatus(uri string) (*Status, error) {
 		return nil, err
 	}
 	status = Status{
-		Model: gorm.Model{
-			CreatedAt: timeFromAny(obj["published"]),
-		},
+		CreatedAt:      timeFromAny(obj["published"]),
 		Account:        account,
 		AccountID:      account.ID,
 		ConversationID: conversationID,
