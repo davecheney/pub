@@ -51,6 +51,8 @@ func (s *ServeCmd) Run(ctx *Context) error {
 
 	statuses := api.Statuses()
 	v1.HandleFunc("/statuses", statuses.Create).Methods("POST")
+	v1.HandleFunc("/statuses/{id}", statuses.Show).Methods("GET")
+	v1.HandleFunc("/statuses/{id}/context", svc.Contexts().Show).Methods("GET")
 
 	emojis := api.Emojis()
 	v1.HandleFunc("/custom_emojis", emojis.Index).Methods("GET")

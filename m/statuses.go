@@ -13,26 +13,25 @@ import (
 
 	"github.com/carlmjohnson/requests"
 	"github.com/go-json-experiment/json"
+	"github.com/gorilla/mux"
 	"gorm.io/gorm"
 )
-
-// <https://hachyderm.io/api/v1/timelines/public?max_id=109419674974114267>; rel="next", <https://hachyderm.io/api/v1/timelines/public?min_id=109419683346234802>; rel="prev"
 
 type Status struct {
 	gorm.Model
 	AccountID          uint
 	Account            *Account
+	ConversationID     uint
 	InReplyToID        *uint
 	InReplyToAccountID *uint
 	Sensitive          bool
 	SpoilerText        string
-	Visibility         string
+	Visibility         string `gorm:"type:enum('public', 'unlisted', 'private', 'direct')"`
 	Language           string
-	URI                string `gorm:"uniqueIndex"`
-	URL                string
-	RepliesCount       int
-	ReblogsCount       int
-	FavouritesCount    int
+	URI                string `gorm:"uniqueIndex;size:128"`
+	RepliesCount       int    `gorm:"not null;default:0"`
+	ReblogsCount       int    `gorm:"not null;default:0"`
+	FavouritesCount    int    `gorm:"not null;default:0"`
 	Content            string
 }
 
@@ -137,6 +136,17 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 	json.MarshalFull(w, status.serialize())
 }
 
+func (s *Statuses) Show(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	var status Status
+	if err := s.db.Preload("Account").Where("id = ?", id).First(&status).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.MarshalFull(w, status.serialize())
+}
+
 type statuses struct {
 	db      *gorm.DB
 	service *Service
@@ -151,6 +161,7 @@ func (s *statuses) FindOrCreateStatus(uri string) (*Status, error) {
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
+
 	var obj map[string]interface{}
 	if err := requests.URL(uri).Accept(`application/ld+json; profile="https://www.w3.org/ns/activitystreams"`).ToJSON(&obj).Fetch(context.Background()); err != nil {
 		return nil, err
@@ -162,12 +173,39 @@ func (s *statuses) FindOrCreateStatus(uri string) (*Status, error) {
 		return nil, fmt.Errorf("unsupported type %q", obj["type"])
 	}
 
+	var visibility string
+	for _, recipient := range obj["to"].([]interface{}) {
+		if recipient == "https://www.w3.org/ns/activitystreams#Public" {
+			visibility = "public"
+			break
+		}
+	}
+	switch visibility {
+	case "public":
+		// cool
+	default:
+		return nil, fmt.Errorf("unsupported visibility %q", visibility)
+	}
+
 	var inReplyTo *Status
 	if inReplyToAtomUri, ok := obj["inReplyToAtomUri"].(string); ok {
 		inReplyTo, err = s.FindOrCreateStatus(inReplyToAtomUri)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	conversationID := uint(0)
+	if inReplyTo != nil {
+		conversationID = inReplyTo.ConversationID
+	} else {
+		conv := Conversation{
+			Visibility: visibility,
+		}
+		if err := s.db.Create(&conv).Error; err != nil {
+			return nil, err
+		}
+		conversationID = conv.ID
 	}
 
 	account, err := s.service.Accounts().FindOrCreateAccount(stringFromAny(obj["attributedTo"]))
@@ -178,8 +216,9 @@ func (s *statuses) FindOrCreateStatus(uri string) (*Status, error) {
 		Model: gorm.Model{
 			CreatedAt: timeFromAny(obj["published"]),
 		},
-		Account:   account,
-		AccountID: account.ID,
+		Account:        account,
+		AccountID:      account.ID,
+		ConversationID: conversationID,
 		InReplyToID: func() *uint {
 			if inReplyTo != nil {
 				return &inReplyTo.ID
@@ -197,9 +236,7 @@ func (s *statuses) FindOrCreateStatus(uri string) (*Status, error) {
 		Visibility:  "public",
 		Language:    stringFromAny(obj["language"]),
 		URI:         stringFromAny(obj["atomUri"]),
-		URL:         stringFromAny(obj["url"]),
-
-		Content: stringFromAny(obj["content"]),
+		Content:     stringFromAny(obj["content"]),
 	}
 	if err := s.db.Create(&status).Error; err != nil {
 		return nil, err
@@ -224,4 +261,13 @@ func stringOrNull(v *uint) any {
 		return nil
 	}
 	return strconv.Itoa(int(*v))
+}
+
+func contains[T comparable](s []T, e T) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }

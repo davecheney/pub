@@ -89,6 +89,20 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 		return err
 	}
 
+	var visibility string
+	for _, recipient := range obj["to"].([]interface{}) {
+		if recipient == "https://www.w3.org/ns/activitystreams#Public" {
+			visibility = "public"
+			break
+		}
+	}
+	switch visibility {
+	case "public":
+		// cool
+	default:
+		return fmt.Errorf("unsupported visibility %q", visibility)
+	}
+
 	var inReplyTo *m.Status
 	if inReplyToAtomUri, ok := obj["inReplyTo"].(string); ok {
 		inReplyTo, err = ip.service.Statuses().FindOrCreateStatus(inReplyToAtomUri)
@@ -96,13 +110,28 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 			return err
 		}
 	}
+
+	conversationID := uint(0)
+	if inReplyTo != nil {
+		conversationID = inReplyTo.ConversationID
+	} else {
+		conv := m.Conversation{
+			Visibility: visibility,
+		}
+		if err := ip.db.Create(&conv).Error; err != nil {
+			return err
+		}
+		conversationID = conv.ID
+	}
+
 	status := m.Status{
 		Model: gorm.Model{
 			CreatedAt: published,
 		},
-		AccountID: account.ID,
-		Account:   account,
-		URI:       stringFromAny(obj["atomUri"]),
+		AccountID:      account.ID,
+		Account:        account,
+		ConversationID: conversationID,
+		URI:            stringFromAny(obj["atomUri"]),
 		InReplyToID: func() *uint {
 			if inReplyTo != nil {
 				return &inReplyTo.ID

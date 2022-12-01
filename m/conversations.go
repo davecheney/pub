@@ -10,6 +10,12 @@ import (
 	"gorm.io/gorm"
 )
 
+type Conversation struct {
+	gorm.Model
+	Visibility string `gorm:"type:enum('public', 'unlisted', 'private', 'direct')"`
+	Statuses   []Status
+}
+
 type Conversations struct {
 	db      *gorm.DB
 	service *Service
@@ -76,4 +82,29 @@ func (c *Conversations) paginate(r *http.Request) func(db *gorm.DB) *gorm.DB {
 		}
 		return db
 	}
+}
+
+type conversations struct {
+	db      *gorm.DB
+	service *Service
+}
+
+func (c *conversations) FindConversationByURI(uri string) (*Conversation, error) {
+	var conversation Conversation
+	if err := c.db.Where("status.uri = ?", uri).Joins("Statuses").First(&conversation).Error; err != nil {
+		return nil, err
+	}
+	return &conversation, nil
+}
+
+func (c *conversations) FindConversationByStatusID(id uint) (*Conversation, error) {
+	var status Status
+	if err := c.db.Where("id = ?", id).First(&status).Error; err != nil {
+		return nil, err
+	}
+	var conversation Conversation
+	if err := c.db.Preload("Statuses").First(&conversation, status.ConversationID).Error; err != nil {
+		return &conversation, nil
+	}
+	return &conversation, nil
 }

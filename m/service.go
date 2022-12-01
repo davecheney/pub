@@ -27,6 +27,12 @@ func (s *Service) API() *API {
 	}
 }
 
+func (s *Service) Contexts() *Contexts {
+	return &Contexts{
+		service: s,
+	}
+}
+
 // Domain returns the domain of the instance.
 func (s *Service) Domain() string {
 	return s.instance.Domain
@@ -62,7 +68,15 @@ func (s *Service) tokens() *tokens {
 
 func (s *Service) Statuses() *statuses {
 	return &statuses{
-		db: s.db,
+		db:      s.db,
+		service: s,
+	}
+}
+
+func (s *Service) conversations() *conversations {
+	return &conversations{
+		db:      s.db,
+		service: s,
 	}
 }
 
