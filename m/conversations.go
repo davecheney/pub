@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
@@ -22,8 +21,7 @@ type Conversations struct {
 }
 
 func (c *Conversations) Index(w http.ResponseWriter, r *http.Request) {
-	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	_, err := c.service.tokens().FindByAccessToken(accessToken)
+	_, err := c.service.authenticate(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return

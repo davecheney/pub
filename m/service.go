@@ -1,6 +1,11 @@
 package m
 
-import "gorm.io/gorm"
+import (
+	"net/http"
+	"strings"
+
+	"gorm.io/gorm"
+)
 
 // Service represents the m web service.
 type Service struct {
@@ -19,6 +24,18 @@ func NewService(db *gorm.DB, domain string) (*Service, error) {
 		db:       db,
 		instance: &instance,
 	}, nil
+}
+
+// authenticate authenticates the bearer token attached to the request and, if
+// successful, returns the account associated with the token.
+func (s *Service) authenticate(r *http.Request) (*Account, error) {
+	token := Token{
+		AccessToken: strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "),
+	}
+	if err := s.db.Model(&token).Joins("Account").Find(&token.Account).Error; err != nil {
+		return nil, err
+	}
+	return token.Account, nil
 }
 
 func (s *Service) API() *API {
@@ -160,7 +177,8 @@ func (a *API) Markers() *Markers {
 
 func (a *API) Notifications() *Notifications {
 	return &Notifications{
-		db: a.service.db,
+		db:      a.service.db,
+		service: a.service,
 	}
 }
 

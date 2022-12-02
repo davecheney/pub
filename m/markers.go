@@ -3,7 +3,6 @@ package m
 import (
 	"net/http"
 	"net/http/httputil"
-	"strings"
 
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
@@ -22,16 +21,15 @@ type Markers struct {
 	service *Service
 }
 
-func (m *Markers) Index(w http.ResponseWriter, req *http.Request) {
-	accessToken := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
-	account, err := m.service.tokens().FindByAccessToken(accessToken)
+func (m *Markers) Index(w http.ResponseWriter, r *http.Request) {
+	user, err := m.service.authenticate(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
 	var markers []Marker
-	if err := m.db.Model(account).Association("Markers").Find(&markers); err != nil {
+	if err := m.db.Model(user).Association("Markers").Find(&markers); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -48,14 +46,13 @@ func (m *Markers) Index(w http.ResponseWriter, req *http.Request) {
 	json.MarshalFull(w, resp)
 }
 
-func (m *Markers) Create(w http.ResponseWriter, req *http.Request) {
-	accessToken := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
-	_, err := m.service.tokens().FindByAccessToken(accessToken)
+func (m *Markers) Create(w http.ResponseWriter, r *http.Request) {
+	_, err := m.service.authenticate(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	buf, _ := httputil.DumpRequest(req, true)
+	buf, _ := httputil.DumpRequest(r, true)
 	println(string(buf))
 	w.WriteHeader(http.StatusNotImplemented)
 }

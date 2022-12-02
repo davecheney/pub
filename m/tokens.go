@@ -18,11 +18,3 @@ type Token struct {
 type tokens struct {
 	db *gorm.DB
 }
-
-func (t *tokens) FindByAccessToken(accessToken string) (*Token, error) {
-	var token Token
-	if err := t.db.Where("access_token = ?", accessToken).Joins("Account").First(&token).Error; err != nil {
-		return nil, err
-	}
-	return &token, nil
-}

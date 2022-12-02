@@ -3,7 +3,6 @@ package m
 import (
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
@@ -29,26 +28,19 @@ func (n *Notification) serialize() map[string]any {
 }
 
 type Notifications struct {
-	db *gorm.DB
-}
-
-func NewNotifications(db *gorm.DB) *Notifications {
-	return &Notifications{
-		db: db,
-	}
+	db      *gorm.DB
+	service *Service
 }
 
 func (n *Notifications) Index(w http.ResponseWriter, r *http.Request) {
-	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-
-	var token Token
-	if err := n.db.Preload("Account").Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+	user, err := n.service.authenticate(r)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
 	var notifications []Notification
-	if err := n.db.Preload("Status").Preload("Status.Account").Find(&notifications).Error; err != nil {
+	if err := n.db.Where("account_id = ?", user.ID).Preload("Status").Preload("Status.Account").Find(&notifications).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

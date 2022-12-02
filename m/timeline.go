@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
@@ -16,8 +15,7 @@ type Timelines struct {
 }
 
 func (t *Timelines) Index(w http.ResponseWriter, r *http.Request) {
-	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	_, err := t.service.tokens().FindByAccessToken(accessToken)
+	_, err := t.service.authenticate(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
@@ -43,8 +41,7 @@ func (t *Timelines) Index(w http.ResponseWriter, r *http.Request) {
 }
 
 func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
-	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	_, err := t.service.tokens().FindByAccessToken(accessToken)
+	_, err := t.service.authenticate(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return

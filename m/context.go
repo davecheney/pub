@@ -3,7 +3,6 @@ package m
 import (
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/go-json-experiment/json"
 	"github.com/gorilla/mux"
@@ -14,8 +13,7 @@ type Contexts struct {
 }
 
 func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
-	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	_, err := c.service.tokens().FindByAccessToken(accessToken)
+	_, err := c.service.authenticate(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return

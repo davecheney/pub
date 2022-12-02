@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"path"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/carlmjohnson/requests"
@@ -42,10 +41,11 @@ type Account struct {
 	PublicKey         []byte
 	PrivateKey        []byte // only used for local accounts
 
-	Lists      []AccountList
-	Statuses   []Status
-	Markers    []Marker
-	Favourites []Favourite
+	Lists         []AccountList
+	Statuses      []Status
+	Markers       []Marker
+	Favourites    []Favourite
+	Notifications []Notification
 }
 
 func (a *Account) AfterCreate(tx *gorm.DB) error {
@@ -114,14 +114,13 @@ type Accounts struct {
 
 func (a *Accounts) Show(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	_, err := a.service.tokens().FindByAccessToken(accessToken)
+	_, err := a.service.authenticate(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 	var account Account
-	if err := a.db.Where("id = ?", id).First(&account).Error; err != nil {
+	if err := a.db.First(&account, id).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -131,25 +130,24 @@ func (a *Accounts) Show(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Accounts) VerifyCredentials(w http.ResponseWriter, r *http.Request) {
-	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	token, err := a.service.tokens().FindByAccessToken(accessToken)
+	user, err := a.service.authenticate(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, token.Account.serialize())
+	json.MarshalFull(w, user.serialize())
 }
 
 func (a *Accounts) StatusesShow(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
-	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	_, err := a.service.tokens().FindByAccessToken(accessToken)
+	_, err := a.service.authenticate(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
+
+	id := mux.Vars(r)["id"]
 	var statuses []Status
 	tx := a.db.Preload("Account").Where("account_id = ?", id)
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))

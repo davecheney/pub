@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"path"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/carlmjohnson/requests"
@@ -99,13 +98,11 @@ type Statuses struct {
 }
 
 func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
-	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	token, err := s.service.tokens().FindByAccessToken(accessToken)
+	account, err := s.service.authenticate(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	account := token.Account
 	var toot struct {
 		Status      string     `json:"status"`
 		InReplyToID *uint      `json:"in_reply_to_id,string"`

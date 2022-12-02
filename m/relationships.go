@@ -2,7 +2,6 @@ package m
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/go-json-experiment/json"
 )
@@ -12,8 +11,7 @@ type Relationships struct {
 }
 
 func (r *Relationships) Show(w http.ResponseWriter, req *http.Request) {
-	accessToken := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
-	_, err := r.service.tokens().FindByAccessToken(accessToken)
+	_, err := r.service.authenticate(req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
