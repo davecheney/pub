@@ -113,9 +113,6 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (o *OAuth) Token(w http.ResponseWriter, r *http.Request) {
-	buf, _ := httputil.DumpRequest(r, false)
-	log.Println("token", string(buf))
-
 	var params struct {
 		ClientID     string `json:"client_id"`
 		ClientSecret string `json:"client_secret"`

@@ -64,6 +64,13 @@ func (s *Service) OAuth() *OAuth {
 	}
 }
 
+func (s *Service) Users() *Users {
+	return &Users{
+		db:      s.db,
+		service: s,
+	}
+}
+
 func (s *Service) WellKnown() *WellKnown {
 	return &WellKnown{
 		db:       s.db,

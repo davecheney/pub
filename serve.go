@@ -99,14 +99,12 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	ni := r.PathPrefix("/nodeinfo").Subrouter()
 	ni.HandleFunc("/2.0", svc.NodeInfo().Show).Methods("GET")
 
-	users := activitypub.NewUsers(db, svc)
-	r.HandleFunc("/users/{username}", users.Show).Methods("GET")
-	r.HandleFunc("/users/{username}/inbox", users.InboxCreate).Methods("POST")
-	activitypub := activitypub.NewService(db, svc)
+	users := r.PathPrefix("/users").Subrouter()
+	users.HandleFunc("/{username}", svc.Users().Show).Methods("GET")
 
-	inbox := r.Path("/inbox").Subrouter()
-	inbox.Use(activitypub.ValidateSignature())
-	inbox.HandleFunc("", users.InboxCreate).Methods("POST")
+	inbox := activitypub.NewInbox(db, svc)
+	users.HandleFunc("/{username}/inbox", inbox.Create).Methods("POST")
+	r.Path("/inbox").HandlerFunc(inbox.Create).Methods("POST")
 
 	r.Path("/robots.txt").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")

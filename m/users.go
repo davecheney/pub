@@ -1,11 +1,10 @@
-package activitypub
+package m
 
 import (
 	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/davecheney/m/m"
 	"github.com/go-json-experiment/json"
 
 	"github.com/gorilla/mux"
@@ -14,19 +13,12 @@ import (
 
 type Users struct {
 	db      *gorm.DB
-	service *m.Service
-}
-
-func NewUsers(db *gorm.DB, service *m.Service) *Users {
-	return &Users{
-		db:      db,
-		service: service,
-	}
+	service *Service
 }
 
 func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 	username := mux.Vars(r)["username"]
-	var account m.Account
+	var account Account
 	if err := u.db.Where("username = ? and domain = ?", username, u.service.Domain()).First(&account).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -129,43 +121,4 @@ func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 			"url":       account.HeaderStatic,
 		},
 	})
-}
-
-func (u *Users) InboxCreate(w http.ResponseWriter, r *http.Request) {
-	var body map[string]interface{}
-	if err := json.UnmarshalFull(r.Body, &body); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	actor := stringFromAny(body["actor"])
-	account, err := u.service.Accounts().FindOrCreateAccount(actor)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	object := mapFromAny(body["object"])
-
-	activity := &Activity{
-		Account:      account,
-		Activity:     body,
-		ActivityType: stringFromAny(body["type"]),
-		ObjectType:   stringFromAny(object["type"]),
-	}
-	if err := u.db.Create(activity).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusAccepted)
-}
-
-func stringFromAny(v any) string {
-	s, _ := v.(string)
-	return s
-}
-
-func mapFromAny(v any) map[string]any {
-	m, _ := v.(map[string]any)
-	return m
 }
