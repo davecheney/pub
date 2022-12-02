@@ -1,14 +1,18 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"net/http"
-	"os"
+	"strings"
 	"time"
 
 	"github.com/davecheney/m/m"
-	"github.com/gorilla/handlers"
-	"github.com/gorilla/mux"
 	"gorm.io/gorm"
+
+	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5"
+	_ "github.com/go-chi/chi/v5"
 )
 
 type ServeCmd struct {
@@ -31,93 +35,103 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	r := mux.NewRouter()
-	r = r.Host(s.Domain).Subrouter()
+	c := chi.NewRouter()
+	c.Use(middleware.RequestID)
+	c.Use(middleware.RealIP)
+	c.Use(middleware.Logger)
+	c.Use(middleware.Recoverer)
 
-	v1 := r.PathPrefix("/api/v1").Subrouter()
-	api := svc.API()
-	apps := api.Applications()
-	v1.HandleFunc("/apps", apps.Create).Methods(http.MethodPost)
-	v1.HandleFunc("/markers", api.Markers().Index).Methods("GET")
-	v1.HandleFunc("/markers", api.Markers().Create).Methods("POST")
+	c.Route("/", func(r chi.Router) {
 
-	accounts := v1.PathPrefix("/accounts").Subrouter()
-	accounts.HandleFunc("/verify_credentials", api.Accounts().VerifyCredentials).Methods("GET")
-	accounts.HandleFunc("/relationships", api.Relationships().Show).Methods("GET")
+		r.Route("/api", func(r chi.Router) {
+			api := svc.API()
+			instance := api.Instances()
+			r.Route("/v1", func(r chi.Router) {
+				r.Post("/apps", api.Applications().Create)
+				r.Route("/accounts", func(r chi.Router) {
+					r.Get("/verify_credentials", api.Accounts().VerifyCredentials)
+					r.Get("/relationships", api.Relationships().Show)
+					r.Get("/filters", api.Filters().Index)
+					r.Get("/lists", api.Lists().Index)
+					r.Get("/instance", instance.IndexV1)
+					r.Get("/instance/peers", instance.PeersShow)
+					r.Get("/{id:[0-9]+}", api.Accounts().Show)
+					r.Get("/{id:[0-9]+}/statuses", api.Accounts().StatusesShow)
+				})
+				r.Get("/conversations", api.Conversations().Index)
+				r.Get("/custom_emojis", api.Emojis().Index)
+				r.Get("/markers", api.Markers().Index)
+				r.Post("/markers", api.Markers().Create)
+				r.Get("/notifications", api.Notifications().Index)
+				r.Get("/statuses/{id:[0-9]+}", api.Statuses().Show)
+				r.Get("/statuses/{id:[0-9]+}/context", api.Contexts().Show)
+				r.Post("/statuses/{id:[0-9]+}/favourite", api.Favourites().Create)
+				r.Post("/statuses/{id:[0-9]+}/unfavourite", api.Favourites().Destroy)
+				r.Get("/statuses/{id:[0-9]+}/favourited_by", api.Favourites().Show)
+				r.Route("/timelines", func(r chi.Router) {
+					timelines := api.Timelines()
+					r.Get("/home", timelines.Index)
+					r.Get("/public", timelines.Public)
+				})
 
-	account := accounts.PathPrefix("/{id:[0-9]+}").Subrouter()
-	account.HandleFunc("", api.Accounts().Show).Methods("GET")
-	account.HandleFunc("/statuses", api.Accounts().StatusesShow).Methods("GET")
+			})
+			r.Route("/v2", func(r chi.Router) {
+				r.Get("/instance", instance.IndexV2)
+			})
+		})
 
-	conversations := api.Conversations()
-	v1.HandleFunc("/conversations", conversations.Index).Methods("GET")
+		inbox := svc.Inboxes()
+		r.Post("/inbox", inbox.Create)
 
-	statuses := v1.PathPrefix("/statuses").Subrouter()
-	statuses.HandleFunc("", api.Statuses().Create).Methods("POST")
+		r.Route("/oauth", func(r chi.Router) {
+			oauth := svc.OAuth()
+			r.Get("/authorize", oauth.Authorize)
+			r.Post("/authorize", oauth.Authorize)
+			r.Post("/token", oauth.Token)
+			r.Post("/revoke", oauth.Revoke)
+		})
 
-	status := statuses.PathPrefix("/{id:[0-9]+}").Subrouter()
-	status.HandleFunc("", api.Statuses().Show).Methods("GET")
-	status.HandleFunc("/context", api.Contexts().Show).Methods("GET")
-	status.HandleFunc("/favourite", api.Favourites().Create).Methods("POST")
-	status.HandleFunc("/unfavourite", api.Favourites().Destroy).Methods("POST")
-	status.HandleFunc("/favourited_by", api.Favourites().Show).Methods("GET")
+		r.Route("/nodeinfo", func(r chi.Router) {
+			r.Get("/2.0", svc.NodeInfo().Show)
+		})
 
-	emojis := api.Emojis()
-	v1.HandleFunc("/custom_emojis", emojis.Index).Methods("GET")
+		r.Get("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/plain")
+			// no robots, especially not you Bingbot!
+			io.WriteString(w, "User-agent: *\nDisallow: /")
+		})
 
-	notifications := api.Notifications()
-	v1.HandleFunc("/notifications", notifications.Index).Methods("GET")
+		r.Route("/users", func(r chi.Router) {
+			r.Get("/{username}", svc.Users().Show)
+			r.Post("/{username}/inbox", inbox.Create)
+		})
 
-	instance := api.Instances()
-	v1.HandleFunc("/instance", instance.IndexV1).Methods("GET")
-	v1.HandleFunc("/instance/peers", instance.PeersShow).Methods("GET")
+		r.Route("/.well-known", func(r chi.Router) {
+			wellknown := svc.WellKnown()
+			r.Get("/webfinger", wellknown.Webfinger)
+			r.Get("/host-meta", wellknown.HostMeta)
+			r.Get("/nodeinfo", svc.NodeInfo().Index)
+		})
 
-	filters := api.Filters()
-	v1.HandleFunc("/filters", filters.Index).Methods("GET")
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "https://dave.cheney.net/", http.StatusFound)
+		})
 
-	timelines := api.Timelines()
-	v1.HandleFunc("/timelines/home", timelines.Index).Methods("GET")
-	v1.HandleFunc("/timelines/public", timelines.Public).Methods("GET")
-
-	v1.HandleFunc("/lists", api.Lists().Index).Methods("GET")
-
-	v2 := r.PathPrefix("/api/v2").Subrouter()
-	v2.HandleFunc("/instance", instance.IndexV2).Methods("GET")
-
-	oauth := svc.OAuth()
-	r.HandleFunc("/oauth/authorize", oauth.Authorize).Methods("GET", "POST")
-	r.HandleFunc("/oauth/token", oauth.Token).Methods("POST")
-	r.HandleFunc("/oauth/revoke", oauth.Revoke).Methods("POST")
-
-	wk := r.PathPrefix("/.well-known").Subrouter()
-	wellknown := svc.WellKnown()
-	wk.HandleFunc("/webfinger", wellknown.Webfinger).Methods("GET")
-	wk.HandleFunc("/host-meta", wellknown.HostMeta).Methods("GET")
-	wk.HandleFunc("/nodeinfo", svc.NodeInfo().Index).Methods("GET")
-
-	ni := r.PathPrefix("/nodeinfo").Subrouter()
-	ni.HandleFunc("/2.0", svc.NodeInfo().Show).Methods("GET")
-
-	users := r.PathPrefix("/users").Subrouter()
-	users.HandleFunc("/{username}", svc.Users().Show).Methods("GET")
-
-	inbox := svc.Inboxes()
-	users.HandleFunc("/{username}/inbox", inbox.Create).Methods("POST")
-	r.Path("/inbox").HandlerFunc(inbox.Create).Methods("POST")
-
-	r.Path("/robots.txt").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		// no robots, especially not you Bingbot!
-		w.Write([]byte("User-agent: *\nDisallow: /"))
 	})
 
-	r.Path("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "https://dave.cheney.net/", http.StatusFound)
-	})
+	walkFunc := func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		route = strings.Replace(route, "/*/", "/", -1)
+		fmt.Printf("%s %s\n", method, route)
+		return nil
+	}
+
+	if err := chi.Walk(c, walkFunc); err != nil {
+		fmt.Printf("Logging err: %s\n", err.Error())
+	}
 
 	svr := &http.Server{
 		Addr:         s.Addr,
-		Handler:      handlers.ProxyHeaders(handlers.LoggingHandler(os.Stdout, r)),
+		Handler:      c,
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
