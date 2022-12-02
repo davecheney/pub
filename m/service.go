@@ -179,7 +179,7 @@ func (a *API) Statuses() *Statuses {
 
 func (a *API) Timelines() *Timelines {
 	return &Timelines{
-		db:       a.service.db,
-		instance: a.service.instance,
+		db:      a.service.db,
+		service: a.service,
 	}
 }

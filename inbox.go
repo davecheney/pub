@@ -104,6 +104,15 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 		return fmt.Errorf("unsupported visibility %q", visibility)
 	}
 
+	// check we haven't already processed this note
+	uri := stringFromAny(obj["atomUri"])
+	if status, err := ip.service.Statuses().FindByURI(uri); err == nil {
+		// oh, we have, update the status
+		status.Content = stringFromAny(obj["content"])
+		status.UpdatedAt = published
+		return ip.db.Save(status).Error
+	}
+
 	var inReplyTo *m.Status
 	if inReplyToAtomUri, ok := obj["inReplyTo"].(string); ok {
 		inReplyTo, err = ip.service.Statuses().FindOrCreateStatus(inReplyToAtomUri)
@@ -125,7 +134,7 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 		conversationID = conv.ID
 	}
 
-	status := m.Status{
+	status := &m.Status{
 		ID:             snowflake.TimeToID(published),
 		AccountID:      account.ID,
 		Account:        account,
@@ -150,7 +159,7 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 		Content:     stringFromAny(obj["content"]),
 	}
 
-	if err := ip.db.Create(&status).Error; err != nil {
+	if err := ip.db.Create(status).Error; err != nil {
 		return err
 	}
 	return nil

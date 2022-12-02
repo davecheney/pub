@@ -100,11 +100,12 @@ type Statuses struct {
 
 func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	var token Token
-	if err := s.db.Preload("Account").Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+	token, err := s.service.tokens().FindByAccessToken(accessToken)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
+	account := token.Account
 	var toot struct {
 		Status      string     `json:"status"`
 		InReplyToID *uint      `json:"in_reply_to_id,string"`
@@ -119,9 +120,12 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	createdAt := time.Now()
+	id := snowflake.TimeToID(createdAt)
 	status := &Status{
-		Account:     token.Account,
-		AccountID:   token.AccountID,
+		ID:          id,
+		AccountID:   account.ID,
+		URI:         fmt.Sprintf("https://%s/@%s/%d", account.Domain, account.Username, id),
 		Sensitive:   toot.Sensitive,
 		SpoilerText: toot.SpoilerText,
 		Visibility:  toot.Visibility,
@@ -129,12 +133,14 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 		Content:     toot.Status,
 	}
 	if err := s.db.Create(status).Error; err != nil {
+		fmt.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	token.Account.LastStatusAt = time.Now()
-	token.Account.StatusesCount++
-	if err := s.db.Save(&token.Account).Error; err != nil {
+
+	account.LastStatusAt = createdAt
+	if err := s.db.Save(account).Error; err != nil {
+		fmt.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -159,11 +165,18 @@ type statuses struct {
 	service *Service
 }
 
-func (s *statuses) FindOrCreateStatus(uri string) (*Status, error) {
+func (s *statuses) FindByURI(uri string) (*Status, error) {
 	var status Status
-	err := s.db.Preload("Account").Where("uri = ?", uri).First(&status).Error
+	if err := s.db.Preload("Account").Where("uri = ?", uri).First(&status).Error; err != nil {
+		return nil, err
+	}
+	return &status, nil
+}
+
+func (s *statuses) FindOrCreateStatus(uri string) (*Status, error) {
+	status, err := s.FindByURI(uri)
 	if err == nil {
-		return &status, nil
+		return status, nil
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
@@ -221,7 +234,7 @@ func (s *statuses) FindOrCreateStatus(uri string) (*Status, error) {
 	}
 	createdAt := timeFromAny(obj["published"])
 
-	status = Status{
+	status = &Status{
 		ID:             snowflake.TimeToID(createdAt),
 		Account:        account,
 		AccountID:      account.ID,
@@ -245,10 +258,10 @@ func (s *statuses) FindOrCreateStatus(uri string) (*Status, error) {
 		URI:         stringFromAny(obj["atomUri"]),
 		Content:     stringFromAny(obj["content"]),
 	}
-	if err := s.db.Create(&status).Error; err != nil {
+	if err := s.db.Create(status).Error; err != nil {
 		return nil, err
 	}
-	return &status, nil
+	return status, nil
 }
 
 func timeFromAny(v any) time.Time {

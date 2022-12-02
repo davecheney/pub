@@ -39,11 +39,12 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	api := svc.API()
 	apps := api.Applications()
 	v1.HandleFunc("/apps", apps.Create).Methods(http.MethodPost)
+	v1.HandleFunc("/markers", api.Markers().Index).Methods("GET")
+	v1.HandleFunc("/markers", api.Markers().Create).Methods("POST")
 
 	accounts := v1.PathPrefix("/accounts").Subrouter()
 	accounts.HandleFunc("/verify_credentials", api.Accounts().VerifyCredentials).Methods("GET")
 	accounts.HandleFunc("/relationships", api.Relationships().Show).Methods("GET")
-	accounts.HandleFunc("/markers", api.Markers().Index).Methods("GET")
 
 	account := accounts.PathPrefix("/{id:[0-9]+}").Subrouter()
 	account.HandleFunc("", api.Accounts().Show).Methods("GET")
@@ -53,7 +54,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	v1.HandleFunc("/conversations", conversations.Index).Methods("GET")
 
 	statuses := v1.PathPrefix("/statuses").Subrouter()
-	statuses.HandleFunc("/", api.Statuses().Create).Methods("POST")
+	statuses.HandleFunc("", api.Statuses().Create).Methods("POST")
 
 	status := statuses.PathPrefix("/{id:[0-9]+}").Subrouter()
 	status.HandleFunc("", api.Statuses().Show).Methods("GET")

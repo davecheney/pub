@@ -2,6 +2,7 @@ package m
 
 import (
 	"net/http"
+	"net/http/httputil"
 	"strings"
 
 	"github.com/go-json-experiment/json"
@@ -30,7 +31,7 @@ func (m *Markers) Index(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var markers []Marker
-	if err := m.db.Where("account_id = ?", account.ID).Find(&markers).Error; err != nil {
+	if err := m.db.Model(account).Association("Markers").Find(&markers); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -45,4 +46,16 @@ func (m *Markers) Index(w http.ResponseWriter, req *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.MarshalFull(w, resp)
+}
+
+func (m *Markers) Create(w http.ResponseWriter, req *http.Request) {
+	accessToken := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
+	_, err := m.service.tokens().FindByAccessToken(accessToken)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	buf, _ := httputil.DumpRequest(req, true)
+	println(string(buf))
+	w.WriteHeader(http.StatusNotImplemented)
 }

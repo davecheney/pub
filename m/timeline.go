@@ -11,14 +11,14 @@ import (
 )
 
 type Timelines struct {
-	db       *gorm.DB
-	instance *Instance
+	db      *gorm.DB
+	service *Service
 }
 
 func (t *Timelines) Index(w http.ResponseWriter, r *http.Request) {
 	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	var token Token
-	if err := t.db.Preload("Account").Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+	_, err := t.service.tokens().FindByAccessToken(accessToken)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
@@ -37,15 +37,15 @@ func (t *Timelines) Index(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if len(statuses) > 0 {
-		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/home?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/home?min_id=%d>; rel=\"prev\"", t.instance.Domain, statuses[len(statuses)-1].ID, t.instance.Domain, statuses[0].ID))
+		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/home?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/home?min_id=%d>; rel=\"prev\"", t.service.Domain(), statuses[len(statuses)-1].ID, t.service.Domain(), statuses[0].ID))
 	}
 	json.MarshalFull(w, resp)
 }
 
 func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
 	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	var token Token
-	if err := t.db.Preload("Account").Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+	_, err := t.service.tokens().FindByAccessToken(accessToken)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
@@ -56,7 +56,7 @@ func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
 	case "":
 		scope = scope.Joins("Account")
 	default:
-		scope = scope.Joins("Account").Where("Account.instance_id = ?", t.instance.ID)
+		scope = scope.Joins("Account").Where("Account.instance_id = ?", t.service.instance.ID)
 	}
 
 	if err := scope.Order("statuses.id desc").Find(&statuses).Error; err != nil {
@@ -71,7 +71,7 @@ func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if len(statuses) > 0 {
-		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/public?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/public?min_id=%d>; rel=\"prev\"", t.instance.Domain, statuses[len(statuses)-1].ID, t.instance.Domain, statuses[0].ID))
+		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/public?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/public?min_id=%d>; rel=\"prev\"", t.service.Domain(), statuses[len(statuses)-1].ID, t.service.Domain(), statuses[0].ID))
 	}
 	json.MarshalFull(w, resp)
 }
