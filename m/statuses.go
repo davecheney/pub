@@ -18,13 +18,13 @@ import (
 )
 
 type Status struct {
-	ID                 uint `gorm:"primarykey"`
+	ID                 uint64 `gorm:"primaryKey;autoIncrement:false"`
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
 	AccountID          uint
 	Account            *Account
 	ConversationID     uint
-	InReplyToID        *uint
+	InReplyToID        *uint64
 	InReplyToAccountID *uint
 	Sensitive          bool
 	SpoilerText        string
@@ -219,12 +219,15 @@ func (s *statuses) FindOrCreateStatus(uri string) (*Status, error) {
 	if err != nil {
 		return nil, err
 	}
+	createdAt := timeFromAny(obj["published"])
+
 	status = Status{
-		CreatedAt:      timeFromAny(obj["published"]),
+		ID:             snowflakeID(createdAt),
+		CreatedAt:      createdAt,
 		Account:        account,
 		AccountID:      account.ID,
 		ConversationID: conversationID,
-		InReplyToID: func() *uint {
+		InReplyToID: func() *uint64 {
 			if inReplyTo != nil {
 				return &inReplyTo.ID
 			}
@@ -261,7 +264,11 @@ func timeFromAny(v any) time.Time {
 	}
 }
 
-func stringOrNull(v *uint) any {
+type number interface {
+	uint | uint64
+}
+
+func stringOrNull[T number](v *T) any {
 	if v == nil {
 		return nil
 	}
@@ -275,4 +282,8 @@ func contains[T comparable](s []T, e T) bool {
 		}
 	}
 	return false
+}
+
+func snowflakeID(ts time.Time) uint64 {
+	return uint64(ts.UnixMilli()) << 16
 }

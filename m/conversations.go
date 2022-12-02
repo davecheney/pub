@@ -97,7 +97,7 @@ func (c *conversations) FindConversationByURI(uri string) (*Conversation, error)
 	return &conversation, nil
 }
 
-func (c *conversations) FindConversationByStatusID(id uint) (*Conversation, error) {
+func (c *conversations) FindConversationByStatusID(id uint64) (*Conversation, error) {
 	var status Status
 	if err := c.db.Where("id = ?", id).First(&status).Error; err != nil {
 		return nil, err

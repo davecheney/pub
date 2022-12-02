@@ -11,8 +11,8 @@ import (
 )
 
 type Favourite struct {
-	AccountID uint `gorm:"primaryKey"`
-	StatusID  uint `gorm:"primaryKey"`
+	AccountID uint   `gorm:"primaryKey"`
+	StatusID  uint64 `gorm:"primaryKey"`
 }
 
 func (f *Favourite) AfterCreate(tx *gorm.DB) error {
@@ -99,7 +99,7 @@ func (f *Favourites) Show(w http.ResponseWriter, r *http.Request) {
 	}
 	id, _ := strconv.Atoi(mux.Vars(r)["id"])
 	status := Status{
-		ID: uint(id),
+		ID: uint64(id),
 	}
 	var favourites []Account
 	if err := f.db.Model(&status).Association("FavouritedBy").Find(&favourites); err != nil {

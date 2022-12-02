@@ -23,7 +23,7 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 
 	id, _ := strconv.Atoi(mux.Vars(r)["id"])
 
-	conv, err := c.service.conversations().FindConversationByStatusID(uint(id))
+	conv, err := c.service.conversations().FindConversationByStatusID(uint64(id))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -36,7 +36,7 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ancestors, decentants := thread(uint(id), statuses)
+	ancestors, decentants := thread(uint64(id), statuses)
 	w.Header().Set("Content-Type", "application/activity+json")
 	json.MarshalFull(w, map[string]interface{}{
 		"ancestors": func() []interface{} {
@@ -58,13 +58,13 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 
 // thread sorts statuses into a tree, it returns the statuses
 // preceeding id, and statuses following id.
-func thread(id uint, statuses []Status) ([]*Status, []*Status) {
+func thread(id uint64, statuses []Status) ([]*Status, []*Status) {
 	type link struct {
 		parent   *link
 		status   *Status
 		children []*link
 	}
-	ids := make(map[uint]*link)
+	ids := make(map[uint64]*link)
 	for i := range statuses {
 		ids[statuses[i].ID] = &link{status: &statuses[i]}
 	}
