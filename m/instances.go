@@ -93,7 +93,7 @@ func (i *Instance) serializeV1() map[string]any {
 		"title":             i.Title,
 		"short_description": i.ShortDescription,
 		"description":       i.Description,
-		"email":             i.Admin.Email,
+		"email":             i.Admin.LocalAccount.Email,
 		"version":           "3.5.3",
 		"urls":              map[string]any{},
 		"stats": map[string]any{
@@ -234,7 +234,7 @@ func (i *Instance) serializeV2() map[string]any {
 				"message":           nil,
 			},
 			"contact": map[string]any{
-				"email":   i.Admin.Email,
+				"email":   i.Admin.LocalAccount.Email,
 				"account": i.Admin.serialize(),
 			},
 			"rules": i.serialiseRules(),
@@ -249,7 +249,7 @@ type Instances struct {
 
 func (i *Instances) IndexV1(w http.ResponseWriter, r *http.Request) {
 	var instance Instance
-	if err := i.db.Model(&Instance{}).Preload("Admin").Where("domain = ?", i.instance.Domain).First(&instance).Error; err != nil {
+	if err := i.db.Model(&Instance{}).Preload("Admin").Preload("Admin.LocalAccount").Where("domain = ?", i.instance.Domain).First(&instance).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}

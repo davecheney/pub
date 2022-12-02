@@ -25,8 +25,8 @@ type Account struct {
 	Domain         string `gorm:"uniqueIndex:idx_domainusername;size:64"`
 	Username       string `gorm:"uniqueIndex:idx_domainusername;size:64"`
 	DisplayName    string `gorm:"size:64"`
-	Email          string `gorm:"size:64"`
 	Local          bool
+	LocalAccount   *LocalAccount `gorm:"foreignKey:AccountID"`
 	Locked         bool
 	Bot            bool
 	Note           string
@@ -38,16 +38,20 @@ type Account struct {
 	FollowingCount int `gorm:"default:0;not null"`
 	StatusesCount  int `gorm:"default:0;not null"`
 	LastStatusAt   time.Time
-
-	EncryptedPassword []byte // only used for local accounts
-	PublicKey         []byte
-	PrivateKey        []byte // only used for local accounts
+	PublicKey      []byte
 
 	Lists         []AccountList
 	Statuses      []Status
 	Markers       []Marker
 	Favourites    []Favourite
 	Notifications []Notification
+}
+
+type LocalAccount struct {
+	AccountID         uint   `gorm:"primarykey;autoIncrement:false"`
+	Email             string `gorm:"size:64"`
+	EncryptedPassword []byte // only used for local accounts
+	PrivateKey        []byte // only used for local accounts
 }
 
 func (a *Account) AfterCreate(tx *gorm.DB) error {
@@ -203,16 +207,13 @@ func (a *accounts) FindOrCreateAccount(uri string) (*Account, error) {
 	}
 
 	// use admin account to sign the request
-	var signAs Account
-	if err := a.db.Where("username = ? AND domain = ?", "dave", "cheney.net").First(&signAs).Error; err != nil {
-		return nil, err
-	}
-
+	signAs, err := a.service.Accounts().FindAdminAccount()
 	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
 		return nil, err
 	}
-	if err := sign(req, &signAs); err != nil {
+	req.Header.Set("Accept", `application/ld+json; profile="https://www.w3.org/ns/activitystreams"`)
+	if err := sign(req, signAs); err != nil {
 		return nil, fmt.Errorf("failed to sign request: %w", err)
 	}
 	resp, err := http.DefaultClient.Do(req)
@@ -255,9 +256,17 @@ func (a *accounts) FindOrCreateAccount(uri string) (*Account, error) {
 	return &account, nil
 }
 
+func (a *accounts) FindAdminAccount() (*Account, error) {
+	var account Account
+	if err := a.db.Where("username = ? AND domain = ?", "dave", "cheney.net").Joins("LocalAccount").First(&account).Error; err != nil {
+		return nil, err
+	}
+	return &account, nil
+}
+
 func sign(r *http.Request, account *Account) error {
 	r.Header.Set("Date", time.Now().UTC().Format("Mon, 02 Jan 2006 15:04:05 GMT")) // Date must be in GMT, not UTC 🤯
-	privPem, _ := pem.Decode(account.PrivateKey)
+	privPem, _ := pem.Decode(account.LocalAccount.PrivateKey)
 	if privPem.Type != "RSA PRIVATE KEY" {
 		return errors.New("expected RSA PRIVATE KEY")
 	}

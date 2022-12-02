@@ -57,13 +57,14 @@ func (c *CreateAccountCmd) Run(ctx *Context) error {
 		InstanceID:  instance.ID,
 		Instance:    &instance,
 		DisplayName: username,
-		Email:       c.Email,
 		Locked:      false,
 		Local:       true,
-
-		EncryptedPassword: passwd,
-		PrivateKey:        keypair.privateKey,
-		PublicKey:         keypair.publicKey,
+		LocalAccount: &m.LocalAccount{
+			Email:             c.Email,
+			EncryptedPassword: passwd,
+			PrivateKey:        keypair.privateKey,
+		},
+		PublicKey: keypair.publicKey,
 	}
 	if err := db.Create(account).Error; err != nil {
 		return err

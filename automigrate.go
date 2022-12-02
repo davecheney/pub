@@ -18,7 +18,7 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 	return db.AutoMigrate(
 		&activitypub.Activity{},
 
-		&m.Account{}, &m.AccountList{},
+		&m.Account{}, &m.AccountList{}, &m.LocalAccount{},
 		&m.Activity{},
 		&m.Application{},
 		&m.Conversation{},

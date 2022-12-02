@@ -43,6 +43,7 @@ func (i *Inboxes) Create(w http.ResponseWriter, r *http.Request) {
 	actor := stringFromAny(body["actor"])
 	account, err := i.service.Accounts().FindOrCreateAccount(actor)
 	if err != nil {
+		fmt.Println("FindOrCreateAccount:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -73,7 +74,12 @@ func (i *Inboxes) validateSignature(r *http.Request) error {
 		fmt.Println("getKey failed for key id:", verifier.KeyId(), err)
 		return err
 	}
-	return verifier.Verify(pubKey, httpsig.RSA_SHA256)
+	if err := verifier.Verify(pubKey, httpsig.RSA_SHA256); err != nil {
+		fmt.Println("verify:", err)
+		return err
+	}
+	return nil
+
 }
 
 func (i *Inboxes) getKey(keyId string) (crypto.PublicKey, error) {

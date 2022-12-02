@@ -85,12 +85,12 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var account Account
-	if err := o.db.Where("email = ?", email).First(&account).Error; err != nil {
+	if err := o.db.Where("email = ?", email).Joins("LocalAccount").First(&account).Error; err != nil {
 		http.Error(w, "invalid username", http.StatusUnauthorized)
 		return
 	}
 
-	if err := bcrypt.CompareHashAndPassword(account.EncryptedPassword, []byte(password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword(account.LocalAccount.EncryptedPassword, []byte(password)); err != nil {
 		http.Error(w, "invalid password", http.StatusUnauthorized)
 		return
 	}
