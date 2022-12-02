@@ -1,14 +1,12 @@
 package activitypub
 
 import (
-	"github.com/davecheney/m/m"
 	"gorm.io/gorm"
 )
 
 type Activity struct {
 	gorm.Model
 	AccountID    uint
-	Account      *m.Account
 	Activity     map[string]interface{} `gorm:"serializer:json"`
 	ActivityType string
 	ObjectType   string

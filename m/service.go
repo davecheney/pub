@@ -49,6 +49,13 @@ func (s *Service) Domain() string {
 	return s.instance.Domain
 }
 
+func (s *Service) Inbox() *Inbox {
+	return &Inbox{
+		db:      s.db,
+		service: s,
+	}
+}
+
 // NodeInfo returns a NodeInfo REST resource.
 func (s *Service) NodeInfo() *NodeInfo {
 	return &NodeInfo{

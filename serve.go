@@ -5,7 +5,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/davecheney/m/activitypub"
 	"github.com/davecheney/m/m"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -102,7 +101,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	users := r.PathPrefix("/users").Subrouter()
 	users.HandleFunc("/{username}", svc.Users().Show).Methods("GET")
 
-	inbox := activitypub.NewInbox(db, svc)
+	inbox := svc.Inbox()
 	users.HandleFunc("/{username}/inbox", inbox.Create).Methods("POST")
 	r.Path("/inbox").HandlerFunc(inbox.Create).Methods("POST")
 

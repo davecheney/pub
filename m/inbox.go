@@ -1,4 +1,4 @@
-package activitypub
+package m
 
 import (
 	"crypto"
@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/davecheney/m/m"
+	"github.com/davecheney/m/activitypub"
 	"github.com/go-fed/httpsig"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
@@ -16,14 +16,7 @@ import (
 
 type Inbox struct {
 	db      *gorm.DB
-	service *m.Service
-}
-
-func NewInbox(db *gorm.DB, service *m.Service) *Inbox {
-	return &Inbox{
-		db:      db,
-		service: service,
-	}
+	service *Service
 }
 
 func (i *Inbox) Create(w http.ResponseWriter, r *http.Request) {
@@ -47,8 +40,8 @@ func (i *Inbox) Create(w http.ResponseWriter, r *http.Request) {
 
 	object := mapFromAny(body["object"])
 
-	activity := &Activity{
-		Account:      account,
+	activity := &activitypub.Activity{
+		AccountID:    account.ID,
 		Activity:     body,
 		ActivityType: stringFromAny(body["type"]),
 		ObjectType:   stringFromAny(object["type"]),
@@ -102,14 +95,4 @@ func trimKeyId(id string) string {
 		return id[:i]
 	}
 	return id
-}
-
-func stringFromAny(v any) string {
-	s, _ := v.(string)
-	return s
-}
-
-func mapFromAny(v any) map[string]any {
-	m, _ := v.(map[string]any)
-	return m
 }
