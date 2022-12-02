@@ -101,7 +101,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	users := r.PathPrefix("/users").Subrouter()
 	users.HandleFunc("/{username}", svc.Users().Show).Methods("GET")
 
-	inbox := svc.Inbox()
+	inbox := svc.Inboxes()
 	users.HandleFunc("/{username}/inbox", inbox.Create).Methods("POST")
 	r.Path("/inbox").HandlerFunc(inbox.Create).Methods("POST")
 

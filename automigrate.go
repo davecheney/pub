@@ -19,6 +19,7 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 		&activitypub.Activity{},
 
 		&m.Account{}, &m.AccountList{},
+		&m.Activity{},
 		&m.Application{},
 		&m.Conversation{},
 		&m.ClientFilter{},

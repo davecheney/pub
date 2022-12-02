@@ -14,12 +14,21 @@ import (
 	"gorm.io/gorm"
 )
 
-type Inbox struct {
+type Activity struct {
+	gorm.Model
+	Object map[string]interface{} `gorm:"serializer:json"`
+}
+
+func (Activity) TableName() string {
+	return "inbox"
+}
+
+type Inboxes struct {
 	db      *gorm.DB
 	service *Service
 }
 
-func (i *Inbox) Create(w http.ResponseWriter, r *http.Request) {
+func (i *Inboxes) Create(w http.ResponseWriter, r *http.Request) {
 	if err := i.validateSignature(r); err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
@@ -53,7 +62,7 @@ func (i *Inbox) Create(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (i *Inbox) validateSignature(r *http.Request) error {
+func (i *Inboxes) validateSignature(r *http.Request) error {
 	verifier, err := httpsig.NewVerifier(r)
 	if err != nil {
 		fmt.Println("NewVerifier:", err)
@@ -67,7 +76,7 @@ func (i *Inbox) validateSignature(r *http.Request) error {
 	return verifier.Verify(pubKey, httpsig.RSA_SHA256)
 }
 
-func (i *Inbox) getKey(keyId string) (crypto.PublicKey, error) {
+func (i *Inboxes) getKey(keyId string) (crypto.PublicKey, error) {
 	actorId := trimKeyId(keyId)
 	account, err := i.service.Accounts().FindOrCreateAccount(actorId)
 	if err != nil {

@@ -12,7 +12,7 @@ func TimeToID(ts time.Time) uint64 {
 	// 0 bits for worker ID.
 	// 0 bits for sequence.
 	// 16 bits for random.
-	return uint64(ts.UnixNano()/1e6)<<16 | uint64(rand.Intn(1<<16))
+	return uint64(ts.UnixNano()/int64(time.Millisecond))<<16 | uint64(rand.Intn(1<<16))
 }
 
 // IDToTime converts a Snowflake ID to a time.Time.
