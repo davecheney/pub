@@ -1,7 +1,6 @@
 package m
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -22,7 +21,6 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 
 	id := chi.URLParam(r, "id")
 	statusID, err := strconv.ParseUint(id, 10, 64)
-	fmt.Println("id", id, "statusID", statusID)
 
 	conv, err := c.service.conversations().FindConversationByStatusID(statusID)
 	if err != nil {

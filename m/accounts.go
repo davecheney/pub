@@ -121,8 +121,6 @@ type Accounts struct {
 func (a *Accounts) Show(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	fmt.Println(chi.RouteContext(r.Context()).URLParams)
-
 	_, err := a.service.authenticate(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
