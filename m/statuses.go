@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/carlmjohnson/requests"
+	"github.com/davecheney/m/internal/snowflake"
 	"github.com/go-json-experiment/json"
 	"github.com/gorilla/mux"
 	"gorm.io/gorm"
@@ -19,7 +20,6 @@ import (
 
 type Status struct {
 	ID                 uint64 `gorm:"primaryKey;autoIncrement:false"`
-	CreatedAt          time.Time
 	UpdatedAt          time.Time
 	AccountID          uint
 	Account            *Account
@@ -63,7 +63,7 @@ func (s *Status) url() string {
 func (s *Status) serialize() map[string]any {
 	return map[string]any{
 		"id":                     strconv.Itoa(int(s.ID)),
-		"created_at":             s.CreatedAt.UTC().Format("2006-01-02T15:04:05.006Z"),
+		"created_at":             snowflake.IDToTime(s.ID).UTC().Format("2006-01-02T15:04:05.006Z"),
 		"in_reply_to_id":         stringOrNull(s.InReplyToID),
 		"in_reply_to_account_id": stringOrNull(s.InReplyToAccountID),
 		"sensitive":              s.Sensitive,
@@ -222,8 +222,7 @@ func (s *statuses) FindOrCreateStatus(uri string) (*Status, error) {
 	createdAt := timeFromAny(obj["published"])
 
 	status = Status{
-		ID:             snowflakeID(createdAt),
-		CreatedAt:      createdAt,
+		ID:             snowflake.TimeToID(createdAt),
 		Account:        account,
 		AccountID:      account.ID,
 		ConversationID: conversationID,
@@ -282,8 +281,4 @@ func contains[T comparable](s []T, e T) bool {
 		}
 	}
 	return false
-}
-
-func snowflakeID(ts time.Time) uint64 {
-	return uint64(ts.UnixMilli()) << 16
 }

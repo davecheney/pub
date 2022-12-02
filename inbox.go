@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/davecheney/m/activitypub"
+	"github.com/davecheney/m/internal/snowflake"
 	"github.com/davecheney/m/m"
 	"gorm.io/gorm"
 )
@@ -125,8 +126,7 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 	}
 
 	status := m.Status{
-		ID:             snowflakeID(published),
-		CreatedAt:      published,
+		ID:             snowflake.TimeToID(published),
 		AccountID:      account.ID,
 		Account:        account,
 		ConversationID: conversationID,
@@ -180,8 +180,4 @@ func timeFromAny(v any) (time.Time, error) {
 func mapFromAny(v any) map[string]any {
 	m, _ := v.(map[string]any)
 	return m
-}
-
-func snowflakeID(ts time.Time) uint64 {
-	return uint64(ts.UnixMilli()) << 16
 }
