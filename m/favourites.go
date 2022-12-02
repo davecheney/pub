@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-chi/chi"
 	"github.com/go-json-experiment/json"
-	"github.com/gorilla/mux"
 	"gorm.io/gorm"
 )
 
@@ -44,7 +44,7 @@ func (f *Favourites) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	id := mux.Vars(r)["id"]
+	id := chi.URLParam(r, "id")
 	var status Status
 	if err := f.db.Joins("Account").First(&status, id).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -70,7 +70,7 @@ func (f *Favourites) Destroy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	id := mux.Vars(r)["id"]
+	id := chi.URLParam(r, "id")
 	var status Status
 	if err := f.db.Joins("Account").First(&status, id).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -97,7 +97,7 @@ func (f *Favourites) Show(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	id, _ := strconv.Atoi(mux.Vars(r)["id"])
+	id, _ := strconv.Atoi(chi.URLParam(r, "id"))
 	status := Status{
 		ID: uint64(id),
 	}

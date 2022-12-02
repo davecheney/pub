@@ -70,7 +70,7 @@ func (i *Inboxes) validateSignature(r *http.Request) error {
 	}
 	pubKey, err := i.getKey(verifier.KeyId())
 	if err != nil {
-		fmt.Println("getKey:", err)
+		fmt.Println("getKey failed for key id:", verifier.KeyId(), err)
 		return err
 	}
 	return verifier.Verify(pubKey, httpsig.RSA_SHA256)

@@ -1,7 +1,9 @@
 package m
 
 import (
-	"context"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/http"
@@ -10,9 +12,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/carlmjohnson/requests"
+	"github.com/go-chi/chi"
+	"github.com/go-fed/httpsig"
 	"github.com/go-json-experiment/json"
-	"github.com/gorilla/mux"
 	"gorm.io/gorm"
 )
 
@@ -113,7 +115,7 @@ type Accounts struct {
 }
 
 func (a *Accounts) Show(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
+	id := chi.URLParam(r, "id")
 	_, err := a.service.authenticate(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
@@ -147,7 +149,7 @@ func (a *Accounts) StatusesShow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := mux.Vars(r)["id"]
+	id := chi.URLParam(r, "id")
 	var statuses []Status
 	tx := a.db.Preload("Account").Where("account_id = ?", id)
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
@@ -199,8 +201,31 @@ func (a *accounts) FindOrCreateAccount(uri string) (*Account, error) {
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
+
+	// use admin account to sign the request
+	var signAs Account
+	if err := a.db.Where("username = ? AND domain = ?", "dave", "cheney.net").First(&signAs).Error; err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", uri, nil)
+	if err != nil {
+		return nil, err
+	}
+	if err := sign(req, &signAs); err != nil {
+		return nil, fmt.Errorf("failed to sign request: %w", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to fetch account: %s", resp.Status)
+	}
+
 	var obj map[string]interface{}
-	if err := requests.URL(uri).Accept(`application/ld+json; profile="https://www.w3.org/ns/activitystreams"`).ToJSON(&obj).Fetch(context.Background()); err != nil {
+	if err := json.UnmarshalFull(resp.Body, &obj); err != nil {
 		return nil, err
 	}
 
@@ -228,6 +253,41 @@ func (a *accounts) FindOrCreateAccount(uri string) (*Account, error) {
 		return nil, err
 	}
 	return &account, nil
+}
+
+func sign(r *http.Request, account *Account) error {
+	r.Header.Set("Date", time.Now().UTC().Format("Mon, 02 Jan 2006 15:04:05 GMT")) // Date must be in GMT, not UTC 🤯
+	privPem, _ := pem.Decode(account.PrivateKey)
+	if privPem.Type != "RSA PRIVATE KEY" {
+		return errors.New("expected RSA PRIVATE KEY")
+	}
+
+	var parsedKey interface{}
+	var err error
+	if parsedKey, err = x509.ParsePKCS1PrivateKey(privPem.Bytes); err != nil {
+		if parsedKey, err = x509.ParsePKCS8PrivateKey(privPem.Bytes); err != nil { // note this returns type `interface{}`
+			return err
+		}
+	}
+
+	var privateKey *rsa.PrivateKey
+	var ok bool
+	privateKey, ok = parsedKey.(*rsa.PrivateKey)
+	if !ok {
+		return errors.New("expected *rsa.PrivateKey")
+	}
+	headersToSign := []string{httpsig.RequestTarget, "date"}
+	signer, _, err := httpsig.NewSigner(
+		[]httpsig.Algorithm{httpsig.RSA_SHA256},
+		httpsig.DigestSha256,
+		headersToSign,
+		httpsig.Signature,
+		60,
+	)
+	if err != nil {
+		return err
+	}
+	return signer.SignRequest(privateKey, account.PublicKeyID(), r, nil)
 }
 
 func splitAcct(acct string) (string, string, error) {

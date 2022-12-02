@@ -12,7 +12,6 @@ import (
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
-	_ "github.com/go-chi/chi/v5"
 )
 
 type ServeCmd struct {
@@ -60,6 +59,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 				})
 				r.Get("/conversations", api.Conversations().Index)
 				r.Get("/custom_emojis", api.Emojis().Index)
+				r.Get("/instance", instance.IndexV1)
 				r.Get("/markers", api.Markers().Index)
 				r.Post("/markers", api.Markers().Create)
 				r.Get("/notifications", api.Notifications().Index)

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/go-chi/chi"
 	"github.com/go-json-experiment/json"
-	"github.com/gorilla/mux"
 )
 
 type Contexts struct {
@@ -19,7 +19,7 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, _ := strconv.Atoi(mux.Vars(r)["id"])
+	id, _ := strconv.Atoi(chi.URLParam(r, "id"))
 
 	conv, err := c.service.conversations().FindConversationByStatusID(uint64(id))
 	if err != nil {

@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-chi/chi"
 	"github.com/go-json-experiment/json"
 
-	"github.com/gorilla/mux"
 	"gorm.io/gorm"
 )
 
@@ -17,7 +17,7 @@ type Users struct {
 }
 
 func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
-	username := mux.Vars(r)["username"]
+	username := chi.URLParam(r, "username")
 	var account Account
 	if err := u.db.Where("username = ? and domain = ?", username, u.service.Domain()).First(&account).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)

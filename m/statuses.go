@@ -12,8 +12,8 @@ import (
 
 	"github.com/carlmjohnson/requests"
 	"github.com/davecheney/m/internal/snowflake"
+	"github.com/go-chi/chi"
 	"github.com/go-json-experiment/json"
-	"github.com/gorilla/mux"
 	"gorm.io/gorm"
 )
 
@@ -147,7 +147,7 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Statuses) Show(w http.ResponseWriter, r *http.Request) {
-	id := mux.Vars(r)["id"]
+	id := chi.URLParam(r, "id")
 	var status Status
 	if err := s.db.Preload("Account").Where("id = ?", id).First(&status).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
