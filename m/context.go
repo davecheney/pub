@@ -1,10 +1,11 @@
 package m
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/go-json-experiment/json"
 )
 
@@ -19,9 +20,11 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, _ := strconv.Atoi(chi.URLParam(r, "id"))
+	id := chi.URLParam(r, "id")
+	statusID, err := strconv.ParseUint(id, 10, 64)
+	fmt.Println("id", id, "statusID", statusID)
 
-	conv, err := c.service.conversations().FindConversationByStatusID(uint64(id))
+	conv, err := c.service.conversations().FindConversationByStatusID(statusID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -34,7 +37,7 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ancestors, decentants := thread(uint64(id), statuses)
+	ancestors, decentants := thread(statusID, statuses)
 	w.Header().Set("Content-Type", "application/activity+json")
 	json.MarshalFull(w, map[string]interface{}{
 		"ancestors": func() []interface{} {

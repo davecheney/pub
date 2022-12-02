@@ -12,7 +12,7 @@ import (
 
 	"github.com/carlmjohnson/requests"
 	"github.com/davecheney/m/internal/snowflake"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 )

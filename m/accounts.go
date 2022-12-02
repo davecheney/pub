@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/go-fed/httpsig"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
@@ -120,6 +120,9 @@ type Accounts struct {
 
 func (a *Accounts) Show(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+
+	fmt.Println(chi.RouteContext(r.Context()).URLParams)
+
 	_, err := a.service.authenticate(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
