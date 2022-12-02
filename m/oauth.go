@@ -1,10 +1,12 @@
 package m
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/http/httputil"
+	"time"
 
 	"github.com/go-json-experiment/json"
 	"github.com/google/uuid"
@@ -12,16 +14,20 @@ import (
 	"gorm.io/gorm"
 )
 
-type OAuth struct {
-	db       *gorm.DB
-	instance *Instance
+type Token struct {
+	ID                uint `gorm:"primarykey"`
+	CreatedAt         time.Time
+	AccountID         uint
+	Account           *Account
+	ApplicationID     uint
+	AccessToken       string
+	TokenType         string
+	Scope             string
+	AuthorizationCode string
 }
 
-func NewOAuth(db *gorm.DB, instance *Instance) *OAuth {
-	return &OAuth{
-		db:       db,
-		instance: instance,
-	}
+type OAuth struct {
+	db *gorm.DB
 }
 
 func (o *OAuth) Authorize(w http.ResponseWriter, r *http.Request) {
@@ -36,8 +42,6 @@ func (o *OAuth) Authorize(w http.ResponseWriter, r *http.Request) {
 }
 
 func (o *OAuth) authorizeGet(w http.ResponseWriter, r *http.Request) {
-	buf, _ := httputil.DumpRequest(r, false)
-	log.Println("authorizeGet", string(buf))
 	clientID := r.FormValue("client_id")
 	redirectURI := r.FormValue("redirect_uri")
 	if clientID == "" {
@@ -71,8 +75,6 @@ func (o *OAuth) authorizeGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
-	buf, _ := httputil.DumpRequest(r, false)
-	log.Println("authorizePost", string(buf))
 	email := r.FormValue("email")
 	password := r.PostFormValue("password")
 	redirectURI := r.PostFormValue("redirect_uri")
@@ -108,6 +110,10 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if redirectURI == "" {
+		redirectURI = app.RedirectURI
+	}
+
 	w.Header().Set("Location", redirectURI+"?code="+token.AuthorizationCode)
 	w.WriteHeader(302)
 }
@@ -120,18 +126,35 @@ func (o *OAuth) Token(w http.ResponseWriter, r *http.Request) {
 		Code         string `json:"code"`
 		RedirectURI  string `json:"redirect_uri"`
 	}
-	switch r.Header.Get("Content-Type") {
-	case "application/json":
-		if err := json.UnmarshalFull(r.Body, &params); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-	default:
+	switch mediaType(r) {
+	case "application/x-www-form-urlencoded":
 		params.ClientID = r.FormValue("client_id")
 		params.ClientSecret = r.FormValue("client_secret")
 		params.GrantType = r.FormValue("grant_type")
 		params.Code = r.FormValue("code")
 		params.RedirectURI = r.FormValue("redirect_uri")
+	case "application/json":
+		switch r.ContentLength {
+		case 0:
+			// god damnint Mammoth, why do you send empty body?
+			params.ClientID = r.FormValue("client_id")
+			params.ClientSecret = r.FormValue("client_secret")
+			params.GrantType = r.FormValue("grant_type")
+			params.Code = r.FormValue("code")
+			params.RedirectURI = r.FormValue("redirect_uri")
+		default:
+			if err := json.UnmarshalFull(r.Body, &params); err != nil {
+				buf, _ := httputil.DumpRequest(r, false)
+				fmt.Println(string(buf))
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+		}
+	default:
+		buf, _ := httputil.DumpRequest(r, true)
+		fmt.Println(string(buf))
+		http.Error(w, "unsupported media type", http.StatusUnsupportedMediaType)
+		return
 	}
 	var token Token
 	if err := o.db.Where("authorization_code = ?", params.Code).First(&token).Error; err != nil {
@@ -165,16 +188,19 @@ func (o *OAuth) Revoke(w http.ResponseWriter, r *http.Request) {
 		Token        string `json:"token"`
 	}
 	var token Token
-	switch r.Header.Get("Content-Type") {
+	switch mediaType(r) {
+	case "application/x-www-form-urlencoded":
+		params.ClientID = r.FormValue("client_id")
+		params.ClientSecret = r.FormValue("client_secret")
+		params.Token = r.FormValue("token")
 	case "application/json":
 		if err := json.UnmarshalFull(r.Body, &params); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	default:
-		params.ClientID = r.FormValue("client_id")
-		params.ClientSecret = r.FormValue("client_secret")
-		params.Token = r.FormValue("token")
+		http.Error(w, "unsupported media type", http.StatusUnsupportedMediaType)
+		return
 	}
 	if err := o.db.Where("access_token = ?", params.Token).First(&token).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)

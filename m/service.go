@@ -10,29 +10,21 @@ import (
 // Service represents the m web service.
 type Service struct {
 	db *gorm.DB
-	// The Instance this service represents.
-	instance *Instance
 }
 
 // NewService returns a new Service.
-func NewService(db *gorm.DB, domain string) (*Service, error) {
-	var instance Instance
-	if err := db.Where("domain = ?", domain).First(&instance).Error; err != nil {
-		return nil, err
-	}
+func NewService(db *gorm.DB) *Service {
 	return &Service{
-		db:       db,
-		instance: &instance,
-	}, nil
+		db: db,
+	}
 }
 
 // authenticate authenticates the bearer token attached to the request and, if
 // successful, returns the account associated with the token.
 func (s *Service) authenticate(r *http.Request) (*Account, error) {
-	token := Token{
-		AccessToken: strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "),
-	}
-	if err := s.db.Model(&token).Joins("Account").Find(&token.Account).Error; err != nil {
+	bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	var token Token
+	if err := s.db.Where("access_token = ?", bearer).Joins("Account").First(&token).Error; err != nil {
 		return nil, err
 	}
 	return token.Account, nil
@@ -44,30 +36,16 @@ func (s *Service) API() *API {
 	}
 }
 
-// Domain returns the domain of the instance.
-func (s *Service) Domain() string {
-	return s.instance.Domain
-}
-
-func (s *Service) Inboxes() *Inboxes {
-	return &Inboxes{
-		db:      s.db,
-		service: s,
-	}
-}
-
 // NodeInfo returns a NodeInfo REST resource.
 func (s *Service) NodeInfo() *NodeInfo {
 	return &NodeInfo{
-		db:     s.db,
-		domain: s.Domain(),
+		db: s.db,
 	}
 }
 
 func (s *Service) OAuth() *OAuth {
 	return &OAuth{
-		db:       s.db,
-		instance: s.instance,
+		db: s.db,
 	}
 }
 
@@ -80,13 +58,6 @@ func (s *Service) Users() *Users {
 
 func (s *Service) WellKnown() *WellKnown {
 	return &WellKnown{
-		db:       s.db,
-		instance: s.instance,
-	}
-}
-
-func (s *Service) tokens() *tokens {
-	return &tokens{
 		db: s.db,
 	}
 }
@@ -118,6 +89,18 @@ func (s *Service) instances() *instances {
 	}
 }
 
+func (s *Service) ActivityPub() *ActivityPub {
+	return &ActivityPub{
+		service: s,
+	}
+}
+
+func (a *ActivityPub) Inboxes() *Inboxes {
+	return &Inboxes{
+		service: a.service,
+	}
+}
+
 // API rerpesents the root of a Mastodon capable REST API.
 type API struct {
 	service *Service
@@ -132,8 +115,8 @@ func (a *API) Accounts() *Accounts {
 
 func (a *API) Applications() *Applications {
 	return &Applications{
-		db:       a.service.db,
-		instance: a.service.instance,
+		db:      a.service.db,
+		service: a.service,
 	}
 }
 
@@ -158,7 +141,7 @@ func (a *API) Emojis() *Emojis {
 
 func (a *API) Favourites() *Favourites {
 	return &Favourites{
-		db: a.service.db,
+		service: a.service,
 	}
 }
 
@@ -170,15 +153,14 @@ func (a *API) Filters() *Filters {
 
 func (a *API) Instances() *Instances {
 	return &Instances{
-		db:       a.service.db,
-		instance: a.service.instance,
+		db:      a.service.db,
+		service: a.service,
 	}
 }
 
 func (a *API) Lists() *Lists {
 	return &Lists{
-		db:       a.service.db,
-		instance: a.service.instance,
+		db: a.service.db,
 	}
 }
 
@@ -211,6 +193,13 @@ func (a *API) Statuses() *Statuses {
 
 func (a *API) Timelines() *Timelines {
 	return &Timelines{
+		db:      a.service.db,
+		service: a.service,
+	}
+}
+
+func (a *API) Search() *Search {
+	return &Search{
 		db:      a.service.db,
 		service: a.service,
 	}

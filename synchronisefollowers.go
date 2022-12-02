@@ -26,7 +26,7 @@ type OrderedCollectionPage struct {
 	OrderedItems []string `json:"orderedItems"`
 }
 
-func (s *SynchroniseFollowersCmd) Run(ctx *Context) error {
+func (s *SynchroniseFollowersCmd) Run(_ *Context) error {
 	var col OrderedCollection
 	err := requests.URL(s.Source+"/following").
 		Header("Accept", `application/ld+json; profile="https://www.w3.org/ns/activitystreams"`).

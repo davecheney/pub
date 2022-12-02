@@ -22,8 +22,8 @@ type Application struct {
 }
 
 type Applications struct {
-	db       *gorm.DB
-	instance *Instance
+	db      *gorm.DB
+	service *Service
 }
 
 func (a *Applications) Create(w http.ResponseWriter, r *http.Request) {
@@ -33,21 +33,31 @@ func (a *Applications) Create(w http.ResponseWriter, r *http.Request) {
 		RedirectURIs string  `json:"redirect_uris"`
 		Scopes       string  `json:"scopes"`
 	}
-	switch r.Header.Get("Content-Type") {
+	switch mediaType(r) {
+	case "application/x-www-form-urlencoded":
+		params.ClientName = r.PostFormValue("client_name")
+		params.Website = ptr(r.PostFormValue("website"))
+		params.RedirectURIs = r.PostFormValue("redirect_uris")
+		params.Scopes = r.PostFormValue("scopes")
 	case "application/json":
 		if err := json.UnmarshalFull(r.Body, &params); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	default:
-		params.ClientName = r.FormValue("client_name")
-		params.Website = ptr(r.FormValue("website"))
-		params.RedirectURIs = r.FormValue("redirect_uris")
-		params.Scopes = r.FormValue("scopes")
+		http.Error(w, "unsupported media type", http.StatusUnsupportedMediaType)
+		return
+	}
+
+	instance, err := a.service.instances().FindByDomain(r.Host)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	app := &Application{
-		Instance:     a.instance,
+		InstanceID:   instance.ID,
+		Instance:     instance,
 		Name:         params.ClientName,
 		Website:      params.Website,
 		ClientID:     uuid.New().String(),

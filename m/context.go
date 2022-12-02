@@ -20,7 +20,7 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := chi.URLParam(r, "id")
-	statusID, err := strconv.ParseUint(id, 10, 64)
+	statusID, _ := strconv.ParseUint(id, 10, 64)
 
 	conv, err := c.service.conversations().FindConversationByStatusID(statusID)
 	if err != nil {
@@ -36,7 +36,7 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ancestors, decentants := thread(statusID, statuses)
-	w.Header().Set("Content-Type", "application/activity+json")
+	w.Header().Set("Content-Type", "application/json")
 	json.MarshalFull(w, map[string]interface{}{
 		"ancestors": func() []interface{} {
 			var a []interface{}
@@ -56,7 +56,7 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 }
 
 // thread sorts statuses into a tree, it returns the statuses
-// preceeding id, and statuses following id.
+// preceding id, and statuses following id.
 func thread(id uint64, statuses []Status) ([]*Status, []*Status) {
 	type link struct {
 		parent   *link
@@ -70,9 +70,12 @@ func thread(id uint64, statuses []Status) ([]*Status, []*Status) {
 
 	for _, l := range ids {
 		if l.status.InReplyToID != nil {
-			parent := ids[*l.status.InReplyToID]
-			parent.children = append(parent.children, l)
-			l.parent = parent
+			parent, ok := ids[*l.status.InReplyToID]
+			if ok {
+				// watch out for deleted toots
+				l.parent = parent
+				parent.children = append(parent.children, l)
+			}
 		}
 	}
 
@@ -84,16 +87,16 @@ func thread(id uint64, statuses []Status) ([]*Status, []*Status) {
 	}
 	reverse(ancestors)
 
-	var decendants []*Status
+	var descendants []*Status
 	var walk func(*link)
 	walk = func(l *link) {
 		for _, c := range l.children {
-			decendants = append(decendants, c.status)
+			descendants = append(descendants, c.status)
 			walk(c)
 		}
 	}
 	walk(ids[id])
-	return ancestors, decendants
+	return ancestors, descendants
 }
 
 func reverse[T any](a []T) {

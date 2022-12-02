@@ -14,20 +14,38 @@ type Timelines struct {
 	service *Service
 }
 
-func (t *Timelines) Index(w http.ResponseWriter, r *http.Request) {
-	_, err := t.service.authenticate(r)
+type AccountFollowing struct {
+	AccountID   uint
+	FollowingID uint
+}
+
+func (AccountFollowing) TableName() string {
+	return "account_following"
+}
+
+func (t *Timelines) Home(w http.ResponseWriter, r *http.Request) {
+
+	user, err := t.service.authenticate(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	var statuses []Status
-	scope := t.db.Scopes(t.paginate(r)).Joins("Account").Where("visibility = ?", "public")
-	if err := scope.Order("statuses.id desc").Find(&statuses).Error; err != nil {
-		fmt.Println(err)
+	var followingIDs []int64
+	if err := t.db.Model(&AccountFollowing{AccountID: user.ID}).Pluck("following_id", &followingIDs).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	followingIDs = append(followingIDs, int64(user.ID))
+
+	var statuses []Status
+	scope := t.db.Scopes(t.paginate(r)).Where("account_id IN (?)", followingIDs)
+	scope = scope.Joins("Account")
+	if err := scope.Find(&statuses).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	var resp []any
 	for _, status := range statuses {
 		resp = append(resp, status.serialize())
@@ -35,7 +53,7 @@ func (t *Timelines) Index(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if len(statuses) > 0 {
-		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/home?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/home?min_id=%d>; rel=\"prev\"", t.service.Domain(), statuses[len(statuses)-1].ID, t.service.Domain(), statuses[0].ID))
+		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/home?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/home?min_id=%d>; rel=\"prev\"", r.Host, statuses[len(statuses)-1].ID, r.Host, statuses[0].ID))
 	}
 	json.MarshalFull(w, resp)
 }
@@ -48,15 +66,15 @@ func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var statuses []Status
-	scope := t.db.Scopes(t.paginate(r)).Preload("Account").Where("visibility = ?", "public")
+	scope := t.db.Scopes(t.paginate(r)).Where("visibility = ?", "public")
 	switch r.URL.Query().Get("local") {
-	case "":
-		scope = scope.Joins("Account")
+	case "true":
+		scope = scope.Joins("Account").Where("Account.domain = ?", r.Host)
 	default:
-		scope = scope.Joins("Account").Where("Account.instance_id = ?", t.service.instance.ID)
+		scope = scope.Joins("Account")
 	}
 
-	if err := scope.Order("statuses.id desc").Find(&statuses).Error; err != nil {
+	if err := scope.Find(&statuses).Error; err != nil {
 		fmt.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -68,7 +86,7 @@ func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if len(statuses) > 0 {
-		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/public?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/public?min_id=%d>; rel=\"prev\"", t.service.Domain(), statuses[len(statuses)-1].ID, t.service.Domain(), statuses[0].ID))
+		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/public?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/public?min_id=%d>; rel=\"prev\"", r.Host, statuses[len(statuses)-1].ID, r.Host, statuses[0].ID))
 	}
 	json.MarshalFull(w, resp)
 }
@@ -98,6 +116,6 @@ func (t *Timelines) paginate(r *http.Request) func(db *gorm.DB) *gorm.DB {
 		if maxID > 0 {
 			db = db.Where("statuses.id < ?", maxID)
 		}
-		return db
+		return db.Order("statuses.id desc")
 	}
 }

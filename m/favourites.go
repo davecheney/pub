@@ -2,59 +2,27 @@ package m
 
 import (
 	"net/http"
-	"strconv"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-json-experiment/json"
-	"gorm.io/gorm"
 )
 
-type Favourite struct {
-	AccountID uint   `gorm:"primaryKey"`
-	StatusID  uint64 `gorm:"primaryKey"`
-}
-
-func (f *Favourite) AfterCreate(tx *gorm.DB) error {
-	var status Status
-	if err := tx.Preload("Account").First(&status, f.StatusID).Error; err != nil {
-		return err
-	}
-	status.FavouritesCount++
-	return tx.Save(&status).Error
-}
-
-func (f *Favourite) AfterDelete(tx *gorm.DB) error {
-	var status Status
-	if err := tx.Preload("Account").First(&status, f.StatusID).Error; err != nil {
-		return err
-	}
-	status.FavouritesCount--
-	return tx.Save(&status).Error
-}
-
 type Favourites struct {
-	db *gorm.DB
+	service *Service
 }
 
-func (f *Favourites) Create(w http.ResponseWriter, r *http.Request) {
-	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	var token Token
-	if err := f.db.Preload("Account").Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+func (f *Favourites) Create(w http.ResponseWriter, req *http.Request) {
+	user, err := f.service.authenticate(req)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	id := chi.URLParam(r, "id")
 	var status Status
-	if err := f.db.Joins("Account").First(&status, id).Error; err != nil {
+	if err := f.service.db.Joins("Account").First(&status, chi.URLParam(req, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	favourite := Favourite{
-		AccountID: token.AccountID,
-		StatusID:  status.ID,
-	}
-	if err := f.db.Create(&favourite).Error; err != nil {
+	if err := f.service.db.Model(user).Association("Favourites").Append(&status); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -63,25 +31,18 @@ func (f *Favourites) Create(w http.ResponseWriter, r *http.Request) {
 	json.MarshalFull(w, status.serialize())
 }
 
-func (f *Favourites) Destroy(w http.ResponseWriter, r *http.Request) {
-	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	var token Token
-	if err := f.db.Preload("Account").Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+func (f *Favourites) Destroy(w http.ResponseWriter, req *http.Request) {
+	user, err := f.service.authenticate(req)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	id := chi.URLParam(r, "id")
 	var status Status
-	if err := f.db.Joins("Account").First(&status, id).Error; err != nil {
+	if err := f.service.db.Joins("Account").First(&status, chi.URLParam(req, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	var favourite Favourite
-	if err := f.db.Where("account_id = ? AND status_id = ?", token.AccountID, status.ID).First(&favourite).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-	if err := f.db.Delete(&favourite).Error; err != nil {
+	if err := f.service.db.Model(user).Association("Favourites").Delete(&status); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -90,25 +51,26 @@ func (f *Favourites) Destroy(w http.ResponseWriter, r *http.Request) {
 	json.MarshalFull(w, status.serialize())
 }
 
-func (f *Favourites) Show(w http.ResponseWriter, r *http.Request) {
-	accessToken := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	var token Token
-	if err := f.db.Preload("Account").Where("access_token = ?", accessToken).First(&token).Error; err != nil {
+func (f *Favourites) Show(w http.ResponseWriter, req *http.Request) {
+	_, err := f.service.authenticate(req)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	id, _ := strconv.Atoi(chi.URLParam(r, "id"))
-	status := Status{
-		ID: uint64(id),
+	var status Status
+	if err := f.service.db.Joins("Account").First(&status, chi.URLParam(req, "id")).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
 	}
-	var favourites []Account
-	if err := f.db.Model(&status).Association("FavouritedBy").Find(&favourites); err != nil {
+	var favs []Account
+	if err := f.service.db.Model(&status).Association("Favourites").Find(&favs); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	var resp []interface{}
-	for _, favourite := range favourites {
-		resp = append(resp, favourite.serialize())
+	for _, fav := range favs {
+		resp = append(resp, fav.serialize())
 	}
 
 	w.Header().Set("Content-Type", "application/json")

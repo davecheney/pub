@@ -4,45 +4,34 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
-	"strings"
 
+	"github.com/davecheney/m/internal/webfinger"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 )
 
 type WellKnown struct {
-	db       *gorm.DB
-	instance *Instance
+	db *gorm.DB
 }
 
 func (w *WellKnown) Webfinger(rw http.ResponseWriter, r *http.Request) {
-	resource := r.URL.Query().Get("resource")
-	u, err := url.Parse(resource)
+	acct, err := webfinger.Parse(r.URL.Query().Get("resource"))
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if u.Scheme != "acct" {
-		http.Error(rw, "invalid scheme", http.StatusBadRequest)
-		return
-	}
-	parts := strings.Split(u.Opaque, "@")
-	if len(parts) != 2 {
-		http.Error(rw, "invalid resource", http.StatusBadRequest)
-		return
-	}
+
 	var account Account
-	if err := w.db.Where("username = ? AND domain = ?", parts[0], w.instance.Domain).First(&account).Error; err != nil {
+	if err := w.db.Where("username = ? AND domain = ?", acct.User, r.Host).First(&account).Error; err != nil { // note, use the host from the request, not the acct
 		http.Error(rw, err.Error(), http.StatusNotFound)
 		return
 	}
 
-	webfinger := fmt.Sprintf("https://%s/@%s", account.Domain, account.Username)
-	self := fmt.Sprintf("https://%s/users/%s", account.Domain, account.Username)
+	webfinger := acct.Webfinger()
+	self := acct.ID()
 	rw.Header().Set("Content-Type", "application/jrd+json")
 	json.MarshalFull(rw, map[string]any{
-		"subject": "acct:" + account.Acct(),
+		"subject": "acct:" + account.acct(),
 		"aliases": []string{webfinger, self},
 		"links": []map[string]any{
 			{
@@ -67,7 +56,7 @@ func (w *WellKnown) HostMeta(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/xrd+xml")
 	io.WriteString(rw, `<?xml version="1.0" encoding="UTF-8"?>
 		<XRD xmlns="http://docs.oasis-open.org/ns/xri/xrd-1.0">
-		<Subject>`+w.instance.Domain+`</Subject>
-		<Link rel="lrdd" template="https://`+w.instance.Domain+`/.well-known/webfinger?resource={uri}"/>
+		<Subject>`+r.Host+`</Subject>
+		<Link rel="lrdd" template="https://`+r.Host+`/.well-known/webfinger?resource={uri}"/>
 		</XRD>`)
 }

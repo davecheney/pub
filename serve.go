@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -15,8 +14,7 @@ import (
 )
 
 type ServeCmd struct {
-	Addr   string `help:"address to listen"`
-	Domain string `required:"" help:"domain name of the instance"`
+	Addr string `help:"address to listen"`
 }
 
 func (s *ServeCmd) Run(ctx *Context) error {
@@ -29,10 +27,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	svc, err := m.NewService(db, s.Domain)
-	if err != nil {
-		return err
-	}
+	svc := m.NewService(db)
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -44,15 +39,19 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		instance := api.Instances()
 		r.Route("/v1", func(r chi.Router) {
 			r.Post("/apps", api.Applications().Create)
+			accounts := api.Accounts()
 			r.Route("/accounts", func(r chi.Router) {
-				r.Get("/verify_credentials", api.Accounts().VerifyCredentials)
+				r.Get("/verify_credentials", accounts.VerifyCredentials)
+				r.Patch("/update_credentials", accounts.Update)
 				r.Get("/relationships", api.Relationships().Show)
 				r.Get("/filters", api.Filters().Index)
 				r.Get("/lists", api.Lists().Index)
 				r.Get("/instance", instance.IndexV1)
 				r.Get("/instance/peers", instance.PeersShow)
-				r.Get("/{id}", api.Accounts().Show)
-				r.Get("/{id}/statuses", api.Accounts().StatusesShow)
+				r.Get("/{id}", accounts.Show)
+				r.Get("/{id}/statuses", accounts.StatusesShow)
+				r.Post("/{id}/follow", api.Relationships().Create)
+				r.Post("/{id}/unfollow", api.Relationships().Delete)
 			})
 			r.Get("/conversations", api.Conversations().Index)
 			r.Get("/custom_emojis", api.Emojis().Index)
@@ -61,24 +60,31 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Post("/markers", api.Markers().Create)
 			r.Get("/notifications", api.Notifications().Index)
 
+			r.Post("/statuses", api.Statuses().Create)
 			r.Get("/statuses/{id}/context", api.Contexts().Show)
 			r.Post("/statuses/{id}/favourite", api.Favourites().Create)
 			r.Post("/statuses/{id}/unfavourite", api.Favourites().Destroy)
 			r.Get("/statuses/{id}/favourited_by", api.Favourites().Show)
 			r.Get("/statuses/{id}", api.Statuses().Show)
+			r.Delete("/statuses/{id}", api.Statuses().Destroy)
 			r.Route("/timelines", func(r chi.Router) {
 				timelines := api.Timelines()
-				r.Get("/home", timelines.Index)
+				r.Get("/home", timelines.Home)
 				r.Get("/public", timelines.Public)
 			})
 
 		})
 		r.Route("/v2", func(r chi.Router) {
 			r.Get("/instance", instance.IndexV2)
+			r.Get("/search", api.Search().Index)
+		})
+		r.Route("/nodeinfo", func(r chi.Router) {
+			r.Get("/2.0", svc.NodeInfo().Show)
 		})
 	})
 
-	r.Post("/inbox", svc.Inboxes().Create)
+	activitypub := svc.ActivityPub()
+	r.Post("/inbox", activitypub.Inboxes().Create)
 
 	r.Route("/oauth", func(r chi.Router) {
 		oauth := svc.OAuth()
@@ -88,19 +94,12 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		r.Post("/revoke", oauth.Revoke)
 	})
 
-	r.Route("/nodeinfo", func(r chi.Router) {
-		r.Get("/2.0", svc.NodeInfo().Show)
-	})
+	r.Route("/users/{username}", func(r chi.Router) {
 
-	r.Get("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		// no robots, especially not you Bingbot!
-		io.WriteString(w, "User-agent: *\nDisallow: /")
-	})
-
-	r.Route("/users", func(r chi.Router) {
-		r.Get("/{username}", svc.Users().Show)
-		r.Post("/{username}/inbox", svc.Inboxes().Create)
+		r.Get("/", svc.Users().Show)
+		r.Post("/inbox", activitypub.Inboxes().Create)
+		r.Get("/followers", activitypub.Followers().Index)
+		r.Get("/following", activitypub.Following().Index)
 	})
 
 	r.Route("/.well-known", func(r chi.Router) {
@@ -108,10 +107,6 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		r.Get("/webfinger", wellknown.Webfinger)
 		r.Get("/host-meta", wellknown.HostMeta)
 		r.Get("/nodeinfo", svc.NodeInfo().Index)
-	})
-
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "https://dave.cheney.net/", http.StatusFound)
 	})
 
 	walkFunc := func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {

@@ -9,15 +9,7 @@ import (
 )
 
 type Lists struct {
-	db       *gorm.DB
-	instance *Instance
-}
-
-func NewLists(db *gorm.DB, instance *Instance) *Lists {
-	return &Lists{
-		db:       db,
-		instance: instance,
-	}
+	db *gorm.DB
 }
 
 func (l *Lists) Index(w http.ResponseWriter, r *http.Request) {

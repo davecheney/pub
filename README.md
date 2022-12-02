@@ -1,11 +1,13 @@
-# m, a tiny Mastodon service
+# m, a tiny ActivityPub to Mastodon bridge
+    
+[![Go Reference](https://pkg.go.dev/badge/github.com/davecheney/m.svg)](https://pkg.go.dev/github.com/davecheney/m) [![Go Report Card](https://goreportcard.com/badge/github.com/davecheney/m)](https://goreportcard.com/report/github.com/davecheney/m)
+    
+## What is m?
 
-m is a tiny Mastodon service for folks who want to run their own Mastodon instance, but don't want to run the whole thing.
+m is an ActivityPub host indented for a single actor.
+To interact with ActivityPub, m implements the Mastodon api for use with various apps. 
 
-## What does it do?
-
-m is a tiny Mastodon service that runs on a single server.
-It's designed to be run on a small VPS, and it's designed to be run by a single person.
+m is not intended to host a general purpose Mastodon community, rather it is aimed at enabling someone who owns their own domain, and thus controls their identity, to participate in the fediverse. 
 
 ## What _doesn't_ it do?
 
@@ -71,3 +73,9 @@ m would not be possible without these amazing projects
 - [Kong](github.com/alecthomas/kong)
 - [Gorm](github.com/jinzhu/gorm)
 - [Chi](github.com/go-chi/chi)
+
+## Contributions
+
+m is open source, but not open for contributions at the moment.
+That may change in the future, but at the moment please do not send pull requests.
+Thank you in advance for your understanding.

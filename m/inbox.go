@@ -6,9 +6,9 @@ import (
 	"encoding/pem"
 	"fmt"
 	"net/http"
+	"net/http/httputil"
 	"strings"
 
-	"github.com/davecheney/m/activitypub"
 	"github.com/go-fed/httpsig"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
@@ -24,7 +24,6 @@ func (Activity) TableName() string {
 }
 
 type Inboxes struct {
-	db      *gorm.DB
 	service *Service
 }
 
@@ -40,23 +39,13 @@ func (i *Inboxes) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	actor := stringFromAny(body["actor"])
-	account, err := i.service.Accounts().FindOrCreateAccount(actor)
-	if err != nil {
-		fmt.Println("FindOrCreateAccount:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	buf, _ := httputil.DumpRequest(r, false)
+	fmt.Println("inbox#create:", string(buf))
 
-	object := mapFromAny(body["object"])
-
-	activity := &activitypub.Activity{
-		AccountID:    account.ID,
-		Activity:     body,
-		ActivityType: stringFromAny(body["type"]),
-		ObjectType:   stringFromAny(object["type"]),
+	activity := Activity{
+		Object: body,
 	}
-	if err := i.db.Create(activity).Error; err != nil {
+	if err := i.service.db.Create(&activity).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -84,11 +73,12 @@ func (i *Inboxes) validateSignature(r *http.Request) error {
 
 func (i *Inboxes) getKey(keyId string) (crypto.PublicKey, error) {
 	actorId := trimKeyId(keyId)
-	account, err := i.service.Accounts().FindOrCreateAccount(actorId)
+	fetcher := i.service.Accounts().NewRemoteAccountFetcher()
+	account, err := i.service.Accounts().FindOrCreate(actorId, fetcher.Fetch)
 	if err != nil {
 		return nil, err
 	}
-	return pemToPublicKey([]byte(account.PublicKey))
+	return pemToPublicKey(account.PublicKey)
 }
 
 func pemToPublicKey(key []byte) (crypto.PublicKey, error) {

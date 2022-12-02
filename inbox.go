@@ -1,18 +1,17 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
-	"github.com/davecheney/m/activitypub"
 	"github.com/davecheney/m/internal/snowflake"
 	"github.com/davecheney/m/m"
 	"gorm.io/gorm"
 )
 
 type InboxCmd struct {
-	Domain string `required:"" help:"domain name of the instance"`
 }
 
 func (i *InboxCmd) Run(ctx *Context) error {
@@ -21,19 +20,14 @@ func (i *InboxCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	svc, err := m.NewService(db, i.Domain)
-	if err != nil {
-		return err
-	}
-
-	var activities []activitypub.Activity
+	var activities []m.Activity
 	if err := db.Find(&activities).Error; err != nil {
 		return err
 	}
 
 	ip := &inboxProcessor{
 		db:      db,
-		service: svc,
+		service: m.NewService(db),
 	}
 
 	for i := range activities {
@@ -54,8 +48,8 @@ type inboxProcessor struct {
 	service *m.Service
 }
 
-func (ip *inboxProcessor) Process(activity *activitypub.Activity) error {
-	act := activity.Activity
+func (ip *inboxProcessor) Process(activity *m.Activity) error {
+	act := activity.Object
 	id := stringFromAny(act["id"])
 	typ := stringFromAny(act["type"])
 	actor := stringFromAny(act["actor"])
@@ -80,89 +74,85 @@ func (ip *inboxProcessor) processCreate(obj map[string]any) error {
 }
 
 func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
-	account, err := ip.service.Accounts().FindOrCreateAccount(stringFromAny(obj["attributedTo"]))
-	if err != nil {
-		return err
+	uri := stringFromAny(obj["atomUri"]) // TODO should be using URL and going from webfinger to account
+	if uri == "" {
+		uri = stringFromAny(obj["id"])
 	}
-
-	published, err := timeFromAny(obj["published"])
-	if err != nil {
-		return err
-	}
-
-	var visibility string
-	for _, recipient := range obj["to"].([]interface{}) {
-		if recipient == "https://www.w3.org/ns/activitystreams#Public" {
-			visibility = "public"
-			break
-		}
-	}
-	switch visibility {
-	case "public":
-		// cool
-	default:
-		return fmt.Errorf("unsupported visibility %q", visibility)
-	}
-
-	// check we haven't already processed this note
-	uri := stringFromAny(obj["atomUri"])
-	if status, err := ip.service.Statuses().FindByURI(uri); err == nil {
-		// oh, we have, update the status
-		status.Content = stringFromAny(obj["content"])
-		status.UpdatedAt = published
-		return ip.db.Save(status).Error
-	}
-
-	var inReplyTo *m.Status
-	if inReplyToAtomUri, ok := obj["inReplyTo"].(string); ok {
-		inReplyTo, err = ip.service.Statuses().FindOrCreateStatus(inReplyToAtomUri)
+	_, err := ip.service.Statuses().FindOrCreate(uri, func(string) (*m.Status, error) {
+		actor := stringFromAny(obj["attributedTo"])
+		fetcher := ip.service.Accounts().NewRemoteAccountFetcher()
+		account, err := ip.service.Accounts().FindOrCreate(actor, fetcher.Fetch)
 		if err != nil {
-			return err
+			return nil, err
 		}
-	}
 
-	conversationID := uint(0)
-	if inReplyTo != nil {
-		conversationID = inReplyTo.ConversationID
-	} else {
-		conv := m.Conversation{
-			Visibility: visibility,
+		published, err := timeFromAny(obj["published"])
+		if err != nil {
+			return nil, err
 		}
-		if err := ip.db.Create(&conv).Error; err != nil {
-			return err
-		}
-		conversationID = conv.ID
-	}
 
-	status := &m.Status{
-		ID:             snowflake.TimeToID(published),
-		AccountID:      account.ID,
-		Account:        account,
-		ConversationID: conversationID,
-		URI:            stringFromAny(obj["atomUri"]),
-		InReplyToID: func() *uint64 {
-			if inReplyTo != nil {
-				return &inReplyTo.ID
+		var visibility string
+		for _, recipient := range anyToSlice(obj["to"]) {
+			switch recipient {
+			case "https://www.w3.org/ns/activitystreams#Public":
+				visibility = "public"
+			case account.Acct().Followers():
+				visibility = "limited"
 			}
-			return nil
-		}(),
-		InReplyToAccountID: func() *uint {
-			if inReplyTo != nil {
-				return &inReplyTo.AccountID
-			}
-			return nil
-		}(),
-		Sensitive:   boolFromAny(obj["sensitive"]),
-		SpoilerText: stringFromAny(obj["summary"]),
-		Visibility:  "public",
-		Language:    "en",
-		Content:     stringFromAny(obj["content"]),
-	}
+		}
+		if visibility == "" {
+			x, _ := json.MarshalIndent(obj, "", "  ")
+			return nil, fmt.Errorf("unsupported visibility %q: %s", visibility, x)
+		}
 
-	if err := ip.db.Create(status).Error; err != nil {
-		return err
-	}
-	return nil
+		var inReplyTo *m.Status
+		if inReplyToAtomUri, ok := obj["inReplyTo"].(string); ok {
+			remoteStatusFetcher := ip.service.Statuses().NewRemoteStatusFetcher()
+			inReplyTo, err = ip.service.Statuses().FindOrCreate(inReplyToAtomUri, remoteStatusFetcher.Fetch)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		conversationID := uint(0)
+		if inReplyTo != nil {
+			conversationID = inReplyTo.ConversationID
+		} else {
+			conv := m.Conversation{
+				Visibility: visibility,
+			}
+			if err := ip.db.Create(&conv).Error; err != nil {
+				return nil, err
+			}
+			conversationID = conv.ID
+		}
+
+		return &m.Status{
+			ID:             snowflake.TimeToID(published),
+			AccountID:      account.ID,
+			Account:        account,
+			ConversationID: conversationID,
+			URI:            uri,
+			InReplyToID: func() *uint64 {
+				if inReplyTo != nil {
+					return &inReplyTo.ID
+				}
+				return nil
+			}(),
+			InReplyToAccountID: func() *uint {
+				if inReplyTo != nil {
+					return &inReplyTo.AccountID
+				}
+				return nil
+			}(),
+			Sensitive:   boolFromAny(obj["sensitive"]),
+			SpoilerText: stringFromAny(obj["summary"]),
+			Visibility:  "public",
+			Language:    "en",
+			Content:     stringFromAny(obj["content"]),
+		}, nil
+	})
+	return err
 }
 
 func boolFromAny(v any) bool {
@@ -189,4 +179,13 @@ func timeFromAny(v any) (time.Time, error) {
 func mapFromAny(v any) map[string]any {
 	m, _ := v.(map[string]any)
 	return m
+}
+
+func anyToSlice(v any) []any {
+	switch v := v.(type) {
+	case []any:
+		return v
+	default:
+		return nil
+	}
 }

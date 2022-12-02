@@ -9,8 +9,7 @@ import (
 )
 
 type NodeInfo struct {
-	db     *gorm.DB
-	domain string
+	db *gorm.DB
 }
 
 func (ni *NodeInfo) Index(rw http.ResponseWriter, r *http.Request) {
@@ -19,7 +18,7 @@ func (ni *NodeInfo) Index(rw http.ResponseWriter, r *http.Request) {
 		"links": []map[string]any{
 			{
 				"rel":  "http://nodeinfo.diaspora.software/ns/schema/2.0",
-				"href": fmt.Sprintf("https://%s/nodeinfo/2.0", ni.domain),
+				"href": fmt.Sprintf("https://%s/api/nodeinfo/2.0", r.Host),
 			},
 		},
 	})
@@ -27,7 +26,7 @@ func (ni *NodeInfo) Index(rw http.ResponseWriter, r *http.Request) {
 
 func (ni *NodeInfo) Show(w http.ResponseWriter, r *http.Request) {
 	var instance Instance
-	if err := ni.db.Where("domain = ?", ni.domain).First(&instance).Error; err != nil {
+	if err := ni.db.Where("domain = ?", r.Host).First(&instance).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}

@@ -3,8 +3,9 @@ package m
 import (
 	"fmt"
 	"net/http"
-	"time"
+	"net/http/httputil"
 
+	"github.com/davecheney/m/internal/webfinger"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-json-experiment/json"
 
@@ -19,11 +20,17 @@ type Users struct {
 func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
 	var account Account
-	if err := u.db.Where("username = ? and domain = ?", username, u.service.Domain()).First(&account).Error; err != nil {
+	if err := u.db.Where("username = ? and domain = ?", username, r.Host).First(&account).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
+	buf, _ := httputil.DumpRequest(r, false)
+	fmt.Println("users#show:", string(buf))
 	w.Header().Set("Content-Type", "application/activity+json")
+	acct := webfinger.Acct{
+		User: account.Username,
+		Host: account.Domain,
+	}
 	json.MarshalFull(w, map[string]any{
 		"@context": []any{
 			"https://www.w3.org/ns/activitystreams",
@@ -84,41 +91,36 @@ func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		},
-		"id":                        fmt.Sprintf("https://%s/users/%s", account.Domain, account.Username),
+		"id":                        acct.ID(),
 		"type":                      "Person",
-		"following":                 fmt.Sprintf("https://%s/users/%s/following", account.Domain, account.Username),
-		"followers":                 fmt.Sprintf("https://%s/users/%s/followers", account.Domain, account.Username),
-		"inbox":                     fmt.Sprintf("https://%s/users/%s/inbox", account.Domain, account.Username),
-		"outbox":                    fmt.Sprintf("https://%s/users/%s/outbox", account.Domain, account.Username),
-		"featured":                  fmt.Sprintf("https://%s/users/%s/collections/featured", account.Domain, account.Username),
-		"featuredTags":              fmt.Sprintf("https://%s/users/%s/collections/featuredTags", account.Domain, account.Username),
+		"following":                 acct.Following(),
+		"followers":                 acct.Followers(),
+		"inbox":                     acct.Inbox(),
+		"outbox":                    acct.Outbox(),
+		"featured":                  acct.ID() + "/collections/featured",
+		"featuredTags":              acct.ID() + "/collections/tags",
 		"preferredUsername":         account.Username,
 		"name":                      account.DisplayName,
 		"summary":                   account.Note,
-		"url":                       fmt.Sprintf("https://%s/@%s", account.Domain, account.Username),
+		"url":                       account.URL(),
 		"manuallyApprovesFollowers": account.Locked,
-		"discoverable":              true,
-		"published":                 account.CreatedAt.UTC().Format(time.RFC3339),
-		"devices":                   fmt.Sprintf("https://%s/users/%s/devices", account.Domain, account.Username),
+		"discoverable":              false,                                                  // mastodon sets this to false
+		"published":                 account.CreatedAt.UTC().Format("2006-01-02T00:00:00Z"), // spec says round created_at to nearest day
+		"devices":                   acct.ID() + "/collections/devices",
 		"publicKey": map[string]any{
 			"id":           account.PublicKeyID(),
-			"owner":        fmt.Sprintf("https://%s/users/%s", account.Domain, account.Username),
+			"owner":        acct.ID(),
 			"publicKeyPem": string(account.PublicKey),
 		},
 		"tag":        []any{},
 		"attachment": []any{},
 		"endpoints": map[string]any{
-			"sharedInbox": fmt.Sprintf("https://%s/inbox", account.Domain),
+			"sharedInbox": acct.SharedInbox(),
 		},
 		"icon": map[string]any{
 			"type":      "Image",
 			"mediaType": "image/jpeg",
-			"url":       account.AvatarStatic,
-		},
-		"image": map[string]any{
-			"type":      "Image",
-			"mediaType": "image/jpeg",
-			"url":       account.HeaderStatic,
+			"url":       account.Avatar,
 		},
 	})
 }

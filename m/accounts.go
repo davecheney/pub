@@ -1,9 +1,6 @@
 package m
 
 import (
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,8 +9,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/davecheney/m/activitypub"
+	"github.com/davecheney/m/internal/webfinger"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-fed/httpsig"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 )
@@ -24,27 +22,26 @@ type Account struct {
 	Instance       *Instance
 	Domain         string `gorm:"uniqueIndex:idx_domainusername;size:64"`
 	Username       string `gorm:"uniqueIndex:idx_domainusername;size:64"`
-	DisplayName    string `gorm:"size:64"`
+	DisplayName    string `gorm:"size:128"`
 	Local          bool
 	LocalAccount   *LocalAccount `gorm:"foreignKey:AccountID"`
 	Locked         bool
 	Bot            bool
 	Note           string
 	Avatar         string
-	AvatarStatic   string
 	Header         string
-	HeaderStatic   string
-	FollowersCount int `gorm:"default:0;not null"`
-	FollowingCount int `gorm:"default:0;not null"`
-	StatusesCount  int `gorm:"default:0;not null"`
+	FollowersCount int32 `gorm:"default:0;not null"`
+	FollowingCount int32 `gorm:"default:0;not null"`
+	StatusesCount  int32 `gorm:"default:0;not null"`
 	LastStatusAt   time.Time
-	PublicKey      []byte
+	PublicKey      []byte `gorm:"not null"`
 
 	Lists         []AccountList
 	Statuses      []Status
 	Markers       []Marker
-	Favourites    []Favourite
+	Favourites    []Status `gorm:"many2many:account_favourites"`
 	Notifications []Notification
+	Following     []Account `gorm:"many2many:account_following"`
 }
 
 type LocalAccount struct {
@@ -71,7 +68,14 @@ func (a *Account) updateStatusesCount(tx *gorm.DB) error {
 	return tx.Model(a).Update("statuses_count", count).Error
 }
 
-func (a *Account) Acct() string {
+func (a *Account) Acct() *webfinger.Acct {
+	return &webfinger.Acct{
+		User: a.Username,
+		Host: a.Domain,
+	}
+}
+
+func (a *Account) acct() string {
 	if a.Local {
 		return a.Username
 	}
@@ -90,7 +94,7 @@ func (a *Account) serialize() map[string]any {
 	return map[string]any{
 		"id":              strconv.Itoa(int(a.ID)),
 		"username":        a.Username,
-		"acct":            a.Acct(),
+		"acct":            a.acct(),
 		"display_name":    a.DisplayName,
 		"locked":          a.Locked,
 		"bot":             a.Bot,
@@ -100,9 +104,9 @@ func (a *Account) serialize() map[string]any {
 		"note":            a.Note,
 		"url":             a.URL(),
 		"avatar":          stringOrDefault(a.Avatar, fmt.Sprintf("https://%s/avatar.png", a.Domain)),
-		"avatar_static":   stringOrDefault(a.AvatarStatic, fmt.Sprintf("https://%s/avatar.png", a.Domain)),
+		"avatar_static":   stringOrDefault(a.Avatar, fmt.Sprintf("https://%s/avatar.png", a.Domain)),
 		"header":          stringOrDefault(a.Header, fmt.Sprintf("https://%s/header.png", a.Domain)),
-		"header_static":   stringOrDefault(a.HeaderStatic, fmt.Sprintf("https://%s/header.png", a.Domain)),
+		"header_static":   stringOrDefault(a.Header, fmt.Sprintf("https://%s/header.png", a.Domain)),
 		"followers_count": a.FollowersCount,
 		"following_count": a.FollowingCount,
 		"statuses_count":  a.StatusesCount,
@@ -180,19 +184,123 @@ func (a *Accounts) StatusesShow(w http.ResponseWriter, r *http.Request) {
 	json.MarshalFull(w, resp)
 }
 
+func (a *Accounts) Update(w http.ResponseWriter, r *http.Request) {
+	account, err := a.service.authenticate(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if r.Form.Get("display_name") != "" {
+		account.DisplayName = r.Form.Get("display_name")
+	}
+	if r.Form.Get("note") != "" {
+		account.Note = r.Form.Get("note")
+	}
+
+	if err := a.db.Omit("Instance").Save(account).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.MarshalFull(w, account.serialize())
+}
+
 type accounts struct {
 	db      *gorm.DB
 	service *Service
 }
 
-// FindOrCreateAccount finds an account by username and domain, or creates a new
-// one if it doesn't exist.
-func (a *accounts) FindOrCreateAccount(uri string) (*Account, error) {
+// FindByURI returns an account by its URI if it exists locally.
+func (a *accounts) FindByURI(uri string) (*Account, error) {
 	username, domain, err := splitAcct(uri)
 	if err != nil {
 		return nil, err
 	}
-	instance, err := a.service.instances().FindOrCreateInstance(domain)
+	var account Account
+	if err := a.db.Where("username = ? AND domain = ?", username, domain).First(&account).Error; err != nil {
+		return nil, err
+	}
+	return &account, nil
+}
+
+func (a *accounts) NewRemoteAccountFetcher() *RemoteAccountFetcher {
+	return &RemoteAccountFetcher{
+		service: a.service,
+	}
+}
+
+type RemoteAccountFetcher struct {
+	service *Service
+}
+
+func (f *RemoteAccountFetcher) Fetch(uri string) (*Account, error) {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return nil, err
+	}
+
+	fetcher := f.service.instances().newRemoteInstanceFetcher()
+	instance, err := f.service.instances().FindOrCreate(u.Host, fetcher.Fetch)
+	if err != nil {
+		return nil, err
+	}
+
+	obj, err := f.fetch(uri)
+	if err != nil {
+		return nil, err
+	}
+	return activityPubActorToAccount(obj, instance), nil
+}
+
+func activityPubActorToAccount(obj map[string]any, instance *Instance) *Account {
+	acct := Account{
+		Username:       stringFromAny(obj["preferredUsername"]),
+		Domain:         instance.Domain,
+		InstanceID:     instance.ID,
+		Instance:       instance,
+		DisplayName:    stringFromAny(obj["name"]),
+		Locked:         boolFromAny(obj["manuallyApprovesFollowers"]),
+		Bot:            stringFromAny(obj["type"]) == "Service",
+		Note:           stringFromAny(obj["summary"]),
+		Avatar:         stringFromAny(mapFromAny(obj["icon"])["url"]),
+		Header:         stringFromAny(mapFromAny(obj["image"])["url"]),
+		FollowersCount: 0,
+		FollowingCount: 0,
+		StatusesCount:  0,
+		LastStatusAt:   time.Now(),
+
+		PublicKey: []byte(stringFromAny(mapFromAny(obj["publicKey"])["publicKeyPem"])),
+	}
+	return &acct
+}
+
+func (f *RemoteAccountFetcher) fetch(uri string) (map[string]any, error) {
+	// use admin account to sign the request
+	signAs, err := f.service.Accounts().FindAdminAccount()
+	if err != nil {
+		return nil, err
+	}
+	c, err := activitypub.NewClient(signAs.PublicKeyID(), signAs.LocalAccount.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	return c.Get(uri)
+}
+
+// FindOrCreate finds an account by its URI, or creates it if it doesn't exist.
+func (a *accounts) FindOrCreate(uri string, createFn func(string) (*Account, error)) (*Account, error) {
+	username, domain, err := splitAcct(uri)
+	if err != nil {
+		return nil, err
+	}
+	fetcher := a.service.instances().newRemoteInstanceFetcher()
+	instance, err := a.service.instances().FindOrCreate(domain, fetcher.Fetch)
 	if err != nil {
 		return nil, err
 	}
@@ -207,54 +315,14 @@ func (a *accounts) FindOrCreateAccount(uri string) (*Account, error) {
 		return nil, err
 	}
 
-	// use admin account to sign the request
-	signAs, err := a.service.Accounts().FindAdminAccount()
-	req, err := http.NewRequest("GET", uri, nil)
+	acc, err := createFn(uri)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Accept", `application/ld+json; profile="https://www.w3.org/ns/activitystreams"`)
-	if err := sign(req, signAs); err != nil {
-		return nil, fmt.Errorf("failed to sign request: %w", err)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
+	if err := a.db.Create(acc).Error; err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch account: %s", resp.Status)
-	}
-
-	var obj map[string]interface{}
-	if err := json.UnmarshalFull(resp.Body, &obj); err != nil {
-		return nil, err
-	}
-
-	account = Account{
-		Username:       username,
-		Domain:         domain,
-		InstanceID:     instance.ID,
-		Instance:       instance,
-		DisplayName:    stringFromAny(obj["name"]),
-		Locked:         boolFromAny(obj["manuallyApprovesFollowers"]),
-		Bot:            stringFromAny(obj["type"]) == "Service",
-		Note:           stringFromAny(obj["summary"]),
-		Avatar:         stringFromAny(mapFromAny(obj["icon"])["url"]),
-		AvatarStatic:   stringFromAny(mapFromAny(obj["icon"])["url"]),
-		Header:         stringFromAny(mapFromAny(obj["image"])["url"]),
-		HeaderStatic:   stringFromAny(mapFromAny(obj["image"])["url"]),
-		FollowersCount: 0,
-		FollowingCount: 0,
-		StatusesCount:  0,
-		LastStatusAt:   time.Now(),
-
-		PublicKey: []byte(stringFromAny(mapFromAny(obj["publicKey"])["publicKeyPem"])),
-	}
-	if err := a.db.Create(&account).Error; err != nil {
-		return nil, err
-	}
-	return &account, nil
+	return acc, nil
 }
 
 func (a *accounts) FindAdminAccount() (*Account, error) {
@@ -263,41 +331,6 @@ func (a *accounts) FindAdminAccount() (*Account, error) {
 		return nil, err
 	}
 	return &account, nil
-}
-
-func sign(r *http.Request, account *Account) error {
-	r.Header.Set("Date", time.Now().UTC().Format("Mon, 02 Jan 2006 15:04:05 GMT")) // Date must be in GMT, not UTC 🤯
-	privPem, _ := pem.Decode(account.LocalAccount.PrivateKey)
-	if privPem.Type != "RSA PRIVATE KEY" {
-		return errors.New("expected RSA PRIVATE KEY")
-	}
-
-	var parsedKey interface{}
-	var err error
-	if parsedKey, err = x509.ParsePKCS1PrivateKey(privPem.Bytes); err != nil {
-		if parsedKey, err = x509.ParsePKCS8PrivateKey(privPem.Bytes); err != nil { // note this returns type `interface{}`
-			return err
-		}
-	}
-
-	var privateKey *rsa.PrivateKey
-	var ok bool
-	privateKey, ok = parsedKey.(*rsa.PrivateKey)
-	if !ok {
-		return errors.New("expected *rsa.PrivateKey")
-	}
-	headersToSign := []string{httpsig.RequestTarget, "date"}
-	signer, _, err := httpsig.NewSigner(
-		[]httpsig.Algorithm{httpsig.RSA_SHA256},
-		httpsig.DigestSha256,
-		headersToSign,
-		httpsig.Signature,
-		60,
-	)
-	if err != nil {
-		return err
-	}
-	return signer.SignRequest(privateKey, account.PublicKeyID(), r, nil)
 }
 
 func splitAcct(acct string) (string, string, error) {

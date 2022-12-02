@@ -1,15 +1,20 @@
 package m
 
 import (
+	"context"
 	"net/http"
 	"strconv"
+	"time"
 
+	"github.com/carlmjohnson/requests"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 )
 
 type Instance struct {
-	gorm.Model
+	ID               uint `gorm:"primarykey"`
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 	Domain           string `gorm:"uniqueIndex;size:64"`
 	AdminID          *uint
 	Admin            *Account
@@ -21,8 +26,14 @@ type Instance struct {
 	AccountsCount    int    `gorm:"default:0;not null"`
 	StatusesCount    int    `gorm:"default:0;not null"`
 
+	domainsCount int // not stored
+
 	Rules    []InstanceRule `gorm:"foreignKey:InstanceID"`
 	Accounts []Account
+}
+
+func (i *Instance) AfterCreate(tx *gorm.DB) error {
+	return i.updateAccountsCount(tx)
 }
 
 func (i *Instance) serialiseRules() []map[string]any {
@@ -91,17 +102,17 @@ func (i *Instance) serializeV1() map[string]any {
 	return map[string]any{
 		"uri":               i.Domain,
 		"title":             i.Title,
-		"short_description": i.ShortDescription,
+		"short_description": stringOrDefault(i.ShortDescription, i.Description),
 		"description":       i.Description,
 		"email":             i.Admin.LocalAccount.Email,
-		"version":           "3.5.3",
+		"version":           "https://github.com/davecheney/m@latest",
 		"urls":              map[string]any{},
 		"stats": map[string]any{
 			"user_count":   i.AccountsCount,
-			"status_count": 0,
-			"domain_count": 0,
+			"status_count": i.StatusesCount,
+			"domain_count": i.domainsCount,
 		},
-		"thumbnail":         stringOrDefault(i.Thumbnail, "https://files.mastodon.social/site_uploads/files/000/000/001/original/vlcsnap-2018-08-27-16h43m11s127.png"),
+		"thumbnail":         i.Thumbnail,
 		"languages":         []any{"en"},
 		"registrations":     false,
 		"approval_required": false,
@@ -243,14 +254,19 @@ func (i *Instance) serializeV2() map[string]any {
 }
 
 type Instances struct {
-	db       *gorm.DB
-	instance *Instance
+	db      *gorm.DB
+	service *Service
 }
 
 func (i *Instances) IndexV1(w http.ResponseWriter, r *http.Request) {
-	var instance Instance
-	if err := i.db.Model(&Instance{}).Preload("Admin").Preload("Admin.LocalAccount").Where("domain = ?", i.instance.Domain).First(&instance).Error; err != nil {
+	instance, err := i.instanceForHost(r)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	instance.domainsCount, err = i.service.instances().Count()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -259,9 +275,15 @@ func (i *Instances) IndexV1(w http.ResponseWriter, r *http.Request) {
 }
 
 func (i *Instances) IndexV2(w http.ResponseWriter, r *http.Request) {
-	var instance Instance
-	if err := i.db.Model(&Instance{}).Preload("Admin").Where("domain = ?", i.instance.Domain).First(&instance).Error; err != nil {
+	instance, err := i.instanceForHost(r)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	instance.domainsCount, err = i.service.instances().Count()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -271,11 +293,9 @@ func (i *Instances) IndexV2(w http.ResponseWriter, r *http.Request) {
 
 func (i *Instances) PeersShow(w http.ResponseWriter, r *http.Request) {
 	var instances []Instance
-	if err := i.db.Model(&Instance{}).Preload("Admin").Where("domain != ?", i.instance.Domain).Find(&instances).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+	if err := i.db.Model(&Instance{}).Preload("Admin").Where("domain != ?", r.Host).Find(&instances).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	var resp []string
@@ -286,25 +306,77 @@ func (i *Instances) PeersShow(w http.ResponseWriter, r *http.Request) {
 	json.MarshalFull(w, resp)
 }
 
+func (i *Instances) instanceForHost(r *http.Request) (*Instance, error) {
+	host := r.Host
+	return i.service.instances().FindByDomain(host)
+}
+
 type instances struct {
 	db *gorm.DB
 }
 
-func (i *instances) FindOrCreateInstance(domain string) (*Instance, error) {
+func (i *instances) Count() (int, error) {
+	var count int64
+	if err := i.db.Model(&Instance{}).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return int(count), nil
+}
+
+func (i *instances) FindByDomain(domain string) (*Instance, error) {
 	var instance Instance
-	if err := i.db.Where("domain = ?", domain).First(&instance).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			instance = Instance{
-				Domain: domain,
-			}
-			if err := i.db.Create(&instance).Error; err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, err
-		}
+	if err := i.db.Model(&Instance{}).Preload("Admin").Preload("Admin.LocalAccount").Where("domain = ?", domain).First(&instance).Error; err != nil {
+		return nil, err
 	}
 	return &instance, nil
+}
+
+func (i *instances) newRemoteInstanceFetcher() *RemoteInstanceFetcher {
+	return &RemoteInstanceFetcher{}
+}
+
+type RemoteInstanceFetcher struct {
+}
+
+func (r *RemoteInstanceFetcher) Fetch(domain string) (*Instance, error) {
+	obj, err := r.fetch(domain)
+	if err != nil {
+		return nil, err
+	}
+	return &Instance{
+		Domain:           domain,
+		Title:            stringFromAny(obj["title"]),
+		ShortDescription: stringFromAny(obj["short_description"]),
+		Description:      stringFromAny(obj["description"]),
+	}, nil
+}
+
+func (r *RemoteInstanceFetcher) fetch(domain string) (map[string]any, error) {
+	var obj map[string]any
+	err := requests.URL("https://" + domain + "/api/v1/instance").ToJSON(&obj).Fetch(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func (i *instances) FindOrCreate(domain string, fn func(string) (*Instance, error)) (*Instance, error) {
+	var instance Instance
+	err := i.db.Where("domain = ?", domain).First(&instance).Error
+	if err == nil {
+		return &instance, nil
+	}
+	if err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+	inst, err := fn(domain)
+	if err != nil {
+		return nil, err
+	}
+	if err := i.db.Create(inst).Error; err != nil {
+		return nil, err
+	}
+	return inst, nil
 }
 
 func stringOrDefault(s string, def string) string {

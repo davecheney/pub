@@ -4,13 +4,16 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 )
 
 type Conversation struct {
-	gorm.Model
+	ID         uint `gorm:"primarykey"`
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 	Visibility string `gorm:"type:enum('public', 'unlisted', 'private', 'direct')"`
 	Statuses   []Status
 }
@@ -33,7 +36,7 @@ func (c *Conversations) Index(w http.ResponseWriter, r *http.Request) {
 	case "":
 		scope = scope.Joins("Account")
 	default:
-		scope = scope.Joins("Account").Where("Account.instance_id = ?", c.service.instance.ID)
+		scope = scope.Joins("Account").Where("Account.domain = ?", r.Host)
 	}
 
 	if err := scope.Order("statuses.id desc").Find(&statuses).Error; err != nil {
@@ -48,7 +51,7 @@ func (c *Conversations) Index(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if len(statuses) > 0 {
-		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/public?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/public?min_id=%d>; rel=\"prev\"", c.service.Domain(), statuses[len(statuses)-1].ID, c.service.Domain(), statuses[0].ID))
+		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/public?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/public?min_id=%d>; rel=\"prev\"", r.Host, statuses[len(statuses)-1].ID, r.Host, statuses[0].ID))
 	}
 	json.MarshalFull(w, resp)
 }
@@ -87,14 +90,6 @@ type conversations struct {
 	service *Service
 }
 
-func (c *conversations) FindConversationByURI(uri string) (*Conversation, error) {
-	var conversation Conversation
-	if err := c.db.Where("status.uri = ?", uri).Joins("Statuses").First(&conversation).Error; err != nil {
-		return nil, err
-	}
-	return &conversation, nil
-}
-
 func (c *conversations) FindConversationByStatusID(id uint64) (*Conversation, error) {
 	var status Status
 	if err := c.db.Where("id = ?", id).First(&status).Error; err != nil {
@@ -102,7 +97,7 @@ func (c *conversations) FindConversationByStatusID(id uint64) (*Conversation, er
 	}
 	var conversation Conversation
 	if err := c.db.Preload("Statuses").First(&conversation, status.ConversationID).Error; err != nil {
-		return &conversation, nil
+		return nil, err
 	}
 	return &conversation, nil
 }
