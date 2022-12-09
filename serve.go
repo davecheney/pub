@@ -42,8 +42,8 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		instance := mastodon.Instances()
 		r.Route("/v1", func(r chi.Router) {
 			r.Post("/apps", api.Applications().Create)
-			accounts := api.Accounts()
 			r.Route("/accounts", func(r chi.Router) {
+				accounts := mastodon.Accounts()
 				r.Get("/verify_credentials", accounts.VerifyCredentials)
 				r.Patch("/update_credentials", accounts.Update)
 				r.Get("/relationships", api.Relationships().Show)

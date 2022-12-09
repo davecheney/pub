@@ -22,15 +22,10 @@ func NewService(s *m.Service) *Service {
 	}
 }
 
-// authenticate authenticates the bearer token attached to the request and, if
-// successful, returns the account associated with the token.
-func (s *Service) authenticate(r *http.Request) (*m.Account, error) {
-	bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	var token m.Token
-	if err := s.DB().Where("access_token = ?", bearer).Joins("Account").First(&token).Error; err != nil {
-		return nil, err
+func (s *Service) Accounts() *Accounts {
+	return &Accounts{
+		service: s,
 	}
-	return token.Account, nil
 }
 
 func (s *Service) Contexts() *Contexts {
@@ -55,6 +50,17 @@ func (s *Service) Markers() *Markers {
 	return &Markers{
 		service: s,
 	}
+}
+
+// authenticate authenticates the bearer token attached to the request and, if
+// successful, returns the account associated with the token.
+func (s *Service) authenticate(r *http.Request) (*m.Account, error) {
+	bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	var token m.Token
+	if err := s.DB().Where("access_token = ?", bearer).Joins("Account").First(&token).Error; err != nil {
+		return nil, err
+	}
+	return token.Account, nil
 }
 
 // toJSON writes the given object to the response body as JSON.

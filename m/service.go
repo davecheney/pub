@@ -110,13 +110,6 @@ type API struct {
 	service *Service
 }
 
-func (a *API) Accounts() *Accounts {
-	return &Accounts{
-		db:      a.service.db,
-		service: a.service,
-	}
-}
-
 func (a *API) Applications() *Applications {
 	return &Applications{
 		db:      a.service.db,

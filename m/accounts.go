@@ -3,7 +3,6 @@ package m
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"path"
 	"strconv"
@@ -11,8 +10,6 @@ import (
 
 	"github.com/davecheney/m/activitypub"
 	"github.com/davecheney/m/internal/webfinger"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 )
 
@@ -123,100 +120,6 @@ func (a *Account) serialize() map[string]any {
 		"emojis":          []map[string]any{},
 		"fields":          []map[string]any{},
 	}
-}
-
-type Accounts struct {
-	db      *gorm.DB
-	service *Service
-}
-
-func (a *Accounts) Show(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-
-	_, err := a.service.authenticate(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-	var account Account
-	if err := a.db.First(&account, id).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, account.serialize())
-}
-
-func (a *Accounts) VerifyCredentials(w http.ResponseWriter, r *http.Request) {
-	user, err := a.service.authenticate(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, user.serialize())
-}
-
-func (a *Accounts) StatusesShow(w http.ResponseWriter, r *http.Request) {
-	_, err := a.service.authenticate(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	id := chi.URLParam(r, "id")
-	var statuses []Status
-	tx := a.db.Preload("Account").Where("account_id = ?", id)
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit < 1 || limit > 40 {
-		limit = 20
-	}
-	tx = tx.Limit(limit)
-	sinceID, _ := strconv.Atoi(r.URL.Query().Get("since_id"))
-	if sinceID > 0 {
-		tx = tx.Where("id > ?", sinceID)
-	}
-	if err := tx.Order("id desc").Find(&statuses).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	var resp []any
-	for _, status := range statuses {
-		resp = append(resp, status.serialize())
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, resp)
-}
-
-func (a *Accounts) Update(w http.ResponseWriter, r *http.Request) {
-	account, err := a.service.authenticate(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if r.Form.Get("display_name") != "" {
-		account.DisplayName = r.Form.Get("display_name")
-	}
-	if r.Form.Get("note") != "" {
-		account.Note = r.Form.Get("note")
-	}
-
-	if err := a.db.Omit("Instance").Save(account).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, account.serialize())
 }
 
 type accounts struct {
