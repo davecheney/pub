@@ -1,4 +1,4 @@
-package activitypub
+package httpsig
 
 import (
 	"crypto/rand"
@@ -21,7 +21,7 @@ func TestSignRequest(t *testing.T) {
 	require.NoError(err)
 	pubKey := &privatekey.PublicKey
 
-	err = signRequest(req, keyID, privatekey, nil)
+	err = Sign(req, keyID, privatekey, nil)
 	require.NoError(err)
 
 	verifier, err := httpsig.NewVerifier(req)

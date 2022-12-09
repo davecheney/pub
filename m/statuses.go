@@ -262,7 +262,11 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*Status, error) {
 	if inReplyToURI := stringFromAny(obj["inReplyTo"]); inReplyToURI != "" {
 		inReplyTo, err = f.service.Statuses().FindOrCreate(inReplyToURI, f.Fetch)
 		if err != nil {
-			return nil, err
+			aerr := new(activitypub.Error)
+			if errors.As(err, &aerr) && aerr.StatusCode != http.StatusNotFound {
+				return nil, err
+			}
+			// 404 is fine, it just means the status is no longer available
 		}
 	}
 

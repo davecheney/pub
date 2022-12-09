@@ -3,20 +3,15 @@ package activitypub
 import (
 	"bytes"
 	"crypto"
-	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
-	"time"
 
-	"github.com/go-fed/httpsig"
+	"github.com/davecheney/m/internal/httpsig"
 	"github.com/go-json-experiment/json"
 )
 
@@ -72,7 +67,7 @@ func (c *Client) Get(uri string) (map[string]any, error) {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/activity+json, application/ld+json")
-	if err := signRequest(req, c.keyID, c.privateKey, nil); err != nil {
+	if err := httpsig.Sign(req, c.keyID, c.privateKey, nil); err != nil {
 		return nil, fmt.Errorf("failed to sign request: %w", err)
 	}
 	resp, err := http.DefaultClient.Do(req)
@@ -94,7 +89,7 @@ func (c *Client) Post(url string, obj map[string]any) error {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/activity+json")
-	if err := c.sign(req, body); err != nil {
+	if err := httpsig.Sign(req, c.keyID, c.privateKey, body); err != nil {
 		return fmt.Errorf("failed to sign request: %w", err)
 	}
 	resp, err := http.DefaultClient.Do(req)
@@ -131,88 +126,4 @@ func (c *Client) bodyToObj(resp *http.Response) (map[string]any, error) {
 		return nil, err
 	}
 	return obj, nil
-}
-
-func (c *Client) sign(req *http.Request, body []byte) error {
-	req.Header.Set("Date", time.Now().UTC().Format("Mon, 02 Jan 2006 15:04:05 GMT")) // Date must be in GMT, not UTC 🤯
-	headersToSign := []string{
-		httpsig.RequestTarget,
-	}
-	switch req.Method {
-	case "GET":
-		req.Header.Set("Host", req.URL.Host) // because httpsig can't do this for us
-		defer req.Header.Del("Host")
-		headersToSign = append(headersToSign, "host", "date", "accept")
-		body = nil // httpsig uses body == nil, no len(body) == 0, so make really sure its nil
-	case "POST":
-		headersToSign = append(headersToSign, "date", "digest")
-	}
-	signer, _, err := httpsig.NewSigner(
-		nil, // the default is fine for us
-		httpsig.DigestSha256,
-		headersToSign,
-		httpsig.Signature,
-		60,
-	)
-	if err != nil {
-		return err
-	}
-	return signer.SignRequest(c.privateKey, c.keyID, req, body)
-}
-
-func signRequest(req *http.Request, keyID string, privateKey crypto.PrivateKey, body []byte) error {
-	req.Header.Set("Date", time.Now().UTC().Format("Mon, 02 Jan 2006 15:04:05 GMT")) // Date must be in GMT, not UTC 🤯
-	headersToSign := []string{
-		httpsig.RequestTarget,
-	}
-	switch req.Method {
-	case "GET":
-		headersToSign = append(headersToSign, "host", "date", "accept")
-		body = nil // httpsig uses body == nil, no len(body) == 0, so make really sure its nil
-	case "POST":
-		headersToSign = append(headersToSign, "date", "digest")
-	}
-
-	var sb bytes.Buffer
-	for _, header := range headersToSign {
-		switch header {
-		case httpsig.RequestTarget:
-			sb.WriteString("(request-target): ")
-			sb.WriteString(strings.ToLower(req.Method))
-			sb.WriteString(" ")
-			sb.WriteString(req.URL.Path)
-
-			if req.URL.RawQuery != "" {
-				sb.WriteString("?")
-				sb.WriteString(req.URL.RawQuery)
-			}
-		case "Host", "host":
-			sb.WriteString("host: ")
-			sb.WriteString(req.Host)
-		case "Date", "date":
-			sb.WriteString("date: ")
-			sb.WriteString(req.Header.Get("Date"))
-		case "Accept", "accept":
-			sb.WriteString("accept: ")
-			sb.WriteString(req.Header.Get("Accept"))
-		}
-		sb.WriteString("\n")
-	}
-	msg := strings.TrimSpace(sb.String()) // no whitespace at the end of the signing string
-
-	hash := sha256.New()
-	hash.Write([]byte(msg))
-	digest := hash.Sum(nil)
-
-	// fmt.Printf("string to sign: %s\n", sb.String())
-	// fmt.Printf("hash: %+v\n", hash)
-	// fmt.Printf("digest: %x\n", digest)
-
-	sig, err := rsa.SignPKCS1v15(rand.Reader, privateKey.(*rsa.PrivateKey), crypto.SHA256, digest)
-	if err != nil {
-		return err
-	}
-	enc := base64.StdEncoding.EncodeToString(sig)
-	req.Header.Set("Signature", fmt.Sprintf(`keyId="%s",algorithm="rsa-sha256",headers="%s",signature="%s"`, keyID, strings.Join(headersToSign, " "), enc))
-	return nil
 }
