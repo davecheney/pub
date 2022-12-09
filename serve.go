@@ -37,11 +37,10 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	r.Use(middleware.Logger)
 
 	r.Route("/api", func(r chi.Router) {
-		api := svc.API()
 		mastodon := mastodon.NewService(svc)
 		instance := mastodon.Instances()
 		r.Route("/v1", func(r chi.Router) {
-			r.Post("/apps", api.Applications().Create)
+			r.Post("/apps", mastodon.Applications().Create)
 			r.Route("/accounts", func(r chi.Router) {
 				accounts := mastodon.Accounts()
 				r.Get("/verify_credentials", accounts.VerifyCredentials)

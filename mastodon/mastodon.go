@@ -28,6 +28,12 @@ func (s *Service) Accounts() *Accounts {
 	}
 }
 
+func (s *Service) Applications() *Applications {
+	return &Applications{
+		service: s,
+	}
+}
+
 func (s *Service) Contexts() *Contexts {
 	return &Contexts{
 		service: s,

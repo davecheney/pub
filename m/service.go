@@ -34,12 +34,6 @@ func (s *Service) DB() *gorm.DB {
 	return s.db
 }
 
-func (s *Service) API() *API {
-	return &API{
-		service: s,
-	}
-}
-
 // NodeInfo returns a NodeInfo REST resource.
 func (s *Service) NodeInfo() *NodeInfo {
 	return &NodeInfo{
@@ -101,18 +95,6 @@ func (a *ActivityPub) Inboxes() *Inboxes {
 
 func (a *ActivityPub) Outboxes() *Outbox {
 	return &Outbox{
-		service: a.service,
-	}
-}
-
-// API rerpesents the root of a Mastodon capable REST API.
-type API struct {
-	service *Service
-}
-
-func (a *API) Applications() *Applications {
-	return &Applications{
-		db:      a.service.db,
 		service: a.service,
 	}
 }
