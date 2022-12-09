@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/davecheney/m/m"
+	"github.com/davecheney/m/mastodon"
 	"github.com/go-json-experiment/json"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -75,7 +76,7 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 	redirectURI := r.PostFormValue("redirect_uri")
 	clientID := r.PostFormValue("client_id")
 
-	var app m.Application
+	var app mastodon.Application
 	if err := o.db.Where("client_id = ?", clientID).First(&app).Error; err != nil {
 		http.Error(w, "invalid client_id", http.StatusBadRequest)
 		return
@@ -156,7 +157,7 @@ func (o *OAuth) Token(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	var app m.Application
+	var app mastodon.Application
 	if err := o.db.Where("client_id = ?", params.ClientID).First(&app).Error; err != nil {
 		http.Error(w, "invalid client_id", http.StatusBadRequest)
 		return

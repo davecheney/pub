@@ -7,7 +7,20 @@ import (
 	"github.com/davecheney/m/m"
 	"github.com/go-json-experiment/json"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
+
+type Application struct {
+	gorm.Model
+	InstanceID   uint
+	Instance     *m.Instance
+	Name         string
+	Website      *string
+	RedirectURI  string
+	ClientID     string
+	ClientSecret string
+	VapidKey     string
+}
 
 type Applications struct {
 	service *Service
@@ -42,7 +55,7 @@ func (a *Applications) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app := &m.Application{
+	app := &Application{
 		InstanceID:   instance.ID,
 		Instance:     instance,
 		Name:         params.ClientName,

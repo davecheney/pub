@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/davecheney/m/m"
+	"github.com/davecheney/m/mastodon"
 	"gorm.io/gorm"
 )
 
@@ -17,7 +18,7 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 	return db.AutoMigrate(
 		&m.Account{}, &m.AccountList{}, &m.LocalAccount{},
 		&m.Activity{},
-		&m.Application{},
+		&mastodon.Application{},
 		&m.Conversation{},
 		&m.ClientFilter{},
 		&m.Instance{}, &m.InstanceRule{},
