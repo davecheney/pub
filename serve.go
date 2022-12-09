@@ -63,13 +63,13 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Post("/markers", mastodon.Markers().Create)
 			r.Get("/notifications", mastodon.Notifications().Index)
 
-			r.Post("/statuses", api.Statuses().Create)
+			r.Post("/statuses", mastodon.Statuses().Create)
 			r.Get("/statuses/{id}/context", mastodon.Contexts().Show)
 			r.Post("/statuses/{id}/favourite", mastodon.Favourites().Create)
 			r.Post("/statuses/{id}/unfavourite", mastodon.Favourites().Destroy)
 			r.Get("/statuses/{id}/favourited_by", mastodon.Favourites().Show)
-			r.Get("/statuses/{id}", api.Statuses().Show)
-			r.Delete("/statuses/{id}", api.Statuses().Destroy)
+			r.Get("/statuses/{id}", mastodon.Statuses().Show)
+			r.Delete("/statuses/{id}", mastodon.Statuses().Destroy)
 			r.Route("/timelines", func(r chi.Router) {
 				timelines := mastodon.Timelines()
 				r.Get("/home", timelines.Home)

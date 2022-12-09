@@ -94,6 +94,12 @@ func (s *Service) Search() *Search {
 	}
 }
 
+func (s *Service) Statuses() *Statuses {
+	return &Statuses{
+		service: s,
+	}
+}
+
 func (s *Service) Timelines() *Timelines {
 	return &Timelines{
 		service: s,

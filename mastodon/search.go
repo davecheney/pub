@@ -98,10 +98,10 @@ func (s *Search) searchStatuses(w http.ResponseWriter, r *http.Request, q string
 	var err error
 	switch r.URL.Query().Get("resolve") == "true" {
 	case true:
-		fetcher := s.service.Statuses().NewRemoteStatusFetcher()
-		status, err = s.service.Statuses().FindOrCreate(q, fetcher.Fetch)
+		fetcher := s.service.Service.Statuses().NewRemoteStatusFetcher()
+		status, err = s.service.Service.Statuses().FindOrCreate(q, fetcher.Fetch)
 	default:
-		status, err = s.service.Statuses().FindByURI(q)
+		status, err = s.service.Service.Statuses().FindByURI(q)
 	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

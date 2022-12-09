@@ -116,9 +116,3 @@ func (a *API) Applications() *Applications {
 		service: a.service,
 	}
 }
-func (a *API) Statuses() *Statuses {
-	return &Statuses{
-		db:      a.service.db,
-		service: a.service,
-	}
-}
