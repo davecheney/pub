@@ -23,7 +23,7 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	statusID, _ := strconv.ParseUint(id, 10, 64)
 
-	conv, err := c.service.Conversations().FindConversationByStatusID(statusID)
+	conv, err := c.service.Service.Conversations().FindConversationByStatusID(statusID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return

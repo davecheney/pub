@@ -34,6 +34,12 @@ func (s *Service) Contexts() *Contexts {
 	}
 }
 
+func (s *Service) Conversations() *Conversations {
+	return &Conversations{
+		service: s,
+	}
+}
+
 func (s *Service) Instances() *Instances {
 	return &Instances{
 		service: s,
@@ -48,6 +54,12 @@ func (s *Service) Lists() *Lists {
 
 func (s *Service) Markers() *Markers {
 	return &Markers{
+		service: s,
+	}
+}
+
+func (s *Service) Relationships() *Relationships {
+	return &Relationships{
 		service: s,
 	}
 }

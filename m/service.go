@@ -117,13 +117,6 @@ func (a *API) Applications() *Applications {
 	}
 }
 
-func (a *API) Conversations() *Conversations {
-	return &Conversations{
-		db:      a.service.db,
-		service: a.service,
-	}
-}
-
 func (a *API) Emojis() *Emojis {
 	return &Emojis{
 		db: a.service.db,
@@ -144,12 +137,6 @@ func (a *API) Filters() *Filters {
 func (a *API) Notifications() *Notifications {
 	return &Notifications{
 		db:      a.service.db,
-		service: a.service,
-	}
-}
-
-func (a *API) Relationships() *Relationships {
-	return &Relationships{
 		service: a.service,
 	}
 }
