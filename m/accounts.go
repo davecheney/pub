@@ -56,6 +56,15 @@ type Marker struct {
 	LastReadId uint
 }
 
+type Notification struct {
+	gorm.Model
+	AccountID uint
+	Account   *Account
+	StatusID  *uint
+	Status    *Status
+	Type      string `gorm:"size:64"`
+}
+
 func (a *Account) AfterCreate(tx *gorm.DB) error {
 	// update count of accounts on instance
 	var instance Instance

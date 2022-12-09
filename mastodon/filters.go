@@ -2,9 +2,23 @@ package mastodon
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/davecheney/m/m"
+	"gorm.io/gorm"
 )
+
+// https://docs.joinmastodon.org/entities/V1_Filter/
+type ClientFilter struct {
+	gorm.Model
+	AccountID    uint
+	Account      *m.Account
+	Phrase       string
+	WholeWord    bool
+	Context      []string `gorm:"serializer:json"`
+	ExpiresAt    time.Time
+	Irreversible bool
+}
 
 type Filters struct {
 	service *Service
@@ -17,7 +31,7 @@ func (f *Filters) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var filters []m.ClientFilter
+	var filters []ClientFilter
 	if err := f.service.DB().Model(user).Association("Filters").Find(&filters); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

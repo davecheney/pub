@@ -1,9 +1,6 @@
 package m
 
 import (
-	"net/http"
-	"strings"
-
 	"gorm.io/gorm"
 )
 
@@ -17,17 +14,6 @@ func NewService(db *gorm.DB) *Service {
 	return &Service{
 		db: db,
 	}
-}
-
-// authenticate authenticates the bearer token attached to the request and, if
-// successful, returns the account associated with the token.
-func (s *Service) authenticate(r *http.Request) (*Account, error) {
-	bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	var token Token
-	if err := s.db.Where("access_token = ?", bearer).Joins("Account").First(&token).Error; err != nil {
-		return nil, err
-	}
-	return token.Account, nil
 }
 
 func (s *Service) DB() *gorm.DB {

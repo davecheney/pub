@@ -20,7 +20,7 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 		&m.Activity{},
 		&mastodon.Application{},
 		&m.Conversation{},
-		&m.ClientFilter{},
+		&mastodon.ClientFilter{},
 		&m.Instance{}, &m.InstanceRule{},
 		&m.Marker{},
 		&m.Notification{},
