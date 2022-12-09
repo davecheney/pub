@@ -51,6 +51,14 @@ type LocalAccount struct {
 	PrivateKey        []byte // only used for local accounts
 }
 
+type Marker struct {
+	gorm.Model
+	AccountID  uint
+	Name       string `gorm:"size:32"`
+	Version    int    `gorm:"default:0"`
+	LastReadId uint
+}
+
 func (a *Account) AfterCreate(tx *gorm.DB) error {
 	// update count of accounts on instance
 	var instance Instance

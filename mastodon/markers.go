@@ -1,35 +1,27 @@
-package m
+package mastodon
 
 import (
 	"net/http"
 	"net/http/httputil"
+	"strconv"
 
+	"github.com/davecheney/m/m"
 	"github.com/go-json-experiment/json"
-	"gorm.io/gorm"
 )
 
-type Marker struct {
-	gorm.Model
-	AccountID  uint
-	Name       string `gorm:"size:32"`
-	Version    int    `gorm:"default:0"`
-	LastReadId uint
-}
-
 type Markers struct {
-	db      *gorm.DB
 	service *Service
 }
 
-func (m *Markers) Index(w http.ResponseWriter, r *http.Request) {
-	user, err := m.service.authenticate(r)
+func (ms *Markers) Index(w http.ResponseWriter, r *http.Request) {
+	user, err := ms.service.authenticate(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	var markers []Marker
-	if err := m.db.Model(user).Association("Markers").Find(&markers); err != nil {
+	var markers []m.Marker
+	if err := ms.service.DB().Model(user).Association("Markers").Find(&markers); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -46,8 +38,8 @@ func (m *Markers) Index(w http.ResponseWriter, r *http.Request) {
 	json.MarshalFull(w, resp)
 }
 
-func (m *Markers) Create(w http.ResponseWriter, r *http.Request) {
-	_, err := m.service.authenticate(r)
+func (ms *Markers) Create(w http.ResponseWriter, r *http.Request) {
+	_, err := ms.service.authenticate(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
@@ -55,4 +47,8 @@ func (m *Markers) Create(w http.ResponseWriter, r *http.Request) {
 	buf, _ := httputil.DumpRequest(r, true)
 	println(string(buf))
 	w.WriteHeader(http.StatusNotImplemented)
+}
+
+func utoa(u uint) string {
+	return strconv.FormatUint(uint64(u), 10)
 }

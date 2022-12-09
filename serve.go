@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/davecheney/m/m"
+	"github.com/davecheney/m/mastodon"
 	"github.com/davecheney/m/oauth"
 	"gorm.io/gorm"
 
@@ -39,6 +40,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		api := svc.API()
 		instance := api.Instances()
 		r.Route("/v1", func(r chi.Router) {
+			mastodon := mastodon.NewService(svc)
 			r.Post("/apps", api.Applications().Create)
 			accounts := api.Accounts()
 			r.Route("/accounts", func(r chi.Router) {
@@ -57,8 +59,8 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Get("/conversations", api.Conversations().Index)
 			r.Get("/custom_emojis", api.Emojis().Index)
 			r.Get("/instance", instance.IndexV1)
-			r.Get("/markers", api.Markers().Index)
-			r.Post("/markers", api.Markers().Create)
+			r.Get("/markers", mastodon.Markers().Index)
+			r.Post("/markers", mastodon.Markers().Create)
 			r.Get("/notifications", api.Notifications().Index)
 
 			r.Post("/statuses", api.Statuses().Create)

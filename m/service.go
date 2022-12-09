@@ -30,6 +30,10 @@ func (s *Service) authenticate(r *http.Request) (*Account, error) {
 	return token.Account, nil
 }
 
+func (s *Service) DB() *gorm.DB {
+	return s.db
+}
+
 func (s *Service) API() *API {
 	return &API{
 		service: s,
@@ -161,13 +165,6 @@ func (a *API) Instances() *Instances {
 func (a *API) Lists() *Lists {
 	return &Lists{
 		db: a.service.db,
-	}
-}
-
-func (a *API) Markers() *Markers {
-	return &Markers{
-		db:      a.service.db,
-		service: a.service,
 	}
 }
 
