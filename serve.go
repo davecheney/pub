@@ -61,7 +61,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Get("/instance", instance.IndexV1)
 			r.Get("/markers", mastodon.Markers().Index)
 			r.Post("/markers", mastodon.Markers().Create)
-			r.Get("/notifications", api.Notifications().Index)
+			r.Get("/notifications", mastodon.Notifications().Index)
 
 			r.Post("/statuses", api.Statuses().Create)
 			r.Get("/statuses/{id}/context", mastodon.Contexts().Show)

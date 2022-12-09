@@ -134,12 +134,6 @@ func (a *API) Filters() *Filters {
 		db: a.service.db,
 	}
 }
-func (a *API) Notifications() *Notifications {
-	return &Notifications{
-		db:      a.service.db,
-		service: a.service,
-	}
-}
 
 func (a *API) Statuses() *Statuses {
 	return &Statuses{

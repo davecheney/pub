@@ -58,6 +58,12 @@ func (s *Service) Markers() *Markers {
 	}
 }
 
+func (s *Service) Notifications() *Notifications {
+	return &Notifications{
+		service: s,
+	}
+}
+
 func (s *Service) Relationships() *Relationships {
 	return &Relationships{
 		service: s,
