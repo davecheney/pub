@@ -65,9 +65,9 @@ func (s *ServeCmd) Run(ctx *Context) error {
 
 			r.Post("/statuses", api.Statuses().Create)
 			r.Get("/statuses/{id}/context", mastodon.Contexts().Show)
-			r.Post("/statuses/{id}/favourite", api.Favourites().Create)
-			r.Post("/statuses/{id}/unfavourite", api.Favourites().Destroy)
-			r.Get("/statuses/{id}/favourited_by", api.Favourites().Show)
+			r.Post("/statuses/{id}/favourite", mastodon.Favourites().Create)
+			r.Post("/statuses/{id}/unfavourite", mastodon.Favourites().Destroy)
+			r.Get("/statuses/{id}/favourited_by", mastodon.Favourites().Show)
 			r.Get("/statuses/{id}", api.Statuses().Show)
 			r.Delete("/statuses/{id}", api.Statuses().Destroy)
 			r.Route("/timelines", func(r chi.Router) {

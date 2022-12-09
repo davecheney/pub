@@ -46,6 +46,12 @@ func (s *Service) Emojis() *Emojis {
 	}
 }
 
+func (s *Service) Favourites() *Favourites {
+	return &Favourites{
+		service: s,
+	}
+}
+
 func (s *Service) Instances() *Instances {
 	return &Instances{
 		service: s,

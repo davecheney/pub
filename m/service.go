@@ -117,12 +117,6 @@ func (a *API) Applications() *Applications {
 	}
 }
 
-func (a *API) Favourites() *Favourites {
-	return &Favourites{
-		service: a.service,
-	}
-}
-
 func (a *API) Filters() *Filters {
 	return &Filters{
 		db: a.service.db,

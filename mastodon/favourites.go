@@ -1,10 +1,10 @@
-package m
+package mastodon
 
 import (
 	"net/http"
 
+	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-json-experiment/json"
 )
 
 type Favourites struct {
@@ -17,18 +17,17 @@ func (f *Favourites) Create(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var status Status
-	if err := f.service.db.Joins("Account").First(&status, chi.URLParam(req, "id")).Error; err != nil {
+	var status m.Status
+	if err := f.service.DB().Joins("Account").First(&status, chi.URLParam(req, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	if err := f.service.db.Model(user).Association("Favourites").Append(&status); err != nil {
+	if err := f.service.DB().Model(user).Association("Favourites").Append(&status); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	status.FavouritesCount++
-	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, status.serialize())
+	toJSON(w, serializeStatus(&status))
 }
 
 func (f *Favourites) Destroy(w http.ResponseWriter, req *http.Request) {
@@ -37,18 +36,17 @@ func (f *Favourites) Destroy(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var status Status
-	if err := f.service.db.Joins("Account").First(&status, chi.URLParam(req, "id")).Error; err != nil {
+	var status m.Status
+	if err := f.service.DB().Joins("Account").First(&status, chi.URLParam(req, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	if err := f.service.db.Model(user).Association("Favourites").Delete(&status); err != nil {
+	if err := f.service.DB().Model(user).Association("Favourites").Delete(&status); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	status.FavouritesCount--
-	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, status.serialize())
+	toJSON(w, serializeStatus(&status))
 }
 
 func (f *Favourites) Show(w http.ResponseWriter, req *http.Request) {
@@ -57,22 +55,20 @@ func (f *Favourites) Show(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var status Status
-	if err := f.service.db.Joins("Account").First(&status, chi.URLParam(req, "id")).Error; err != nil {
+	var status m.Status
+	if err := f.service.DB().Joins("Account").First(&status, chi.URLParam(req, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	var favs []Account
-	if err := f.service.db.Model(&status).Association("Favourites").Find(&favs); err != nil {
+	var favs []m.Account
+	if err := f.service.DB().Model(&status).Association("Favourites").Find(&favs); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	var resp []interface{}
 	for _, fav := range favs {
-		resp = append(resp, fav.serialize())
+		resp = append(resp, serialize(&fav))
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, resp)
+	toJSON(w, resp)
 }
