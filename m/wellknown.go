@@ -27,17 +27,16 @@ func (w *WellKnown) Webfinger(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	webfinger := acct.Webfinger()
 	self := acct.ID()
 	rw.Header().Set("Content-Type", "application/jrd+json")
 	json.MarshalFull(rw, map[string]any{
 		"subject": "acct:" + account.acct(),
-		"aliases": []string{webfinger, self},
+		"aliases": []string{self},
 		"links": []map[string]any{
 			{
 				"rel":  "http://webfinger.net/rel/profile-page",
 				"type": "text/html",
-				"href": webfinger,
+				"href": acct.Webfinger(),
 			},
 			{
 				"rel":  "self",

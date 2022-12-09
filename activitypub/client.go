@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httputil"
 	"strings"
 	"time"
 
@@ -76,8 +75,6 @@ func (c *Client) Get(uri string) (map[string]any, error) {
 	if err := signRequest(req, c.keyID, c.privateKey, nil); err != nil {
 		return nil, fmt.Errorf("failed to sign request: %w", err)
 	}
-	buf, _ := httputil.DumpRequest(req, false)
-	fmt.Println("client#get:", string(buf))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -100,14 +97,13 @@ func (c *Client) Post(url string, obj map[string]any) error {
 	if err := c.sign(req, body); err != nil {
 		return fmt.Errorf("failed to sign request: %w", err)
 	}
-	// buf, _ := httputil.DumpRequest(req, false)
-	// fmt.Println("client#post:", string(buf))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		body, _ := io.ReadAll(resp.Body)
 		return &Error{
 			StatusCode: resp.StatusCode,
 			URI:        resp.Request.URL.String(),

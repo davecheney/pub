@@ -100,6 +100,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		r.Post("/inbox", activitypub.Inboxes().Create)
 		r.Get("/followers", activitypub.Followers().Index)
 		r.Get("/following", activitypub.Following().Index)
+		r.Get("/collections/{collection}", activitypub.Collections().Show)
 	})
 
 	r.Route("/.well-known", func(r chi.Router) {

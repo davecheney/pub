@@ -1,13 +1,10 @@
 package m
 
 import (
-	"fmt"
 	"net/http"
-	"net/http/httputil"
 
 	"github.com/davecheney/m/internal/webfinger"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-json-experiment/json"
 
 	"gorm.io/gorm"
 )
@@ -24,14 +21,12 @@ func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	buf, _ := httputil.DumpRequest(r, false)
-	fmt.Println("users#show:", string(buf))
-	w.Header().Set("Content-Type", "application/activity+json")
+	w.Header().Set("Cache-Control", "max-age=180, public")
 	acct := webfinger.Acct{
 		User: account.Username,
 		Host: account.Domain,
 	}
-	json.MarshalFull(w, map[string]any{
+	toJSON(w, map[string]any{
 		"@context": []any{
 			"https://www.w3.org/ns/activitystreams",
 			"https://w3id.org/security/v1",

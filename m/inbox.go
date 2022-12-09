@@ -6,7 +6,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"net/http"
-	"net/http/httputil"
 	"strings"
 
 	"github.com/go-fed/httpsig"
@@ -38,9 +37,6 @@ func (i *Inboxes) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	buf, _ := httputil.DumpRequest(r, false)
-	fmt.Println("inbox#create:", string(buf))
 
 	activity := Activity{
 		Object: body,

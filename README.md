@@ -76,6 +76,6 @@ m would not be possible without these amazing projects
 
 ## Contributions
 
-m is open source, but not open for contributions at the moment.
+m is open source, but not open for contributions.
 That may change in the future, but at the moment please do not send pull requests.
 Thank you in advance for your understanding.
