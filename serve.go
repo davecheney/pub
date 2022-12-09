@@ -47,7 +47,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 				r.Get("/verify_credentials", accounts.VerifyCredentials)
 				r.Patch("/update_credentials", accounts.Update)
 				r.Get("/relationships", mastodon.Relationships().Show)
-				r.Get("/filters", api.Filters().Index)
+				r.Get("/filters", mastodon.Filters().Index)
 				r.Get("/lists", mastodon.Lists().Index)
 				r.Get("/instance", instance.IndexV1)
 				r.Get("/instance/peers", instance.PeersShow)

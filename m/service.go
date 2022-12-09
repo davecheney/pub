@@ -116,13 +116,6 @@ func (a *API) Applications() *Applications {
 		service: a.service,
 	}
 }
-
-func (a *API) Filters() *Filters {
-	return &Filters{
-		db: a.service.db,
-	}
-}
-
 func (a *API) Statuses() *Statuses {
 	return &Statuses{
 		db:      a.service.db,

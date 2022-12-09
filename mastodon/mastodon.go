@@ -52,6 +52,12 @@ func (s *Service) Favourites() *Favourites {
 	}
 }
 
+func (s *Service) Filters() *Filters {
+	return &Filters{
+		service: s,
+	}
+}
+
 func (s *Service) Instances() *Instances {
 	return &Instances{
 		service: s,
