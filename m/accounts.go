@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/davecheney/m/activitypub"
+	"github.com/davecheney/m/internal/activitypub"
 	"github.com/davecheney/m/internal/webfinger"
 	"gorm.io/gorm"
 )
