@@ -1,4 +1,4 @@
-package m
+package mastodon
 
 import (
 	"fmt"
@@ -7,12 +7,10 @@ import (
 	"strings"
 
 	"github.com/davecheney/m/internal/webfinger"
-	"github.com/go-json-experiment/json"
-	"gorm.io/gorm"
+	"github.com/davecheney/m/m"
 )
 
 type Search struct {
-	db      *gorm.DB
 	service *Service
 }
 
@@ -39,7 +37,7 @@ func (s *Search) Index(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Search) searchAccounts(w http.ResponseWriter, r *http.Request, q string) {
-	var account *Account
+	var account *m.Account
 	var err error
 	switch r.URL.Query().Get("resolve") == "true" {
 	case true:
@@ -75,10 +73,10 @@ func (s *Search) searchAccounts(w http.ResponseWriter, r *http.Request, q string
 				return
 			}
 		}
-		fetcher := s.service.Accounts().NewRemoteAccountFetcher()
-		account, err = s.service.Accounts().FindOrCreate(q, fetcher.Fetch)
+		fetcher := s.service.Service.Accounts().NewRemoteAccountFetcher()
+		account, err = s.service.Service.Accounts().FindOrCreate(q, fetcher.Fetch)
 	default:
-		account, err = s.service.Accounts().FindByURI(q)
+		account, err = s.service.Service.Accounts().FindByURI(q)
 	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -86,16 +84,17 @@ func (s *Search) searchAccounts(w http.ResponseWriter, r *http.Request, q string
 	}
 
 	var resp = map[string]any{
-		"accounts": []any{account.serialize()},
+		"accounts": []any{
+			serialize(account),
+		},
 		"hashtags": []any{},
 		"statuses": []any{},
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, resp)
+	toJSON(w, resp)
 }
 
 func (s *Search) searchStatuses(w http.ResponseWriter, r *http.Request, q string) {
-	var status *Status
+	var status *m.Status
 	var err error
 	switch r.URL.Query().Get("resolve") == "true" {
 	case true:
@@ -111,8 +110,9 @@ func (s *Search) searchStatuses(w http.ResponseWriter, r *http.Request, q string
 	var resp = map[string]any{
 		"accounts": []any{},
 		"hashtags": []any{},
-		"statuses": []any{status.serialize()},
+		"statuses": []any{
+			serializeStatus(status),
+		},
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, resp)
+	toJSON(w, resp)
 }

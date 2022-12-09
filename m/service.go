@@ -129,10 +129,3 @@ func (a *API) Statuses() *Statuses {
 		service: a.service,
 	}
 }
-
-func (a *API) Search() *Search {
-	return &Search{
-		db:      a.service.db,
-		service: a.service,
-	}
-}

@@ -82,6 +82,12 @@ func (s *Service) Relationships() *Relationships {
 	}
 }
 
+func (s *Service) Search() *Search {
+	return &Search{
+		service: s,
+	}
+}
+
 func (s *Service) Timelines() *Timelines {
 	return &Timelines{
 		service: s,

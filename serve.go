@@ -79,7 +79,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		})
 		r.Route("/v2", func(r chi.Router) {
 			r.Get("/instance", instance.IndexV2)
-			r.Get("/search", api.Search().Index)
+			r.Get("/search", mastodon.Search().Index)
 		})
 		r.Route("/nodeinfo", func(r chi.Router) {
 			r.Get("/2.0", svc.NodeInfo().Show)
