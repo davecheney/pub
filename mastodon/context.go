@@ -1,9 +1,10 @@
-package m
+package mastodon
 
 import (
 	"net/http"
 	"strconv"
 
+	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-json-experiment/json"
 )
@@ -22,15 +23,15 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	statusID, _ := strconv.ParseUint(id, 10, 64)
 
-	conv, err := c.service.conversations().FindConversationByStatusID(statusID)
+	conv, err := c.service.Conversations().FindConversationByStatusID(statusID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
 	// load conversation statuses
-	var statuses []Status
-	if err := c.service.db.Where("conversation_id = ?", conv.ID).Joins("Account").Find(&statuses).Error; err != nil {
+	var statuses []m.Status
+	if err := c.service.DB().Where("conversation_id = ?", conv.ID).Joins("Account").Find(&statuses).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -41,14 +42,14 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 		"ancestors": func() []interface{} {
 			var a []interface{}
 			for _, s := range ancestors {
-				a = append(a, s.serialize())
+				a = append(a, serializeStatus(s))
 			}
 			return a
 		}(),
 		"descendants": func() []interface{} {
 			var a []interface{}
 			for _, s := range decentants {
-				a = append(a, s.serialize())
+				a = append(a, serializeStatus(s))
 			}
 			return a
 		}(),
@@ -57,10 +58,10 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 
 // thread sorts statuses into a tree, it returns the statuses
 // preceding id, and statuses following id.
-func thread(id uint64, statuses []Status) ([]*Status, []*Status) {
+func thread(id uint64, statuses []m.Status) ([]*m.Status, []*m.Status) {
 	type link struct {
 		parent   *link
-		status   *Status
+		status   *m.Status
 		children []*link
 	}
 	ids := make(map[uint64]*link)
@@ -79,7 +80,7 @@ func thread(id uint64, statuses []Status) ([]*Status, []*Status) {
 		}
 	}
 
-	var ancestors []*Status
+	var ancestors []*m.Status
 	var l = ids[id].parent
 	for l != nil {
 		ancestors = append(ancestors, l.status)
@@ -87,7 +88,7 @@ func thread(id uint64, statuses []Status) ([]*Status, []*Status) {
 	}
 	reverse(ancestors)
 
-	var descendants []*Status
+	var descendants []*m.Status
 	var walk func(*link)
 	walk = func(l *link) {
 		for _, c := range l.children {

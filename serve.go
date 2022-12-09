@@ -38,9 +38,9 @@ func (s *ServeCmd) Run(ctx *Context) error {
 
 	r.Route("/api", func(r chi.Router) {
 		api := svc.API()
-		instance := api.Instances()
+		mastodon := mastodon.NewService(svc)
+		instance := mastodon.Instances()
 		r.Route("/v1", func(r chi.Router) {
-			mastodon := mastodon.NewService(svc)
 			r.Post("/apps", api.Applications().Create)
 			accounts := api.Accounts()
 			r.Route("/accounts", func(r chi.Router) {
@@ -48,7 +48,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 				r.Patch("/update_credentials", accounts.Update)
 				r.Get("/relationships", api.Relationships().Show)
 				r.Get("/filters", api.Filters().Index)
-				r.Get("/lists", api.Lists().Index)
+				r.Get("/lists", mastodon.Lists().Index)
 				r.Get("/instance", instance.IndexV1)
 				r.Get("/instance/peers", instance.PeersShow)
 				r.Get("/{id}", accounts.Show)
@@ -64,7 +64,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Get("/notifications", api.Notifications().Index)
 
 			r.Post("/statuses", api.Statuses().Create)
-			r.Get("/statuses/{id}/context", api.Contexts().Show)
+			r.Get("/statuses/{id}/context", mastodon.Contexts().Show)
 			r.Post("/statuses/{id}/favourite", api.Favourites().Create)
 			r.Post("/statuses/{id}/unfavourite", api.Favourites().Destroy)
 			r.Get("/statuses/{id}/favourited_by", api.Favourites().Show)

@@ -49,7 +49,7 @@ func (a *Applications) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	instance, err := a.service.instances().FindByDomain(r.Host)
+	instance, err := a.service.Instances().FindByDomain(r.Host)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

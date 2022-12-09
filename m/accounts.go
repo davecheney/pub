@@ -253,8 +253,8 @@ func (f *RemoteAccountFetcher) Fetch(uri string) (*Account, error) {
 		return nil, err
 	}
 
-	fetcher := f.service.instances().newRemoteInstanceFetcher()
-	instance, err := f.service.instances().FindOrCreate(u.Host, fetcher.Fetch)
+	fetcher := f.service.Instances().newRemoteInstanceFetcher()
+	instance, err := f.service.Instances().FindOrCreate(u.Host, fetcher.Fetch)
 	if err != nil {
 		return nil, err
 	}
@@ -307,8 +307,8 @@ func (a *accounts) FindOrCreate(uri string, createFn func(string) (*Account, err
 	if err != nil {
 		return nil, err
 	}
-	fetcher := a.service.instances().newRemoteInstanceFetcher()
-	instance, err := a.service.instances().FindOrCreate(domain, fetcher.Fetch)
+	fetcher := a.service.Instances().newRemoteInstanceFetcher()
+	instance, err := a.service.Instances().FindOrCreate(domain, fetcher.Fetch)
 	if err != nil {
 		return nil, err
 	}
@@ -354,14 +354,6 @@ type AccountList struct {
 	AccountID     uint
 	Title         string `gorm:"size:64"`
 	RepliesPolicy string `gorm:"size:64"`
-}
-
-func (a *AccountList) serialize() map[string]any {
-	return map[string]any{
-		"id":             strconv.Itoa(int(a.ID)),
-		"title":          a.Title,
-		"replies_policy": a.RepliesPolicy,
-	}
 }
 
 func boolFromAny(v any) bool {

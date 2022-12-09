@@ -119,7 +119,7 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conv, err := s.service.conversations().FindConversationByStatusID(func(id *uint64) uint64 {
+	conv, err := s.service.Conversations().FindConversationByStatusID(func(id *uint64) uint64 {
 		if id == nil {
 			return 0
 		}

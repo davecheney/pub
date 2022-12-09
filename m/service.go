@@ -67,7 +67,7 @@ func (s *Service) Statuses() *statuses {
 	}
 }
 
-func (s *Service) conversations() *conversations {
+func (s *Service) Conversations() *conversations {
 	return &conversations{
 		db:      s.db,
 		service: s,
@@ -81,7 +81,7 @@ func (s *Service) Accounts() *accounts {
 	}
 }
 
-func (s *Service) instances() *instances {
+func (s *Service) Instances() *instances {
 	return &instances{
 		db: s.db,
 	}
@@ -124,12 +124,6 @@ func (a *API) Applications() *Applications {
 	}
 }
 
-func (a *API) Contexts() *Contexts {
-	return &Contexts{
-		service: a.service,
-	}
-}
-
 func (a *API) Conversations() *Conversations {
 	return &Conversations{
 		db:      a.service.db,
@@ -154,20 +148,6 @@ func (a *API) Filters() *Filters {
 		db: a.service.db,
 	}
 }
-
-func (a *API) Instances() *Instances {
-	return &Instances{
-		db:      a.service.db,
-		service: a.service,
-	}
-}
-
-func (a *API) Lists() *Lists {
-	return &Lists{
-		db: a.service.db,
-	}
-}
-
 func (a *API) Notifications() *Notifications {
 	return &Notifications{
 		db:      a.service.db,
