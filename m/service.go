@@ -117,12 +117,6 @@ func (a *API) Applications() *Applications {
 	}
 }
 
-func (a *API) Emojis() *Emojis {
-	return &Emojis{
-		db: a.service.db,
-	}
-}
-
 func (a *API) Favourites() *Favourites {
 	return &Favourites{
 		service: a.service,
@@ -137,13 +131,6 @@ func (a *API) Filters() *Filters {
 
 func (a *API) Statuses() *Statuses {
 	return &Statuses{
-		db:      a.service.db,
-		service: a.service,
-	}
-}
-
-func (a *API) Timelines() *Timelines {
-	return &Timelines{
 		db:      a.service.db,
 		service: a.service,
 	}

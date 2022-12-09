@@ -57,7 +57,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 				r.Post("/{id}/unfollow", mastodon.Relationships().Destroy)
 			})
 			r.Get("/conversations", mastodon.Conversations().Index)
-			r.Get("/custom_emojis", api.Emojis().Index)
+			r.Get("/custom_emojis", mastodon.Emojis().Index)
 			r.Get("/instance", instance.IndexV1)
 			r.Get("/markers", mastodon.Markers().Index)
 			r.Post("/markers", mastodon.Markers().Create)
@@ -71,7 +71,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Get("/statuses/{id}", api.Statuses().Show)
 			r.Delete("/statuses/{id}", api.Statuses().Destroy)
 			r.Route("/timelines", func(r chi.Router) {
-				timelines := api.Timelines()
+				timelines := mastodon.Timelines()
 				r.Get("/home", timelines.Home)
 				r.Get("/public", timelines.Public)
 			})

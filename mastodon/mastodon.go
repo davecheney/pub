@@ -40,6 +40,12 @@ func (s *Service) Conversations() *Conversations {
 	}
 }
 
+func (s *Service) Emojis() *Emojis {
+	return &Emojis{
+		service: s,
+	}
+}
+
 func (s *Service) Instances() *Instances {
 	return &Instances{
 		service: s,
@@ -66,6 +72,12 @@ func (s *Service) Notifications() *Notifications {
 
 func (s *Service) Relationships() *Relationships {
 	return &Relationships{
+		service: s,
+	}
+}
+
+func (s *Service) Timelines() *Timelines {
+	return &Timelines{
 		service: s,
 	}
 }

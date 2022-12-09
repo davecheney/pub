@@ -1,16 +1,15 @@
-package m
+package mastodon
 
 import (
 	"fmt"
 	"net/http"
 	"strconv"
 
-	"github.com/go-json-experiment/json"
+	"github.com/davecheney/m/m"
 	"gorm.io/gorm"
 )
 
 type Timelines struct {
-	db      *gorm.DB
 	service *Service
 }
 
@@ -24,7 +23,6 @@ func (AccountFollowing) TableName() string {
 }
 
 func (t *Timelines) Home(w http.ResponseWriter, r *http.Request) {
-
 	user, err := t.service.authenticate(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
@@ -32,14 +30,14 @@ func (t *Timelines) Home(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var followingIDs []int64
-	if err := t.db.Model(&AccountFollowing{AccountID: user.ID}).Pluck("following_id", &followingIDs).Error; err != nil {
+	if err := t.service.DB().Model(&AccountFollowing{AccountID: user.ID}).Pluck("following_id", &followingIDs).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	followingIDs = append(followingIDs, int64(user.ID))
 
-	var statuses []Status
-	scope := t.db.Scopes(t.paginate(r)).Where("account_id IN (?)", followingIDs)
+	var statuses []m.Status
+	scope := t.service.DB().Scopes(t.paginate(r)).Where("account_id IN (?)", followingIDs)
 	scope = scope.Joins("Account")
 	if err := scope.Find(&statuses).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -48,14 +46,12 @@ func (t *Timelines) Home(w http.ResponseWriter, r *http.Request) {
 
 	var resp []any
 	for _, status := range statuses {
-		resp = append(resp, status.serialize())
+		resp = append(resp, serializeStatus(&status))
 	}
-
-	w.Header().Set("Content-Type", "application/json")
 	if len(statuses) > 0 {
 		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/home?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/home?min_id=%d>; rel=\"prev\"", r.Host, statuses[len(statuses)-1].ID, r.Host, statuses[0].ID))
 	}
-	json.MarshalFull(w, resp)
+	toJSON(w, resp)
 }
 
 func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
@@ -65,8 +61,8 @@ func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var statuses []Status
-	scope := t.db.Scopes(t.paginate(r)).Where("visibility = ?", "public")
+	var statuses []m.Status
+	scope := t.service.DB().Scopes(t.paginate(r)).Where("visibility = ?", "public")
 	switch r.URL.Query().Get("local") {
 	case "true":
 		scope = scope.Joins("Account").Where("Account.domain = ?", r.Host)
@@ -75,20 +71,17 @@ func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := scope.Find(&statuses).Error; err != nil {
-		fmt.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	var resp []any
 	for _, status := range statuses {
-		resp = append(resp, status.serialize())
+		resp = append(resp, serializeStatus(&status))
 	}
-
-	w.Header().Set("Content-Type", "application/json")
 	if len(statuses) > 0 {
 		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/public?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/public?min_id=%d>; rel=\"prev\"", r.Host, statuses[len(statuses)-1].ID, r.Host, statuses[0].ID))
 	}
-	json.MarshalFull(w, resp)
+	toJSON(w, resp)
 }
 
 func (t *Timelines) paginate(r *http.Request) func(db *gorm.DB) *gorm.DB {
