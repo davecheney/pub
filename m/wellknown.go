@@ -30,7 +30,7 @@ func (w *WellKnown) Webfinger(rw http.ResponseWriter, r *http.Request) {
 	self := acct.ID()
 	rw.Header().Set("Content-Type", "application/jrd+json")
 	json.MarshalFull(rw, map[string]any{
-		"subject": "acct:" + account.acct(),
+		"subject": fmt.Sprintf("acct:%s@%s", account.Username, account.Domain),
 		"aliases": []string{self},
 		"links": []map[string]any{
 			{

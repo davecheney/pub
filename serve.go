@@ -98,6 +98,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 
 		r.Get("/", svc.Users().Show)
 		r.Post("/inbox", activitypub.Inboxes().Create)
+		r.Get("/outbox", activitypub.Outboxes().Index)
 		r.Get("/followers", activitypub.Followers().Index)
 		r.Get("/following", activitypub.Following().Index)
 		r.Get("/collections/{collection}", activitypub.Collections().Show)

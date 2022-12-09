@@ -14,7 +14,7 @@ type Conversation struct {
 	ID         uint `gorm:"primarykey"`
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
-	Visibility string `gorm:"type:enum('public', 'unlisted', 'private', 'direct')"`
+	Visibility string `gorm:"type:enum('public', 'unlisted', 'private', 'direct', 'limited');not null"`
 	Statuses   []Status
 }
 

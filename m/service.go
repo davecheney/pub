@@ -101,6 +101,12 @@ func (a *ActivityPub) Inboxes() *Inboxes {
 	}
 }
 
+func (a *ActivityPub) Outboxes() *Outbox {
+	return &Outbox{
+		service: a.service,
+	}
+}
+
 // API rerpesents the root of a Mastodon capable REST API.
 type API struct {
 	service *Service
