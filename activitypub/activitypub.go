@@ -1,28 +1,36 @@
-package m
+package activitypub
 
 import (
+	"crypto"
 	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-json-experiment/json"
+	"gorm.io/gorm"
 )
 
-// ActivityPub represents the ActivityPub REST resource.
-type ActivityPub struct {
-	service *Service
+// Service represents the Service REST resource.
+type Service struct {
+	db *gorm.DB
 }
 
-func (a *ActivityPub) Followers() *Followers {
-	return &Followers{service: a.service}
+func NewService(db *gorm.DB) *Service {
+	return &Service{
+		db: db,
+	}
 }
 
-func (a *ActivityPub) Following() *Following {
-	return &Following{service: a.service}
+func (s *Service) Followers() *Followers     { return &Followers{service: s} }
+func (s *Service) Following() *Following     { return &Following{service: s} }
+func (s *Service) Collections() *Collections { return &Collections{service: s} }
+func (s *Service) Inboxes(getKey func(keyId string) (crypto.PublicKey, error)) *Inboxes {
+	return &Inboxes{
+		service: s,
+		getKey:  getKey,
+	}
 }
-
-func (a *ActivityPub) Collections() *Collections {
-	return &Collections{service: a.service}
-}
+func (s *Service) Outboxes() *Outbox { return &Outbox{service: s} }
 
 type Followers struct {
 	service *Service
@@ -78,4 +86,10 @@ func (o *Outbox) Index(w http.ResponseWriter, r *http.Request) {
 		"totalItems":   0,
 		"orderedItems": []any{},
 	})
+}
+
+// toJSON writes the given object to the response body as JSON.
+func toJSON(w http.ResponseWriter, obj interface{}) error {
+	w.Header().Set("Content-Type", "application/activity+json; charset=utf-8")
+	return json.MarshalFull(w, obj)
 }

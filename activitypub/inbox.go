@@ -1,12 +1,9 @@
-package m
+package activitypub
 
 import (
 	"crypto"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/go-fed/httpsig"
 	"github.com/go-json-experiment/json"
@@ -24,6 +21,7 @@ func (Activity) TableName() string {
 
 type Inboxes struct {
 	service *Service
+	getKey  func(keyId string) (crypto.PublicKey, error)
 }
 
 func (i *Inboxes) Create(w http.ResponseWriter, r *http.Request) {
@@ -68,35 +66,4 @@ func (i *Inboxes) validateSignature(r *http.Request) error {
 	}
 	return nil
 
-}
-
-func (i *Inboxes) getKey(keyId string) (crypto.PublicKey, error) {
-	actorId := trimKeyId(keyId)
-	fetcher := i.service.Accounts().NewRemoteAccountFetcher()
-	account, err := i.service.Accounts().FindOrCreate(actorId, fetcher.Fetch)
-	if err != nil {
-		return nil, err
-	}
-	return pemToPublicKey(account.PublicKey)
-}
-
-func pemToPublicKey(key []byte) (crypto.PublicKey, error) {
-	block, _ := pem.Decode(key)
-	if block.Type != "PUBLIC KEY" {
-		return nil, fmt.Errorf("pemToPublicKey: invalid pem type: %s", block.Type)
-	}
-	var publicKey interface{}
-	var err error
-	if publicKey, err = x509.ParsePKIXPublicKey(block.Bytes); err != nil {
-		return nil, fmt.Errorf("pemToPublicKey: parsepkixpublickey: %w", err)
-	}
-	return publicKey, nil
-}
-
-// trimKeyId removes the #main-key suffix from the key id.
-func trimKeyId(id string) string {
-	if i := strings.Index(id, "#"); i != -1 {
-		return id[:i]
-	}
-	return id
 }

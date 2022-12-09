@@ -33,6 +33,10 @@ func (f *Filters) Index(w http.ResponseWriter, r *http.Request) {
 
 	var filters []ClientFilter
 	if err := f.service.DB().Model(user).Association("Filters").Find(&filters); err != nil {
+		if err == gorm.ErrRecordNotFound {
+			toJSON(w, []any{})
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

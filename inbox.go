@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/davecheney/m/activitypub"
 	"github.com/davecheney/m/internal/snowflake"
 	"github.com/davecheney/m/m"
 	"gorm.io/gorm"
@@ -20,7 +21,7 @@ func (i *InboxCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	var activities []m.Activity
+	var activities []activitypub.Activity
 	if err := db.Find(&activities).Error; err != nil {
 		return err
 	}
@@ -48,7 +49,7 @@ type inboxProcessor struct {
 	service *m.Service
 }
 
-func (ip *inboxProcessor) Process(activity *m.Activity) error {
+func (ip *inboxProcessor) Process(activity *activitypub.Activity) error {
 	act := activity.Object
 	id := stringFromAny(act["id"])
 	typ := stringFromAny(act["type"])

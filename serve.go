@@ -1,11 +1,15 @@
 package main
 
 import (
+	"crypto"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/davecheney/m/activitypub"
 	"github.com/davecheney/m/m"
 	"github.com/davecheney/m/mastodon"
 	"github.com/davecheney/m/oauth"
@@ -55,11 +59,14 @@ func (s *ServeCmd) Run(ctx *Context) error {
 				r.Post("/{id}/follow", mastodon.Relationships().Create)
 				r.Post("/{id}/unfollow", mastodon.Relationships().Destroy)
 			})
+			r.Get("/blocks", mastodon.Blocks().Index)
 			r.Get("/conversations", mastodon.Conversations().Index)
 			r.Get("/custom_emojis", mastodon.Emojis().Index)
+			r.Get("/filters", mastodon.Filters().Index)
 			r.Get("/instance", instance.IndexV1)
 			r.Get("/markers", mastodon.Markers().Index)
 			r.Post("/markers", mastodon.Markers().Create)
+			r.Get("/mutes", mastodon.Mutes().Index)
 			r.Get("/notifications", mastodon.Notifications().Index)
 
 			r.Post("/statuses", mastodon.Statuses().Create)
@@ -85,8 +92,17 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		})
 	})
 
-	activitypub := svc.ActivityPub()
-	r.Post("/inbox", activitypub.Inboxes().Create)
+	activitypub := activitypub.NewService(db)
+	getKey := func(keyID string) (crypto.PublicKey, error) {
+		actorId := trimKeyId(keyID)
+		fetcher := svc.Accounts().NewRemoteAccountFetcher()
+		account, err := svc.Accounts().FindOrCreate(actorId, fetcher.Fetch)
+		if err != nil {
+			return nil, err
+		}
+		return pemToPublicKey(account.PublicKey)
+	}
+	r.Post("/inbox", activitypub.Inboxes(getKey).Create)
 
 	r.Route("/oauth", func(r chi.Router) {
 		oauth := oauth.New(db)
@@ -99,7 +115,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	r.Route("/users/{username}", func(r chi.Router) {
 
 		r.Get("/", svc.Users().Show)
-		r.Post("/inbox", activitypub.Inboxes().Create)
+		r.Post("/inbox", activitypub.Inboxes(getKey).Create)
 		r.Get("/outbox", activitypub.Outboxes().Index)
 		r.Get("/followers", activitypub.Followers().Index)
 		r.Get("/following", activitypub.Following().Index)
@@ -130,6 +146,27 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		ReadTimeout:  15 * time.Second,
 	}
 	return svr.ListenAndServe()
+}
+
+func pemToPublicKey(key []byte) (crypto.PublicKey, error) {
+	block, _ := pem.Decode(key)
+	if block.Type != "PUBLIC KEY" {
+		return nil, fmt.Errorf("pemToPublicKey: invalid pem type: %s", block.Type)
+	}
+	var publicKey interface{}
+	var err error
+	if publicKey, err = x509.ParsePKIXPublicKey(block.Bytes); err != nil {
+		return nil, fmt.Errorf("pemToPublicKey: parsepkixpublickey: %w", err)
+	}
+	return publicKey, nil
+}
+
+// trimKeyId removes the #main-key suffix from the key id.
+func trimKeyId(id string) string {
+	if i := strings.Index(id, "#"); i != -1 {
+		return id[:i]
+	}
+	return id
 }
 
 func configureDB(db *gorm.DB) error {

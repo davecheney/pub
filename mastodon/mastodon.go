@@ -34,6 +34,12 @@ func (s *Service) Applications() *Applications {
 	}
 }
 
+func (s *Service) Blocks() *Blocks {
+	return &Blocks{
+		service: s,
+	}
+}
+
 func (s *Service) Contexts() *Contexts {
 	return &Contexts{
 		service: s,
@@ -78,6 +84,12 @@ func (s *Service) Lists() *Lists {
 
 func (s *Service) Markers() *Markers {
 	return &Markers{
+		service: s,
+	}
+}
+
+func (s *Service) Mutes() *Mutes {
+	return &Mutes{
 		service: s,
 	}
 }

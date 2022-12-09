@@ -66,21 +66,3 @@ func (s *Service) Instances() *instances {
 		db: s.db,
 	}
 }
-
-func (s *Service) ActivityPub() *ActivityPub {
-	return &ActivityPub{
-		service: s,
-	}
-}
-
-func (a *ActivityPub) Inboxes() *Inboxes {
-	return &Inboxes{
-		service: a.service,
-	}
-}
-
-func (a *ActivityPub) Outboxes() *Outbox {
-	return &Outbox{
-		service: a.service,
-	}
-}
