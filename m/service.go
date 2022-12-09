@@ -43,12 +43,6 @@ func (s *Service) NodeInfo() *NodeInfo {
 	}
 }
 
-func (s *Service) OAuth() *OAuth {
-	return &OAuth{
-		db: s.db,
-	}
-}
-
 func (s *Service) Users() *Users {
 	return &Users{
 		db:      s.db,

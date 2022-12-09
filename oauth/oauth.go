@@ -1,4 +1,4 @@
-package m
+package oauth
 
 import (
 	"fmt"
@@ -6,28 +6,23 @@ import (
 	"log"
 	"net/http"
 	"net/http/httputil"
-	"time"
+	"strings"
 
+	"github.com/davecheney/m/m"
 	"github.com/go-json-experiment/json"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
-type Token struct {
-	ID                uint `gorm:"primarykey"`
-	CreatedAt         time.Time
-	AccountID         uint
-	Account           *Account
-	ApplicationID     uint
-	AccessToken       string
-	TokenType         string
-	Scope             string
-	AuthorizationCode string
-}
-
 type OAuth struct {
 	db *gorm.DB
+}
+
+func New(db *gorm.DB) *OAuth {
+	return &OAuth{
+		db: db,
+	}
 }
 
 func (o *OAuth) Authorize(w http.ResponseWriter, r *http.Request) {
@@ -80,13 +75,13 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 	redirectURI := r.PostFormValue("redirect_uri")
 	clientID := r.PostFormValue("client_id")
 
-	var app Application
+	var app m.Application
 	if err := o.db.Where("client_id = ?", clientID).First(&app).Error; err != nil {
 		http.Error(w, "invalid client_id", http.StatusBadRequest)
 		return
 	}
 
-	var account Account
+	var account m.Account
 	if err := o.db.Where("email = ?", email).Joins("LocalAccount").First(&account).Error; err != nil {
 		http.Error(w, "invalid username", http.StatusUnauthorized)
 		return
@@ -97,7 +92,7 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token := &Token{
+	token := &m.Token{
 		ApplicationID:     app.ID,
 		AccountID:         account.ID,
 		AccessToken:       uuid.New().String(),
@@ -126,7 +121,7 @@ func (o *OAuth) Token(w http.ResponseWriter, r *http.Request) {
 		Code         string `json:"code"`
 		RedirectURI  string `json:"redirect_uri"`
 	}
-	switch mediaType(r) {
+	switch strings.Split(r.Header.Get("Content-Type"), ";")[0] {
 	case "application/x-www-form-urlencoded":
 		params.ClientID = r.FormValue("client_id")
 		params.ClientSecret = r.FormValue("client_secret")
@@ -156,12 +151,12 @@ func (o *OAuth) Token(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unsupported media type", http.StatusUnsupportedMediaType)
 		return
 	}
-	var token Token
+	var token m.Token
 	if err := o.db.Where("authorization_code = ?", params.Code).First(&token).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	var app Application
+	var app m.Application
 	if err := o.db.Where("client_id = ?", params.ClientID).First(&app).Error; err != nil {
 		http.Error(w, "invalid client_id", http.StatusBadRequest)
 		return
@@ -187,8 +182,8 @@ func (o *OAuth) Revoke(w http.ResponseWriter, r *http.Request) {
 		ClientSecret string `json:"client_secret"`
 		Token        string `json:"token"`
 	}
-	var token Token
-	switch mediaType(r) {
+	var token m.Token
+	switch strings.Split(r.Header.Get("Content-Type"), ";")[0] {
 	case "application/x-www-form-urlencoded":
 		params.ClientID = r.FormValue("client_id")
 		params.ClientSecret = r.FormValue("client_secret")

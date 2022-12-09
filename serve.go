@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/davecheney/m/m"
+	"github.com/davecheney/m/oauth"
 	"gorm.io/gorm"
 
 	"github.com/go-chi/chi/v5"
@@ -87,7 +88,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	r.Post("/inbox", activitypub.Inboxes().Create)
 
 	r.Route("/oauth", func(r chi.Router) {
-		oauth := svc.OAuth()
+		oauth := oauth.New(db)
 		r.Get("/authorize", oauth.Authorize)
 		r.Post("/authorize", oauth.Authorize)
 		r.Post("/token", oauth.Token)
