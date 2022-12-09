@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"path"
-	"strconv"
 	"time"
 
 	"github.com/davecheney/m/internal/activitypub"
@@ -17,13 +16,13 @@ type Account struct {
 	gorm.Model
 	InstanceID     uint
 	Instance       *Instance
+	Type           string `gorm:"type:enum('person', 'group', 'service', 'organization', 'application');default:'person'"`
 	Domain         string `gorm:"uniqueIndex:idx_domainusername;size:64"`
 	Username       string `gorm:"uniqueIndex:idx_domainusername;size:64"`
 	DisplayName    string `gorm:"size:128"`
 	Local          bool
 	LocalAccount   *LocalAccount `gorm:"foreignKey:AccountID"`
 	Locked         bool
-	Bot            bool
 	Note           string
 	Avatar         string
 	Header         string
@@ -104,33 +103,6 @@ func (a *Account) PublicKeyID() string {
 	return fmt.Sprintf("https://%s/users/%s#main-key", a.Domain, a.Username)
 }
 
-func (a *Account) serialize() map[string]any {
-	return map[string]any{
-		"id":              strconv.Itoa(int(a.ID)),
-		"username":        a.Username,
-		"acct":            a.acct(),
-		"display_name":    a.DisplayName,
-		"locked":          a.Locked,
-		"bot":             a.Bot,
-		"discoverable":    true,
-		"group":           false, // todo
-		"created_at":      a.CreatedAt.Format("2006-01-02T15:04:05.006Z"),
-		"note":            a.Note,
-		"url":             a.URL(),
-		"avatar":          stringOrDefault(a.Avatar, fmt.Sprintf("https://%s/avatar.png", a.Domain)),
-		"avatar_static":   stringOrDefault(a.Avatar, fmt.Sprintf("https://%s/avatar.png", a.Domain)),
-		"header":          stringOrDefault(a.Header, fmt.Sprintf("https://%s/header.png", a.Domain)),
-		"header_static":   stringOrDefault(a.Header, fmt.Sprintf("https://%s/header.png", a.Domain)),
-		"followers_count": a.FollowersCount,
-		"following_count": a.FollowingCount,
-		"statuses_count":  a.StatusesCount,
-		"last_status_at":  a.LastStatusAt.Format("2006-01-02"),
-		"noindex":         false, // todo
-		"emojis":          []map[string]any{},
-		"fields":          []map[string]any{},
-	}
-}
-
 type accounts struct {
 	db      *gorm.DB
 	service *Service
@@ -186,7 +158,7 @@ func activityPubActorToAccount(obj map[string]any, instance *Instance) *Account 
 		Instance:       instance,
 		DisplayName:    stringFromAny(obj["name"]),
 		Locked:         boolFromAny(obj["manuallyApprovesFollowers"]),
-		Bot:            stringFromAny(obj["type"]) == "Service",
+		Type:           stringFromAny(obj["type"]),
 		Note:           stringFromAny(obj["summary"]),
 		Avatar:         stringFromAny(mapFromAny(obj["icon"])["url"]),
 		Header:         stringFromAny(mapFromAny(obj["image"])["url"]),

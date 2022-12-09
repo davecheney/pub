@@ -95,7 +95,7 @@ func (a *Accounts) Update(w http.ResponseWriter, r *http.Request) {
 
 func serialize(a *m.Account) map[string]any {
 	return map[string]any{
-		"id":       strconv.Itoa(int(a.ID)),
+		"id":       toString(a.ID),
 		"username": a.Username,
 		"acct": func(a *m.Account) string {
 			if a.Local {
@@ -105,9 +105,9 @@ func serialize(a *m.Account) map[string]any {
 		}(a),
 		"display_name":    a.DisplayName,
 		"locked":          a.Locked,
-		"bot":             a.Bot,
+		"bot":             a.Type == "Person",
 		"discoverable":    true,
-		"group":           false, // todo
+		"group":           a.Type == "Group",
 		"created_at":      a.CreatedAt.Format("2006-01-02T15:04:05.006Z"),
 		"note":            a.Note,
 		"url":             a.URL(),
