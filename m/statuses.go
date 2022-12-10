@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -222,10 +223,13 @@ func stringOrNull[T number](v *T) any {
 }
 
 func anyToSlice(v any) []any {
-	switch v := v.(type) {
-	case []any:
-		return v
-	default:
-		return nil
+	val := reflect.ValueOf(v)
+	if val.Kind() == reflect.Slice {
+		var result []any
+		for i := 0; i < val.Len(); i++ {
+			result = append(result, val.Index(i).Interface())
+		}
+		return result
 	}
+	return nil
 }

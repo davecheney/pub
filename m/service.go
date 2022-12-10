@@ -20,23 +20,10 @@ func (s *Service) DB() *gorm.DB {
 	return s.db
 }
 
-// NodeInfo returns a NodeInfo REST resource.
-func (s *Service) NodeInfo() *NodeInfo {
-	return &NodeInfo{
-		db: s.db,
-	}
-}
-
 func (s *Service) Users() *Users {
 	return &Users{
 		db:      s.db,
 		service: s,
-	}
-}
-
-func (s *Service) WellKnown() *WellKnown {
-	return &WellKnown{
-		db: s.db,
 	}
 }
 

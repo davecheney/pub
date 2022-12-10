@@ -13,6 +13,7 @@ import (
 	"github.com/davecheney/m/m"
 	"github.com/davecheney/m/mastodon"
 	"github.com/davecheney/m/oauth"
+	"github.com/davecheney/m/wellknown"
 	"gorm.io/gorm"
 
 	"github.com/go-chi/chi/v5"
@@ -88,7 +89,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Get("/search", mastodon.Search().Index)
 		})
 		r.Route("/nodeinfo", func(r chi.Router) {
-			r.Get("/2.0", svc.NodeInfo().Show)
+			r.Get("/2.0", wellknown.NewService(svc).NodeInfo().Show)
 		})
 	})
 
@@ -123,10 +124,10 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	})
 
 	r.Route("/.well-known", func(r chi.Router) {
-		wellknown := svc.WellKnown()
+		wellknown := wellknown.NewService(svc)
 		r.Get("/webfinger", wellknown.Webfinger)
 		r.Get("/host-meta", wellknown.HostMeta)
-		r.Get("/nodeinfo", svc.NodeInfo().Index)
+		r.Get("/nodeinfo", wellknown.NodeInfo().Index)
 	})
 
 	walkFunc := func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {

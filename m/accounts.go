@@ -31,6 +31,7 @@ type Account struct {
 	StatusesCount  int32 `gorm:"default:0;not null"`
 	LastStatusAt   time.Time
 	PublicKey      []byte `gorm:"not null"`
+	Attachments    []any  `gorm:"serializer:json"`
 
 	Lists         []AccountList
 	Statuses      []Status
@@ -166,6 +167,7 @@ func activityPubActorToAccount(obj map[string]any, instance *Instance) *Account 
 		FollowingCount: 0,
 		StatusesCount:  0,
 		LastStatusAt:   time.Now(),
+		Attachments:    anyToSlice(obj["attachment"]),
 
 		PublicKey: []byte(stringFromAny(mapFromAny(obj["publicKey"])["publicKeyPem"])),
 	}
