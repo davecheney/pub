@@ -36,6 +36,12 @@ type Followers struct {
 	service *Service
 }
 
+func (s *Service) Users() *Users {
+	return &Users{
+		service: s,
+	}
+}
+
 func (f *Followers) Index(w http.ResponseWriter, r *http.Request) {
 	toJSON(w, map[string]any{
 		"@context":     "https://www.w3.org/ns/activitystreams",

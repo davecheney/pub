@@ -114,8 +114,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	})
 
 	r.Route("/users/{username}", func(r chi.Router) {
-
-		r.Get("/", svc.Users().Show)
+		r.Get("/", activitypub.Users().Show)
 		r.Post("/inbox", activitypub.Inboxes(getKey).Create)
 		r.Get("/outbox", activitypub.Outboxes().Index)
 		r.Get("/followers", activitypub.Followers().Index)
@@ -125,7 +124,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 
 	r.Route("/.well-known", func(r chi.Router) {
 		wellknown := wellknown.NewService(svc)
-		r.Get("/webfinger", wellknown.Webfinger)
+		r.Get("/webfinger", wellknown.Webfinger().Show)
 		r.Get("/host-meta", wellknown.HostMeta)
 		r.Get("/nodeinfo", wellknown.NodeInfo().Index)
 	})

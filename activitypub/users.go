@@ -1,23 +1,21 @@
-package m
+package activitypub
 
 import (
 	"net/http"
 
 	"github.com/davecheney/m/internal/webfinger"
+	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
-
-	"gorm.io/gorm"
 )
 
 type Users struct {
-	db      *gorm.DB
 	service *Service
 }
 
 func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
-	var account Account
-	if err := u.db.Where("username = ? and domain = ?", username, r.Host).First(&account).Error; err != nil {
+	var account m.Account
+	if err := u.service.db.Where("username = ? and domain = ?", username, r.Host).First(&account).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}

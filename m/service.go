@@ -20,13 +20,6 @@ func (s *Service) DB() *gorm.DB {
 	return s.db
 }
 
-func (s *Service) Users() *Users {
-	return &Users{
-		db:      s.db,
-		service: s,
-	}
-}
-
 func (s *Service) Statuses() *statuses {
 	return &statuses{
 		db:      s.db,
