@@ -96,12 +96,12 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	activitypub := activitypub.NewService(db)
 	getKey := func(keyID string) (crypto.PublicKey, error) {
 		actorId := trimKeyId(keyID)
-		fetcher := svc.Accounts().NewRemoteAccountFetcher()
-		account, err := svc.Accounts().FindOrCreate(actorId, fetcher.Fetch)
+		fetcher := svc.Actors().NewRemoteActorFetcher()
+		actor, err := svc.Actors().FindOrCreate(actorId, fetcher.Fetch)
 		if err != nil {
 			return nil, err
 		}
-		return pemToPublicKey(account.PublicKey)
+		return pemToPublicKey(actor.PublicKey)
 	}
 	r.Post("/inbox", activitypub.Inboxes(getKey).Create)
 

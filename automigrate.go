@@ -17,7 +17,8 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 	}
 
 	return db.AutoMigrate(
-		&m.Account{}, &m.AccountList{}, &m.LocalAccount{},
+		&m.Actor{},
+		&m.Account{}, &m.AccountList{},
 		&activitypub.Activity{},
 		&mastodon.Application{},
 		&m.Conversation{},

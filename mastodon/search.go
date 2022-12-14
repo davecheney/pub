@@ -37,7 +37,7 @@ func (s *Search) Index(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Search) searchAccounts(w http.ResponseWriter, r *http.Request, q string) {
-	var account *m.Account
+	var actor *m.Actor
 	var err error
 	switch r.URL.Query().Get("resolve") == "true" {
 	case true:
@@ -73,10 +73,10 @@ func (s *Search) searchAccounts(w http.ResponseWriter, r *http.Request, q string
 				return
 			}
 		}
-		fetcher := s.service.Service.Accounts().NewRemoteAccountFetcher()
-		account, err = s.service.Service.Accounts().FindOrCreate(q, fetcher.Fetch)
+		fetcher := s.service.Service.Actors().NewRemoteActorFetcher()
+		actor, err = s.service.Service.Actors().FindOrCreate(q, fetcher.Fetch)
 	default:
-		account, err = s.service.Service.Accounts().FindByURI(q)
+		actor, err = s.service.Service.Actors().FindByURI(q)
 	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -85,7 +85,7 @@ func (s *Search) searchAccounts(w http.ResponseWriter, r *http.Request, q string
 
 	var resp = map[string]any{
 		"accounts": []any{
-			serialize(account),
+			serialize(actor),
 		},
 		"hashtags": []any{},
 		"statuses": []any{},

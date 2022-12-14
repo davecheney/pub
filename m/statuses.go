@@ -16,37 +16,26 @@ import (
 )
 
 type Status struct {
-	ID                 uint64 `gorm:"primaryKey;autoIncrement:false"`
-	UpdatedAt          time.Time
-	DeletedAt          gorm.DeletedAt `gorm:"index"`
-	AccountID          uint
-	Account            *Account
-	ConversationID     uint
-	InReplyToID        *uint64
-	InReplyToAccountID *uint
-	Sensitive          bool
-	SpoilerText        string
-	Visibility         string `gorm:"type:enum('public', 'unlisted', 'private', 'direct', 'limited')"`
-	Language           string
-	URI                string `gorm:"uniqueIndex;size:128"`
-	RepliesCount       int    `gorm:"not null;default:0"`
-	ReblogsCount       int    `gorm:"not null;default:0"`
-	FavouritesCount    int    `gorm:"not null;default:0"`
-	Content            string
+	ID               uint64 `gorm:"primaryKey;autoIncrement:false"`
+	UpdatedAt        time.Time
+	DeletedAt        gorm.DeletedAt `gorm:"index"`
+	ActorID          uint64
+	Actor            *Actor
+	ConversationID   uint32
+	Conversation     *Conversation
+	InReplyToID      *uint64
+	InReplyToActorID *uint64
+	Sensitive        bool
+	SpoilerText      string
+	Visibility       string `gorm:"type:enum('public', 'unlisted', 'private', 'direct', 'limited')"`
+	Language         string
+	Note             string
+	URI              string `gorm:"uniqueIndex;size:128"`
+	RepliesCount     int    `gorm:"not null;default:0"`
+	ReblogsCount     int    `gorm:"not null;default:0"`
+	FavouritesCount  int    `gorm:"not null;default:0"`
 
 	FavouritedBy []Account `gorm:"many2many:account_favourites"`
-}
-
-func (s *Status) AfterCreate(tx *gorm.DB) error {
-	// update count of statuses on account
-	var account Account
-	if err := tx.Preload("Instance").Where("id = ?", s.AccountID).First(&account).Error; err != nil {
-		return err
-	}
-	if err := account.updateStatusesCount(tx); err != nil {
-		return err
-	}
-	return account.Instance.updateStatusesCount(tx)
 }
 
 type statuses struct {
@@ -118,7 +107,7 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*Status, error) {
 		}
 	}
 
-	conversationID := uint(0)
+	conversationID := uint32(0)
 	if inReplyTo != nil {
 		conversationID = inReplyTo.ConversationID
 	} else {
@@ -131,8 +120,8 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*Status, error) {
 		conversationID = conv.ID
 	}
 
-	fetcher := f.service.Accounts().NewRemoteAccountFetcher()
-	account, err := f.service.Accounts().FindOrCreate(stringFromAny(obj["attributedTo"]), fetcher.Fetch)
+	fetcher := f.service.Actors().NewRemoteActorFetcher()
+	actor, err := f.service.Actors().FindOrCreate(stringFromAny(obj["attributedTo"]), fetcher.Fetch)
 	if err != nil {
 		return nil, err
 	}
@@ -140,8 +129,8 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*Status, error) {
 
 	return &Status{
 		ID:             snowflake.TimeToID(createdAt),
-		Account:        account,
-		AccountID:      account.ID,
+		ActorID:        actor.ID,
+		Actor:          actor,
 		ConversationID: conversationID,
 		InReplyToID: func() *uint64 {
 			if inReplyTo != nil {
@@ -149,9 +138,9 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*Status, error) {
 			}
 			return nil
 		}(),
-		InReplyToAccountID: func() *uint {
+		InReplyToActorID: func() *uint64 {
 			if inReplyTo != nil {
-				return &inReplyTo.AccountID
+				return &inReplyTo.ActorID
 			}
 			return nil
 		}(),
@@ -160,7 +149,7 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*Status, error) {
 		Visibility:  "public",
 		Language:    stringFromAny(obj["language"]),
 		URI:         uri,
-		Content:     stringFromAny(obj["content"]),
+		Note:        stringFromAny(obj["content"]),
 	}, nil
 }
 
@@ -170,7 +159,7 @@ func (f *RemoteStatusFetcher) fetch(uri string) (map[string]interface{}, error) 
 	if err != nil {
 		return nil, err
 	}
-	c, err := activitypub.NewClient(signAs.PublicKeyID(), signAs.LocalAccount.PrivateKey)
+	c, err := activitypub.NewClient(signAs.Actor.PublicKeyID(), nil) // signAs.LocalAccount.PrivateKey)
 	if err != nil {
 		return nil, err
 	}

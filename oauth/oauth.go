@@ -88,7 +88,7 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := bcrypt.CompareHashAndPassword(account.LocalAccount.EncryptedPassword, []byte(password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword(account.EncryptedPassword, []byte(password)); err != nil {
 		http.Error(w, "invalid password", http.StatusUnauthorized)
 		return
 	}

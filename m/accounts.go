@@ -1,51 +1,25 @@
 package m
 
 import (
-	"errors"
 	"fmt"
 	"net/url"
 	"path"
-	"time"
 
-	"github.com/davecheney/m/internal/activitypub"
-	"github.com/davecheney/m/internal/webfinger"
 	"gorm.io/gorm"
 )
 
 type Account struct {
 	gorm.Model
-	InstanceID     uint
-	Instance       *Instance
-	Type           string `gorm:"type:enum('person', 'group', 'service', 'organization', 'application');default:'person'"`
-	Domain         string `gorm:"uniqueIndex:idx_domainusername;size:64"`
-	Username       string `gorm:"uniqueIndex:idx_domainusername;size:64"`
-	DisplayName    string `gorm:"size:128"`
-	Local          bool
-	LocalAccount   *LocalAccount `gorm:"foreignKey:AccountID"`
-	Locked         bool
-	Note           string
-	Avatar         string
-	Header         string
-	FollowersCount int32 `gorm:"default:0;not null"`
-	FollowingCount int32 `gorm:"default:0;not null"`
-	StatusesCount  int32 `gorm:"default:0;not null"`
-	LastStatusAt   time.Time
-	PublicKey      []byte `gorm:"not null"`
-	Attachments    []any  `gorm:"serializer:json"`
-
-	Lists         []AccountList
-	Statuses      []Status
-	Markers       []Marker
-	Favourites    []Status `gorm:"many2many:account_favourites"`
-	Notifications []Notification
-	Following     []Account `gorm:"many2many:account_following"`
-}
-
-type LocalAccount struct {
-	AccountID         uint   `gorm:"primarykey;autoIncrement:false"`
-	Email             string `gorm:"size:64"`
-	EncryptedPassword []byte // only used for local accounts
-	PrivateKey        []byte // only used for local accounts
+	InstanceID        uint
+	Instance          *Instance
+	ActorID           uint64
+	Actor             *Actor
+	Notifications     []Notification
+	Markers           []Marker
+	Lists             []AccountList
+	Email             string
+	EncryptedPassword []byte
+	PrivateKey        []byte `gorm:"not null"`
 }
 
 type Marker struct {
@@ -65,43 +39,23 @@ type Notification struct {
 	Type      string `gorm:"size:64"`
 }
 
-func (a *Account) AfterCreate(tx *gorm.DB) error {
-	// update count of accounts on instance
-	var instance Instance
-	if err := tx.Where("domain = ?", a.Domain).First(&instance).Error; err != nil {
-		return err
+func (a *Account) Name() string {
+	return a.Actor.Name
+}
+
+func (a *Account) Domain() string {
+	return a.Actor.Domain
+}
+
+func (a *Account) Acct() string {
+	if a.isLocal() {
+		return a.Name()
 	}
-	return instance.updateAccountsCount(tx)
+	return a.Name() + "@" + a.Domain()
 }
 
-func (a *Account) updateStatusesCount(tx *gorm.DB) error {
-	var count int64
-	if err := tx.Model(&Status{}).Where("account_id = ?", a.ID).Count(&count).Error; err != nil {
-		return err
-	}
-	return tx.Model(a).Update("statuses_count", count).Error
-}
-
-func (a *Account) Acct() *webfinger.Acct {
-	return &webfinger.Acct{
-		User: a.Username,
-		Host: a.Domain,
-	}
-}
-
-func (a *Account) acct() string {
-	if a.Local {
-		return a.Username
-	}
-	return a.Username + "@" + a.Domain
-}
-
-func (a *Account) URL() string {
-	return fmt.Sprintf("https://%s/@%s", a.Domain, a.Username)
-}
-
-func (a *Account) PublicKeyID() string {
-	return fmt.Sprintf("https://%s/users/%s#main-key", a.Domain, a.Username)
+func (a *Account) isLocal() bool {
+	return a.Actor.Type == "LocalPerson"
 }
 
 type accounts struct {
@@ -122,101 +76,12 @@ func (a *accounts) FindByURI(uri string) (*Account, error) {
 	return &account, nil
 }
 
-func (a *accounts) NewRemoteAccountFetcher() *RemoteAccountFetcher {
-	return &RemoteAccountFetcher{
-		service: a.service,
-	}
-}
-
-type RemoteAccountFetcher struct {
-	service *Service
-}
-
-func (f *RemoteAccountFetcher) Fetch(uri string) (*Account, error) {
-	u, err := url.Parse(uri)
-	if err != nil {
-		return nil, err
-	}
-
-	fetcher := f.service.Instances().newRemoteInstanceFetcher()
-	instance, err := f.service.Instances().FindOrCreate(u.Host, fetcher.Fetch)
-	if err != nil {
-		return nil, err
-	}
-
-	obj, err := f.fetch(uri)
-	if err != nil {
-		return nil, err
-	}
-	return activityPubActorToAccount(obj, instance), nil
-}
-
-func activityPubActorToAccount(obj map[string]any, instance *Instance) *Account {
-	acct := Account{
-		Username:       stringFromAny(obj["preferredUsername"]),
-		Domain:         instance.Domain,
-		InstanceID:     instance.ID,
-		Instance:       instance,
-		DisplayName:    stringFromAny(obj["name"]),
-		Locked:         boolFromAny(obj["manuallyApprovesFollowers"]),
-		Type:           stringFromAny(obj["type"]),
-		Note:           stringFromAny(obj["summary"]),
-		Avatar:         stringFromAny(mapFromAny(obj["icon"])["url"]),
-		Header:         stringFromAny(mapFromAny(obj["image"])["url"]),
-		FollowersCount: 0,
-		FollowingCount: 0,
-		StatusesCount:  0,
-		LastStatusAt:   time.Now(),
-		Attachments:    anyToSlice(obj["attachment"]),
-
-		PublicKey: []byte(stringFromAny(mapFromAny(obj["publicKey"])["publicKeyPem"])),
-	}
-	return &acct
-}
-
-func (f *RemoteAccountFetcher) fetch(uri string) (map[string]any, error) {
-	// use admin account to sign the request
-	signAs, err := f.service.Accounts().FindAdminAccount()
-	if err != nil {
-		return nil, err
-	}
-	c, err := activitypub.NewClient(signAs.PublicKeyID(), signAs.LocalAccount.PrivateKey)
-	if err != nil {
-		return nil, err
-	}
-	return c.Get(uri)
-}
-
-// FindOrCreate finds an account by its URI, or creates it if it doesn't exist.
-func (a *accounts) FindOrCreate(uri string, createFn func(string) (*Account, error)) (*Account, error) {
-	username, domain, err := splitAcct(uri)
-	if err != nil {
-		return nil, err
-	}
-	fetcher := a.service.Instances().newRemoteInstanceFetcher()
-	instance, err := a.service.Instances().FindOrCreate(domain, fetcher.Fetch)
-	if err != nil {
-		return nil, err
-	}
-
+func (a *accounts) Find(id uint64) (*Account, error) {
 	var account Account
-	err = a.db.Where("username = ? AND domain = ?", username, instance.Domain).First(&account).Error
-	if err == nil {
-		// found cached key
-		return &account, nil
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err := a.db.Where("actor_id = ?", id).First(&account).Error; err != nil {
 		return nil, err
 	}
-
-	acc, err := createFn(uri)
-	if err != nil {
-		return nil, err
-	}
-	if err := a.db.Create(acc).Error; err != nil {
-		return nil, err
-	}
-	return acc, nil
+	return &account, nil
 }
 
 func (a *accounts) FindAdminAccount() (*Account, error) {

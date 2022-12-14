@@ -41,17 +41,17 @@ func (r *Relationships) Create(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var account m.Account
-	if err := r.service.DB().First(&account, chi.URLParam(req, "id")).Error; err != nil {
+	var actor m.Actor
+	if err := r.service.DB().First(&actor, chi.URLParam(req, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	if err := r.service.DB().Model(&user).Association("Following").Append(&account); err != nil {
+	if err := r.service.DB().Model(&user).Association("Following").Append(&actor); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	toJSON(w, map[string]interface{}{
-		"id":                   toString(account.ID),
+		"id":                   toString(actor.ID),
 		"following":            true,
 		"showing_reblogs":      true,  // todo
 		"notifying":            true,  // todo
@@ -63,7 +63,7 @@ func (r *Relationships) Create(w http.ResponseWriter, req *http.Request) {
 		"requested":            false,
 		"domain_blocking":      false,
 		"endorsed":             false,
-		"note":                 account.Note,
+		"note":                 actor.Note,
 	})
 }
 
@@ -73,17 +73,17 @@ func (r *Relationships) Destroy(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var account m.Account
-	if err := r.service.DB().First(&account, chi.URLParam(req, "id")).Error; err != nil {
+	var actor m.Actor
+	if err := r.service.DB().First(&actor, chi.URLParam(req, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	if err := r.service.DB().Model(&user).Association("Following").Delete(&account); err != nil {
+	if err := r.service.DB().Model(&user).Association("Following").Delete(&actor); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	toJSON(w, map[string]interface{}{
-		"id":                   toString(account.ID),
+		"id":                   toString(actor.ID),
 		"following":            false,
 		"showing_reblogs":      false, // todo
 		"notifying":            false, // todo
@@ -95,6 +95,6 @@ func (r *Relationships) Destroy(w http.ResponseWriter, req *http.Request) {
 		"requested":            false,
 		"domain_blocking":      false,
 		"endorsed":             false,
-		"note":                 account.Note,
+		"note":                 actor.Note,
 	})
 }

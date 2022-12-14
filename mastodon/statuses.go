@@ -25,6 +25,7 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
+	actor := account.Actor
 	var toot struct {
 		Status      string     `json:"status"`
 		InReplyToID *uint64    `json:"in_reply_to_id,string"`
@@ -63,16 +64,16 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 	id := snowflake.TimeToID(createdAt)
 	status := m.Status{
 		ID:             id,
-		AccountID:      account.ID,
-		Account:        account,
+		ActorID:        actor.ID,
+		Actor:          actor,
 		ConversationID: conv.ID,
 		InReplyToID:    toot.InReplyToID,
-		URI:            fmt.Sprintf("https://%s/users/%s/%d", account.Domain, account.Username, id),
+		URI:            fmt.Sprintf("https://%s/users/%s/%d", actor.Domain, actor.Name, id),
 		Sensitive:      toot.Sensitive,
 		SpoilerText:    toot.SpoilerText,
 		Visibility:     toot.Visibility,
 		Language:       toot.Language,
-		Content:        toot.Status,
+		Note:           toot.Status,
 	}
 	if err := s.service.DB().Model(conv).Association("Statuses").Append(&status); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -91,7 +92,7 @@ func (s *Statuses) Destroy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-
+	actor := account.Actor
 	var status m.Status
 	if err := s.service.DB().Where("statuses.id = ?", chi.URLParam(r, "id")).Joins("Account").First(&status).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -101,7 +102,7 @@ func (s *Statuses) Destroy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if status.AccountID != account.ID {
+	if status.ActorID != actor.ID {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -135,7 +136,7 @@ func serializeStatus(s *m.Status) map[string]any {
 		"id":                     toString(s.ID),
 		"created_at":             snowflake.IDToTime(s.ID).UTC().Format("2006-01-02T15:04:05.006Z"),
 		"in_reply_to_id":         stringOrNull(s.InReplyToID),
-		"in_reply_to_account_id": stringOrNull(s.InReplyToAccountID),
+		"in_reply_to_account_id": stringOrNull(s.InReplyToActorID),
 		"sensitive":              s.Sensitive,
 		"spoiler_text":           s.SpoilerText,
 		"visibility":             s.Visibility,
@@ -147,7 +148,7 @@ func serializeStatus(s *m.Status) map[string]any {
 				return ""
 			}
 			id := path.Base(u.Path)
-			return fmt.Sprintf("%s://%s/@%s/%s", u.Scheme, s.Account.Domain, s.Account.Username, id)
+			return fmt.Sprintf("%s://%s/@%s/%s", u.Scheme, s.Actor.Domain, s.Actor.Name, id)
 		}(s),
 		"replies_count":    s.RepliesCount,
 		"reblogs_count":    s.ReblogsCount,
@@ -156,11 +157,11 @@ func serializeStatus(s *m.Status) map[string]any {
 		// "reblogged":              false,
 		// "muted":                  false,
 		// "bookmarked":             false,
-		"content":           s.Content,
+		"content":           s.Note,
 		"text":              nil,
 		"reblog":            nil,
 		"application":       nil,
-		"account":           serialize(s.Account),
+		"account":           serialize(s.Actor),
 		"media_attachments": []map[string]any{},
 		"mentions":          []map[string]any{},
 		"tags":              []map[string]any{},

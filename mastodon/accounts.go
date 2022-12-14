@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/davecheney/m/internal/snowflake"
 	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
 )
@@ -19,12 +20,12 @@ func (a *Accounts) Show(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var account m.Account
-	if err := a.service.DB().First(&account, chi.URLParam(r, "id")).Error; err != nil {
+	var actor m.Actor
+	if err := a.service.DB().First(&actor, chi.URLParam(r, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	toJSON(w, serialize(&account))
+	toJSON(w, serialize(&actor))
 }
 
 func (a *Accounts) VerifyCredentials(w http.ResponseWriter, r *http.Request) {
@@ -33,7 +34,7 @@ func (a *Accounts) VerifyCredentials(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	toJSON(w, serialize(user))
+	toJSON(w, serialize(user.Actor))
 }
 
 func (a *Accounts) StatusesShow(w http.ResponseWriter, r *http.Request) {
@@ -80,37 +81,37 @@ func (a *Accounts) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Form.Get("display_name") != "" {
-		account.DisplayName = r.Form.Get("display_name")
+		account.Actor.DisplayName = r.Form.Get("display_name")
 	}
 	if r.Form.Get("note") != "" {
-		account.Note = r.Form.Get("note")
+		account.Actor.Note = r.Form.Get("note")
 	}
 
-	if err := a.service.DB().Omit("Instance").Save(account).Error; err != nil {
+	if err := a.service.DB().Save(account).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serialize(account))
+	toJSON(w, serialize(account.Actor))
 }
 
-func serialize(a *m.Account) map[string]any {
+func serialize(a *m.Actor) map[string]any {
 	return map[string]any{
 		"id":       toString(a.ID),
-		"username": a.Username,
-		"acct": func(a *m.Account) string {
-			if a.Local {
-				return a.Username
+		"username": a.Name,
+		"acct": func(a *m.Actor) string {
+			if a.Type == "LocalPerson" {
+				return a.Name
 			}
-			return fmt.Sprintf("%s@%s", a.Username, a.Domain)
+			return fmt.Sprintf("%s@%s", a.Name, a.Domain)
 		}(a),
 		"display_name":    a.DisplayName,
 		"locked":          a.Locked,
 		"bot":             a.Type == "Person",
 		"discoverable":    true,
 		"group":           a.Type == "Group",
-		"created_at":      a.CreatedAt.Format("2006-01-02T15:04:05.006Z"),
+		"created_at":      snowflake.IDToTime(a.ID).Format("2006-01-02T15:04:05.006Z"),
 		"note":            a.Note,
-		"url":             a.URL(),
+		"url":             fmt.Sprintf("https://%s/@%s", a.Domain, a.Name),
 		"avatar":          stringOrDefault(a.Avatar, fmt.Sprintf("https://%s/avatar.png", a.Domain)),
 		"avatar_static":   stringOrDefault(a.Avatar, fmt.Sprintf("https://%s/avatar.png", a.Domain)),
 		"header":          stringOrDefault(a.Header, fmt.Sprintf("https://%s/header.png", a.Domain)),

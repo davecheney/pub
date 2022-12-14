@@ -7,7 +7,7 @@ import (
 )
 
 type Conversation struct {
-	ID         uint `gorm:"primarykey"`
+	ID         uint32 `gorm:"primarykey"`
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 	Visibility string `gorm:"type:enum('public', 'unlisted', 'private', 'direct', 'limited');not null"`

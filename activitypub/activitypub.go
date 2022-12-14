@@ -80,20 +80,6 @@ func (f *Collections) Show(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-type Outbox struct {
-	service *Service
-}
-
-func (o *Outbox) Index(w http.ResponseWriter, r *http.Request) {
-	toJSON(w, map[string]any{
-		"@context":     "https://www.w3.org/ns/activitystreams",
-		"id":           fmt.Sprintf("https://%s/users/%s/outbox", r.Host, chi.URLParam(r, "username")),
-		"type":         "OrderedCollection",
-		"totalItems":   0,
-		"orderedItems": []any{},
-	})
-}
-
 // toJSON writes the given object to the response body as JSON.
 func toJSON(w http.ResponseWriter, obj interface{}) error {
 	w.Header().Set("Content-Type", "application/activity+json; charset=utf-8")

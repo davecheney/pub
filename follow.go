@@ -47,7 +47,7 @@ func (f *FollowCmd) Run(ctx *Context) error {
 	if err != nil {
 		return err
 	}
-	c, err := activitypub.NewClient(account.PublicKeyID(), account.LocalAccount.PrivateKey)
+	c, err := activitypub.NewClient(account.Actor.PublicKeyID(), nil) // account.LocalAccount.PrivateKey)
 	if err != nil {
 		return err
 	}

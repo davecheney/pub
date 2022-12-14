@@ -80,9 +80,8 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 		uri = stringFromAny(obj["id"])
 	}
 	_, err := ip.service.Statuses().FindOrCreate(uri, func(string) (*m.Status, error) {
-		actor := stringFromAny(obj["attributedTo"])
-		fetcher := ip.service.Accounts().NewRemoteAccountFetcher()
-		account, err := ip.service.Accounts().FindOrCreate(actor, fetcher.Fetch)
+		fetcher := ip.service.Actors().NewRemoteActorFetcher()
+		actor, err := ip.service.Actors().FindOrCreate(stringFromAny(obj["attributedTo"]), fetcher.Fetch)
 		if err != nil {
 			return nil, err
 		}
@@ -97,7 +96,7 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 			switch recipient {
 			case "https://www.w3.org/ns/activitystreams#Public":
 				visibility = "public"
-			case account.Acct().Followers():
+			case actor.ToAcct().Followers():
 				visibility = "limited"
 			}
 		}
@@ -115,7 +114,7 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 			}
 		}
 
-		conversationID := uint(0)
+		conversationID := uint32(0)
 		if inReplyTo != nil {
 			conversationID = inReplyTo.ConversationID
 		} else {
@@ -130,8 +129,8 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 
 		return &m.Status{
 			ID:             snowflake.TimeToID(published),
-			AccountID:      account.ID,
-			Account:        account,
+			ActorID:        actor.ID,
+			Actor:          actor,
 			ConversationID: conversationID,
 			URI:            uri,
 			InReplyToID: func() *uint64 {
@@ -140,9 +139,9 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 				}
 				return nil
 			}(),
-			InReplyToAccountID: func() *uint {
+			InReplyToActorID: func() *uint64 {
 				if inReplyTo != nil {
-					return &inReplyTo.AccountID
+					return &inReplyTo.ActorID
 				}
 				return nil
 			}(),
@@ -150,7 +149,7 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 			SpoilerText: stringFromAny(obj["summary"]),
 			Visibility:  "public",
 			Language:    "en",
-			Content:     stringFromAny(obj["content"]),
+			Note:        stringFromAny(obj["content"]),
 		}, nil
 	})
 	return err

@@ -34,6 +34,12 @@ func (s *Service) Conversations() *conversations {
 	}
 }
 
+func (s *Service) Actors() *Actors {
+	return &Actors{
+		service: s,
+	}
+}
+
 func (s *Service) Accounts() *accounts {
 	return &accounts{
 		db:      s.db,

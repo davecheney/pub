@@ -22,6 +22,7 @@ var cli struct {
 
 	AutoMigrate          AutoMigrateCmd          `cmd:"" help:"Automigrate the database."`
 	CreateAccount        CreateAccountCmd        `cmd:"" help:"Create a new account."`
+	CreateInstance       CreateInstanceCmd       `cmd:"" help:"Create a new instance."`
 	Serve                ServeCmd                `cmd:"" help:"Serve a local web server."`
 	SynchroniseFollowers SynchroniseFollowersCmd `cmd:"" help:"Synchronise followers."`
 	Imoport              ImportCmd               `cmd:"" help:"Import data from another instance."`

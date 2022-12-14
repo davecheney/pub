@@ -60,7 +60,7 @@ func (f *Favourites) Show(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	var favs []m.Account
+	var favs []m.Actor
 	if err := f.service.DB().Model(&status).Association("Favourites").Find(&favs); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -2,17 +2,14 @@ package m
 
 import (
 	"context"
-	"time"
 
 	"github.com/carlmjohnson/requests"
 	"gorm.io/gorm"
 )
 
 type Instance struct {
-	ID               uint `gorm:"primarykey"`
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-	Domain           string `gorm:"uniqueIndex;size:64"`
+	gorm.Model
+	Domain           string `gorm:"size:64;uniqueIndex"`
 	AdminID          *uint
 	Admin            *Account
 	SourceURL        string
@@ -23,7 +20,7 @@ type Instance struct {
 	AccountsCount    int    `gorm:"default:0;not null"`
 	StatusesCount    int    `gorm:"default:0;not null"`
 
-	DomainsCount int `gorm:"-"` // not stored
+	DomainsCount int `gorm:"-"`
 
 	Rules    []InstanceRule `gorm:"foreignKey:InstanceID"`
 	Accounts []Account

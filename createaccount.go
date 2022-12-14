@@ -25,15 +25,6 @@ func (c *CreateAccountCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	passwd, err := bcrypt.GenerateFromPassword([]byte(c.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return err
-	}
-	keypair, err := generateRSAKeypair()
-	if err != nil {
-		return err
-	}
-
 	parts := strings.Split(c.Email, "@")
 	if len(parts) != 2 {
 		return errors.New("invalid email address")
@@ -43,37 +34,41 @@ func (c *CreateAccountCmd) Run(ctx *Context) error {
 
 	var instance m.Instance
 	if err := db.Where("domain = ?", domain).First(&instance).Error; err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
-		}
-		instance = m.Instance{
-			Domain: domain,
-		}
+		return err
+	}
+
+	passwd, err := bcrypt.GenerateFromPassword([]byte(c.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	keypair, err := generateRSAKeypair()
+	if err != nil {
+		return err
+	}
+
+	actor := &m.Actor{
+		Name:        username,
+		Domain:      domain,
+		Type:        "LocalPerson",
+		DisplayName: username,
+		PublicKey:   keypair.publicKey,
+		Locked:      false,
+	}
+	if err := db.Create(actor).Error; err != nil {
+		return err
 	}
 
 	account := &m.Account{
-		Username:    username,
-		Domain:      domain,
-		InstanceID:  instance.ID,
-		Instance:    &instance,
-		DisplayName: username,
-		Locked:      false,
-		Local:       true,
-		LocalAccount: &m.LocalAccount{
-			Email:             c.Email,
-			EncryptedPassword: passwd,
-			PrivateKey:        keypair.privateKey,
-		},
-		PublicKey: keypair.publicKey,
+		ActorID:           actor.ID,
+		Actor:             actor,
+		Email:             c.Email,
+		EncryptedPassword: passwd,
+		PrivateKey:        keypair.privateKey,
 	}
-	if err := db.Create(account).Error; err != nil {
+	if err := db.Model(&instance).Association("Accounts").Append(account); err != nil {
 		return err
 	}
 	if c.Admin {
-		var instance m.Instance
-		if err := db.Where("domain = ?", account.Domain).First(&instance).Error; err != nil {
-			return err
-		}
 		instance.AdminID = &account.ID
 		return db.Save(&instance).Error
 	}

@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/davecheney/m/internal/webfinger"
-	"github.com/davecheney/m/m"
 	"github.com/go-json-experiment/json"
 )
 
@@ -20,18 +19,13 @@ func (w *Webfinger) Show(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var account m.Account
-	if err := w.service.DB().Where("username = ? AND domain = ?", acct.User, r.Host).First(&account).Error; err != nil { // note, use the host from the request, not the acct
-		http.Error(rw, err.Error(), http.StatusNotFound)
-		return
-	}
-
+	actor, err := w.service.Actors().Find(acct.User, r.Host) // note, use the host from the request, not the acct
 	self := acct.ID()
 	rw.Header().Set("Content-Type", "application/jrd+json")
 	json.MarshalFull(rw, map[string]any{
 		"subject": acct.String(),
 		"aliases": []string{
-			fmt.Sprintf("https://%s/@%s", account.Domain, account.Username),
+			fmt.Sprintf("https://%s/@%s", actor.Domain, actor.Name),
 			self,
 		},
 		"links": []map[string]any{
@@ -47,7 +41,7 @@ func (w *Webfinger) Show(rw http.ResponseWriter, r *http.Request) {
 			},
 			{
 				"rel":      "http://ostatus.org/schema/1.0/subscribe",
-				"template": fmt.Sprintf("https://%s/authorize_interaction?uri={uri}", account.Domain),
+				"template": fmt.Sprintf("https://%s/authorize_interaction?uri={uri}", actor.Domain),
 			},
 		},
 	})

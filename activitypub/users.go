@@ -3,6 +3,7 @@ package activitypub
 import (
 	"net/http"
 
+	"github.com/davecheney/m/internal/snowflake"
 	"github.com/davecheney/m/internal/webfinger"
 	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
@@ -14,15 +15,15 @@ type Users struct {
 
 func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
-	var account m.Account
-	if err := u.service.db.Where("username = ? and domain = ?", username, r.Host).First(&account).Error; err != nil {
+	var actor m.Actor
+	if err := u.service.db.Where("username = ? and domain = ?", username, r.Host).First(&actor).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 	w.Header().Set("Cache-Control", "max-age=180, public")
 	acct := webfinger.Acct{
-		User: account.Username,
-		Host: account.Domain,
+		User: actor.Name,
+		Host: actor.Domain,
 	}
 	toJSON(w, map[string]any{
 		"@context": []any{
@@ -85,25 +86,25 @@ func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 			},
 		},
 		"id":                        acct.ID(),
-		"type":                      "Person",
+		"type":                      actor.Type,
 		"following":                 acct.Following(),
 		"followers":                 acct.Followers(),
 		"inbox":                     acct.Inbox(),
 		"outbox":                    acct.Outbox(),
 		"featured":                  acct.ID() + "/collections/featured",
 		"featuredTags":              acct.ID() + "/collections/tags",
-		"preferredUsername":         account.Username,
-		"name":                      account.DisplayName,
-		"summary":                   account.Note,
-		"url":                       account.URL(),
-		"manuallyApprovesFollowers": account.Locked,
-		"discoverable":              false,                                                  // mastodon sets this to false
-		"published":                 account.CreatedAt.UTC().Format("2006-01-02T00:00:00Z"), // spec says round created_at to nearest day
+		"preferredUsername":         actor.Name,
+		"name":                      actor.DisplayName,
+		"summary":                   actor.Note,
+		"url":                       actor.URL(),
+		"manuallyApprovesFollowers": actor.Locked,
+		"discoverable":              false,                                                       // mastodon sets this to false
+		"published":                 snowflake.IDToTime(actor.ID).Format("2006-01-02T00:00:00Z"), // spec says round created_at to nearest day
 		"devices":                   acct.ID() + "/collections/devices",
 		"publicKey": map[string]any{
-			"id":           account.PublicKeyID(),
+			"id":           actor.PublicKeyID(),
 			"owner":        acct.ID(),
-			"publicKeyPem": string(account.PublicKey),
+			"publicKeyPem": string(actor.PublicKey),
 		},
 		"tag":        []any{},
 		"attachment": []any{},
@@ -113,7 +114,7 @@ func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 		"icon": map[string]any{
 			"type":      "Image",
 			"mediaType": "image/jpeg",
-			"url":       account.Avatar,
+			"url":       actor.Avatar,
 		},
 	})
 }

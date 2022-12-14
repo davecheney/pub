@@ -66,7 +66,7 @@ func serializeV1(i *m.Instance) map[string]any {
 		"title":             i.Title,
 		"short_description": stringOrDefault(i.ShortDescription, i.Description),
 		"description":       i.Description,
-		"email":             i.Admin.LocalAccount.Email,
+		"email":             i.Admin.Email,
 		"version":           "https://github.com/davecheney/m@latest",
 		"urls":              map[string]any{},
 		"stats": map[string]any{
@@ -126,7 +126,7 @@ func serializeV1(i *m.Instance) map[string]any {
 				"max_expiration":            2629746,
 			},
 		},
-		"contact_account": serialize(i.Admin),
+		"contact_account": serialize(i.Admin.Actor),
 		"rules":           serialiseRules(i),
 	}
 }
@@ -207,8 +207,8 @@ func serializeV2(i *m.Instance) map[string]any {
 				"message":           nil,
 			},
 			"contact": map[string]any{
-				"email":   i.Admin.LocalAccount.Email,
-				"account": serialize(i.Admin),
+				"email":   i.Admin.Email,
+				"account": serialize(i.Admin.Actor),
 			},
 			"rules": serialiseRules(i),
 		},

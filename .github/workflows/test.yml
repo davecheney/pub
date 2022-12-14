@@ -22,7 +22,10 @@ jobs:
       - name: Init database
         run: |
           m --debug --dsn runner@/test auto-migrate
+      - name: Create instance
+        run: |
+          m --debug --dsn runner@/test create-instance --domain example.com --title "Example" --description "An example domain"
       - name: Create admin account
         run: |
-          m --debug --dsn runner@/test create-account --email admin@example.com --password admin
+          m --debug --dsn runner@/test create-account --email admin@example.com --password admin --admin
         
