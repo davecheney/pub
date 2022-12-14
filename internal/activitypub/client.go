@@ -25,7 +25,7 @@ type Client struct {
 // NewClient returns a new ActivityPub client.
 func NewClient(keyID string, privateKeyPem []byte) (*Client, error) {
 	privPem, _ := pem.Decode(privateKeyPem)
-	if privPem.Type != "RSA PRIVATE KEY" {
+	if privPem == nil || privPem.Type != "RSA PRIVATE KEY" {
 		return nil, errors.New("expected RSA PRIVATE KEY")
 	}
 

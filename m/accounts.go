@@ -86,7 +86,7 @@ func (a *accounts) Find(id uint64) (*Account, error) {
 
 func (a *accounts) FindAdminAccount() (*Account, error) {
 	var account Account
-	if err := a.db.Where("username = ? AND domain = ?", "dave", "cheney.net").Joins("LocalAccount").First(&account).Error; err != nil {
+	if err := a.db.Where("Actor.name = ? AND Actor.domain = ?", "dave", "cheney.net").Joins("Actor").First(&account).Error; err != nil {
 		return nil, err
 	}
 	return &account, nil

@@ -159,7 +159,7 @@ func (f *RemoteStatusFetcher) fetch(uri string) (map[string]interface{}, error) 
 	if err != nil {
 		return nil, err
 	}
-	c, err := activitypub.NewClient(signAs.Actor.PublicKeyID(), nil) // signAs.LocalAccount.PrivateKey)
+	c, err := activitypub.NewClient(signAs.Actor.PublicKeyID(), signAs.PrivateKey)
 	if err != nil {
 		return nil, err
 	}
