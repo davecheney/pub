@@ -1,26 +1,14 @@
 package mastodon
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/davecheney/m/internal/mime"
 	"github.com/davecheney/m/m"
 	"github.com/go-json-experiment/json"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
-
-type Application struct {
-	gorm.Model
-	InstanceID   uint
-	Instance     *m.Instance
-	Name         string
-	Website      *string
-	RedirectURI  string
-	ClientID     string
-	ClientSecret string
-	VapidKey     string
-}
 
 type Applications struct {
 	service *Service
@@ -55,9 +43,7 @@ func (a *Applications) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app := &Application{
-		InstanceID:   instance.ID,
-		Instance:     instance,
+	app := &m.Application{
 		Name:         params.ClientName,
 		Website:      params.Website,
 		ClientID:     uuid.New().String(),
@@ -65,7 +51,8 @@ func (a *Applications) Create(w http.ResponseWriter, r *http.Request) {
 		RedirectURI:  params.RedirectURIs,
 		VapidKey:     "BCk-QqERU0q-CfYZjcuB6lnyyOYfJ2AifKqfeGIm7Z-HiTU5T9eTG5GxVA0_OH5mMlI4UkkDTpaZwozy0TzdZ2M=",
 	}
-	if err := a.service.DB().Create(app).Error; err != nil {
+	if err := a.service.DB().Model(instance).Association("Applications").Append(app); err != nil {
+		fmt.Println("error: ", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

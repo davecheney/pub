@@ -8,20 +8,6 @@ import (
 	"gorm.io/gorm"
 )
 
-type Account struct {
-	gorm.Model
-	InstanceID        uint
-	Instance          *Instance
-	ActorID           uint64
-	Actor             *Actor
-	Notifications     []Notification
-	Markers           []Marker
-	Lists             []AccountList
-	Email             string
-	EncryptedPassword []byte
-	PrivateKey        []byte `gorm:"not null"`
-}
-
 type Marker struct {
 	gorm.Model
 	AccountID  uint

@@ -15,6 +15,21 @@ import (
 	"gorm.io/gorm"
 )
 
+// A Conversation is a collection of related statuses. It is a way to group
+// together statuses that are replies to each other, or that are part of the
+// same thread of conversation. Conversations are not necessarily public, and
+// may be limited to a set of participants.
+type Conversation struct {
+	ID         uint32 `gorm:"primarykey"`
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	Visibility string `gorm:"type:enum('public', 'unlisted', 'private', 'direct', 'limited');not null"`
+	Statuses   []Status
+}
+
+// A Status is a single message posted by a user. It may be a reply to another
+// status, or a new thread of conversation.
+// A Status belongs to a single Account, and is part of a single Conversation.
 type Status struct {
 	ID               uint64 `gorm:"primaryKey;autoIncrement:false"`
 	UpdatedAt        time.Time

@@ -37,8 +37,8 @@ func (t *Timelines) Home(w http.ResponseWriter, r *http.Request) {
 	followingIDs = append(followingIDs, int64(user.ID))
 
 	var statuses []m.Status
-	scope := t.service.DB().Scopes(t.paginate(r)).Where("account_id IN (?)", followingIDs)
-	scope = scope.Joins("Account")
+	scope := t.service.DB().Scopes(t.paginate(r)).Where("actor_id IN (?)", followingIDs)
+	scope = scope.Joins("Actor")
 	if err := scope.Find(&statuses).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -65,9 +65,9 @@ func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
 	scope := t.service.DB().Scopes(t.paginate(r)).Where("visibility = ?", "public")
 	switch r.URL.Query().Get("local") {
 	case "true":
-		scope = scope.Joins("Account").Where("Account.domain = ?", r.Host)
+		scope = scope.Joins("Actor").Where("Actor.domain = ?", r.Host)
 	default:
-		scope = scope.Joins("Account")
+		scope = scope.Joins("Actor")
 	}
 
 	if err := scope.Find(&statuses).Error; err != nil {

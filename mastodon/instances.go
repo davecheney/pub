@@ -13,7 +13,7 @@ type Instances struct {
 }
 
 func (i *Instances) IndexV1(w http.ResponseWriter, r *http.Request) {
-	instance, err := i.instanceForHost(r)
+	instance, err := i.service.Service.Instances().ForRequest(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -27,7 +27,7 @@ func (i *Instances) IndexV1(w http.ResponseWriter, r *http.Request) {
 }
 
 func (i *Instances) IndexV2(w http.ResponseWriter, r *http.Request) {
-	instance, err := i.instanceForHost(r)
+	instance, err := i.service.Service.Instances().ForRequest(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -53,11 +53,6 @@ func (i *Instances) PeersShow(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.MarshalFull(w, resp)
-}
-
-func (i *Instances) instanceForHost(r *http.Request) (*m.Instance, error) {
-	host := r.Host
-	return i.service.Service.Instances().FindByDomain(host)
 }
 
 func serializeV1(i *m.Instance) map[string]any {

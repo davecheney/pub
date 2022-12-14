@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/davecheney/m/m"
-	"github.com/davecheney/m/mastodon"
 	"github.com/go-json-experiment/json"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -76,14 +75,14 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 	redirectURI := r.PostFormValue("redirect_uri")
 	clientID := r.PostFormValue("client_id")
 
-	var app mastodon.Application
+	var app m.Application
 	if err := o.db.Where("client_id = ?", clientID).First(&app).Error; err != nil {
 		http.Error(w, "invalid client_id", http.StatusBadRequest)
 		return
 	}
 
 	var account m.Account
-	if err := o.db.Where("email = ?", email).Joins("LocalAccount").First(&account).Error; err != nil {
+	if err := o.db.Where("email = ?", email).Joins("Actor").First(&account).Error; err != nil {
 		http.Error(w, "invalid username", http.StatusUnauthorized)
 		return
 	}
@@ -94,14 +93,14 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := &m.Token{
-		ApplicationID:     app.ID,
 		AccountID:         account.ID,
+		Account:           &account,
 		AccessToken:       uuid.New().String(),
 		TokenType:         "bearer",
 		Scope:             "read write follow push",
 		AuthorizationCode: uuid.New().String(),
 	}
-	if err := o.db.Create(token).Error; err != nil {
+	if err := o.db.Model(&app).Association("Tokens").Append(token); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -157,7 +156,7 @@ func (o *OAuth) Token(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	var app mastodon.Application
+	var app m.Application
 	if err := o.db.Where("client_id = ?", params.ClientID).First(&app).Error; err != nil {
 		http.Error(w, "invalid client_id", http.StatusBadRequest)
 		return

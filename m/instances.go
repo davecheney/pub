@@ -2,51 +2,11 @@ package m
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/carlmjohnson/requests"
 	"gorm.io/gorm"
 )
-
-type Instance struct {
-	gorm.Model
-	Domain           string `gorm:"size:64;uniqueIndex"`
-	AdminID          *uint
-	Admin            *Account
-	SourceURL        string
-	Title            string `gorm:"size:64"`
-	ShortDescription string
-	Description      string
-	Thumbnail        string `gorm:"size:64"`
-	AccountsCount    int    `gorm:"default:0;not null"`
-	StatusesCount    int    `gorm:"default:0;not null"`
-
-	DomainsCount int `gorm:"-"`
-
-	Rules    []InstanceRule `gorm:"foreignKey:InstanceID"`
-	Accounts []Account
-}
-
-func (i *Instance) AfterCreate(tx *gorm.DB) error {
-	return i.updateAccountsCount(tx)
-}
-
-func (i *Instance) updateAccountsCount(tx *gorm.DB) error {
-	var count int64
-	err := tx.Model(&Account{}).Where("instance_id = ?", i.ID).Count(&count).Error
-	if err != nil {
-		return err
-	}
-	return tx.Model(i).Update("accounts_count", count).Error
-}
-
-func (i *Instance) updateStatusesCount(tx *gorm.DB) error {
-	var count int64
-	err := tx.Model(&Status{}).Joins("Account").Where("instance_id = ?", i.ID).Count(&count).Error
-	if err != nil {
-		return err
-	}
-	return tx.Model(i).Update("statuses_count", count).Error
-}
 
 type InstanceRule struct {
 	gorm.Model
@@ -66,9 +26,14 @@ func (i *instances) Count() (int, error) {
 	return int(count), nil
 }
 
+// ForRequest returns the instance for the given request.
+func (i *instances) ForRequest(r *http.Request) (*Instance, error) {
+	return i.FindByDomain(r.Host)
+}
+
 func (i *instances) FindByDomain(domain string) (*Instance, error) {
 	var instance Instance
-	if err := i.db.Model(&Instance{}).Preload("Admin").Preload("Admin.LocalAccount").Where("domain = ?", domain).First(&instance).Error; err != nil {
+	if err := i.db.Where("domain = ?", domain).Preload("Admin").First(&instance).Error; err != nil {
 		return nil, err
 	}
 	return &instance, nil

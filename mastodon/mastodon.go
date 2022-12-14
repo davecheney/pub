@@ -129,7 +129,7 @@ func (s *Service) Timelines() *Timelines {
 func (s *Service) authenticate(r *http.Request) (*m.Account, error) {
 	bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	var token m.Token
-	if err := s.DB().Where("access_token = ?", bearer).Joins("Account").First(&token).Error; err != nil {
+	if err := s.DB().Preload("Account").Preload("Account.Actor").First(&token, "access_token = ?", bearer).Error; err != nil {
 		return nil, err
 	}
 	return token.Account, nil

@@ -46,7 +46,7 @@ func (a *Accounts) StatusesShow(w http.ResponseWriter, r *http.Request) {
 
 	id := chi.URLParam(r, "id")
 	var statuses []m.Status
-	tx := a.service.DB().Preload("Account").Where("account_id = ?", id)
+	tx := a.service.DB().Preload("Actor").Where("actor_id = ?", id)
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	if limit < 1 || limit > 40 {
 		limit = 20

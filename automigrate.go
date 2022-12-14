@@ -17,10 +17,10 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 	}
 
 	return db.AutoMigrate(
-		&m.Actor{},
+		&m.Actor{}, &m.Webfinger{},
 		&m.Account{}, &m.AccountList{},
 		&activitypub.Activity{},
-		&mastodon.Application{},
+		&m.Application{},
 		&m.Conversation{},
 		&mastodon.ClientFilter{},
 		&m.Instance{}, &m.InstanceRule{},

@@ -7,7 +7,9 @@ import (
 	"encoding/pem"
 	"errors"
 	"strings"
+	"time"
 
+	"github.com/davecheney/m/internal/snowflake"
 	"github.com/davecheney/m/m"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -46,7 +48,8 @@ func (c *CreateAccountCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	actor := &m.Actor{
+	actor := m.Actor{
+		ID:          snowflake.TimeToID(time.Now()),
 		Name:        username,
 		Domain:      domain,
 		Type:        "LocalPerson",
@@ -54,13 +57,13 @@ func (c *CreateAccountCmd) Run(ctx *Context) error {
 		PublicKey:   keypair.publicKey,
 		Locked:      false,
 	}
-	if err := db.Create(actor).Error; err != nil {
+	if err := db.Create(&actor).Error; err != nil {
 		return err
 	}
 
 	account := &m.Account{
 		ActorID:           actor.ID,
-		Actor:             actor,
+		Actor:             &actor,
 		Email:             c.Email,
 		EncryptedPassword: passwd,
 		PrivateKey:        keypair.privateKey,
