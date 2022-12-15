@@ -71,11 +71,11 @@ func (a *accounts) Find(id uint64) (*Account, error) {
 }
 
 func (a *accounts) FindAdminAccount() (*Account, error) {
-	var account Account
-	if err := a.db.Where("Actor.name = ? AND Actor.domain = ?", "dave", "cheney.net").Joins("Actor").First(&account).Error; err != nil {
+	var instance Instance
+	if err := a.db.Preload("Admin").Preload("Admin.Actor").First(&instance).Error; err != nil {
 		return nil, err
 	}
-	return &account, nil
+	return instance.Admin, nil
 }
 
 func splitAcct(acct string) (string, string, error) {

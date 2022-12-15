@@ -120,7 +120,7 @@ func (s *Statuses) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var status m.Status
-	if err := s.service.DB().Where("statuses.id = ?", chi.URLParam(r, "id")).Joins("Account").First(&status).Error; err != nil {
+	if err := s.service.DB().Joins("Actor").First(&status, chi.URLParam(r, "id")).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return

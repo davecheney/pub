@@ -42,7 +42,7 @@ func (i *Instances) IndexV2(w http.ResponseWriter, r *http.Request) {
 
 func (i *Instances) PeersShow(w http.ResponseWriter, r *http.Request) {
 	var instances []m.Instance
-	if err := i.service.DB().Model(&m.Instance{}).Preload("Admin").Where("domain != ?", r.Host).Find(&instances).Error; err != nil {
+	if err := i.service.DB().Where("domain != ?", r.Host).Find(&instances).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -63,7 +63,9 @@ func serializeV1(i *m.Instance) map[string]any {
 		"description":       i.Description,
 		"email":             i.Admin.Email,
 		"version":           "https://github.com/davecheney/m@latest",
-		"urls":              map[string]any{},
+		"urls": map[string]any{
+			"streaming_api": "wss://" + i.Domain + "/api/v1/streaming",
+		},
 		"stats": map[string]any{
 			"user_count":   i.AccountsCount,
 			"status_count": i.StatusesCount,
@@ -73,8 +75,11 @@ func serializeV1(i *m.Instance) map[string]any {
 		"languages":         []any{"en"},
 		"registrations":     false,
 		"approval_required": false,
-		"invites_enabled":   true,
+		"invites_enabled":   false,
 		"configuration": map[string]any{
+			"accounts": map[string]any{
+				"max_featured_tags": 4,
+			},
 			"statuses": map[string]any{
 				"max_characters":              500,
 				"max_media_attachments":       4,
@@ -138,7 +143,7 @@ func serializeV2(i *m.Instance) map[string]any {
 				"active_month": 0,
 			},
 		},
-		"thumbnail": map[string]any{},
+		"thumbnail": i.Thumbnail,
 		"languages": []any{"en"},
 		"configuration": map[string]any{
 			"urls": map[string]any{
@@ -205,7 +210,16 @@ func serializeV2(i *m.Instance) map[string]any {
 				"email":   i.Admin.Email,
 				"account": serialize(i.Admin.Actor),
 			},
-			"rules": serialiseRules(i),
+			"rules": []map[string]any{
+				{
+					"id":   "1",
+					"text": "No spam or advertising.",
+				},
+				{
+					"id":   "2",
+					"text": "No NSFW content.",
+				},
+			},
 		},
 	}
 }

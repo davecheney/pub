@@ -16,7 +16,7 @@ type Users struct {
 func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
 	var actor m.Actor
-	if err := u.service.db.Where("username = ? and domain = ?", username, r.Host).First(&actor).Error; err != nil {
+	if err := u.service.db.First(&actor, "name = ? and domain = ?", username, r.Host).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -85,8 +85,15 @@ func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		},
-		"id":                        acct.ID(),
-		"type":                      actor.Type,
+		"id": acct.ID(),
+		"type": func(a *m.Actor) string {
+			switch a.Type {
+			case "LocalPerson":
+				return "Person"
+			default:
+				return a.Type
+			}
+		}(&actor),
 		"following":                 acct.Following(),
 		"followers":                 acct.Followers(),
 		"inbox":                     acct.Inbox(),

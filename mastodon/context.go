@@ -31,7 +31,7 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 
 	// load conversation statuses
 	var statuses []m.Status
-	if err := c.service.DB().Where("conversation_id = ?", conv.ID).Joins("Account").Find(&statuses).Error; err != nil {
+	if err := c.service.DB().Where("conversation_id = ?", conv.ID).Joins("Actor").Find(&statuses).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}

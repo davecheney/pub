@@ -21,12 +21,12 @@ func (c *Conversations) Index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var statuses []m.Status
-	scope := c.service.DB().Scopes(c.paginate(r)).Preload("Account").Where("visibility = ?", "direct")
+	scope := c.service.DB().Scopes(c.paginate(r)).Where("visibility = ?", "direct")
 	switch r.URL.Query().Get("local") {
 	case "":
-		scope = scope.Joins("Account")
+		scope = scope.Joins("Actor")
 	default:
-		scope = scope.Joins("Account").Where("Account.domain = ?", r.Host)
+		scope = scope.Joins("Actor").Where("Actor.domain = ?", r.Host)
 	}
 
 	if err := scope.Order("statuses.id desc").Find(&statuses).Error; err != nil {

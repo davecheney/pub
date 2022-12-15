@@ -109,7 +109,7 @@ func serialize(a *m.Actor) map[string]any {
 		"bot":             a.Type == "Person",
 		"discoverable":    true,
 		"group":           a.Type == "Group",
-		"created_at":      snowflake.IDToTime(a.ID).Format("2006-01-02T15:04:05.006Z"),
+		"created_at":      snowflake.IDToTime(a.ID).Format("2006-01-02T00:00:00.000Z"),
 		"note":            a.Note,
 		"url":             fmt.Sprintf("https://%s/@%s", a.Domain, a.Name),
 		"avatar":          stringOrDefault(a.Avatar, fmt.Sprintf("https://%s/avatar.png", a.Domain)),
@@ -119,9 +119,14 @@ func serialize(a *m.Actor) map[string]any {
 		"followers_count": a.FollowersCount,
 		"following_count": a.FollowingCount,
 		"statuses_count":  a.StatusesCount,
-		"last_status_at":  a.LastStatusAt.Format("2006-01-02"),
-		"noindex":         false, // todo
-		"emojis":          []map[string]any{},
-		"fields":          []map[string]any{},
+		"last_status_at": func(a *m.Actor) any {
+			if a.LastStatusAt.IsZero() {
+				return nil
+			}
+			return a.LastStatusAt.Format("2006-01-02")
+		}(a),
+		"noindex": false, // todo
+		"emojis":  []map[string]any{},
+		"fields":  []map[string]any{},
 	}
 }

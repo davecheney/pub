@@ -60,7 +60,7 @@ type statuses struct {
 
 func (s *statuses) FindByURI(uri string) (*Status, error) {
 	var status Status
-	if err := s.db.Preload("Account").Where("uri = ?", uri).First(&status).Error; err != nil {
+	if err := s.db.Preload("Actor").Where("uri = ?", uri).First(&status).Error; err != nil {
 		return nil, err
 	}
 	return &status, nil

@@ -16,6 +16,7 @@ type Actor struct {
 	ID             uint64 `gorm:"primaryKey;autoIncrement:false"`
 	UpdatedAt      time.Time
 	Type           string `gorm:"type:enum('Person', 'Application', 'Service', 'Group', 'Organization', 'LocalPerson');default:'Person';not null"`
+	URI            string `gorm:"uniqueIndex;size:128"`
 	Name           string `gorm:"size:64;uniqueIndex:idx_actor_name_domain"`
 	Domain         string `gorm:"size:64;uniqueIndex:idx_actor_name_domain"`
 	DisplayName    string `gorm:"size:128"`
@@ -100,6 +101,7 @@ func (f *RemoteActorFetcher) Fetch(uri string) (*Actor, error) {
 		Type:         stringFromAny(obj["type"]),
 		Name:         stringFromAny(obj["preferredUsername"]),
 		Domain:       u.Host,
+		URI:          stringFromAny(obj["id"]),
 		DisplayName:  stringFromAny(obj["name"]),
 		Locked:       boolFromAny(obj["manuallyApprovesFollowers"]),
 		Note:         stringFromAny(obj["summary"]),
@@ -135,7 +137,7 @@ func (a *Actors) FindByURI(uri string) (*Actor, error) {
 
 func (a *Actors) Find(name, domain string) (*Actor, error) {
 	var actor Actor
-	err := a.service.db.Model(&Actor{}).Where("name = ? AND domain = ?", name, domain).First(&actor).Error
+	err := a.service.db.Where("name = ? AND domain = ?", name, domain).First(&actor).Error
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +151,7 @@ func (a *Actors) FindOrCreate(uri string, createFn func(string) (*Actor, error))
 		return nil, err
 	}
 	var actor Actor
-	err = a.service.db.Model(&Actor{}).Where("name = ? AND domain = ?", name, domain).First(&actor).Error
+	err = a.service.db.Where("name = ? AND domain = ?", name, domain).First(&actor).Error
 	if err == nil {
 		// found cached key
 		return &actor, nil
