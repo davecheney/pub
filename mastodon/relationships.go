@@ -1,8 +1,10 @@
 package mastodon
 
 import (
+	"fmt"
 	"net/http"
 
+	"github.com/davecheney/m/internal/activitypub"
 	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
 )
@@ -36,7 +38,7 @@ func (r *Relationships) Show(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Relationships) Create(w http.ResponseWriter, req *http.Request) {
-	user, err := r.service.authenticate(req)
+	account, err := r.service.authenticate(req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
@@ -46,7 +48,15 @@ func (r *Relationships) Create(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	if err := r.service.DB().Model(&user).Association("Following").Append(&actor); err != nil {
+	err = r.sendFollowRequest(account, &actor)
+	if err != nil {
+		fmt.Println("sendFollowRequest failed", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := r.service.DB().Model(account.Actor).Association("Following").Append(&actor); err != nil {
+		fmt.Println("append failed", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -67,8 +77,16 @@ func (r *Relationships) Create(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
+func (r *Relationships) sendFollowRequest(account *m.Account, target *m.Actor) error {
+	client, err := activitypub.NewClient(account.Actor.PublicKeyID(), account.PrivateKey)
+	if err != nil {
+		return err
+	}
+	return client.Follow(account.Actor.URI, target.URI)
+}
+
 func (r *Relationships) Destroy(w http.ResponseWriter, req *http.Request) {
-	user, err := r.service.authenticate(req)
+	account, err := r.service.authenticate(req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
@@ -78,7 +96,7 @@ func (r *Relationships) Destroy(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	if err := r.service.DB().Model(&user).Association("Following").Delete(&actor); err != nil {
+	if err := r.service.DB().Model(account.Actor).Association("Following").Delete(&actor); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

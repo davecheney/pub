@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/davecheney/m/m"
-	"github.com/go-json-experiment/json"
 )
 
 type Instances struct {
@@ -41,18 +40,12 @@ func (i *Instances) IndexV2(w http.ResponseWriter, r *http.Request) {
 }
 
 func (i *Instances) PeersShow(w http.ResponseWriter, r *http.Request) {
-	var instances []m.Instance
-	if err := i.service.DB().Where("domain != ?", r.Host).Find(&instances).Error; err != nil {
+	var domains []string
+	if err := i.service.DB().Model(&m.Actor{}).Group("Domain").Where("Domain != ?", r.Host).Pluck("domain", &domains).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	var resp []string
-	for _, instance := range instances {
-		resp = append(resp, instance.Domain)
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, resp)
+	toJSON(w, domains)
 }
 
 func serializeV1(i *m.Instance) map[string]any {

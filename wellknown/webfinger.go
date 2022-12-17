@@ -20,6 +20,10 @@ func (w *Webfinger) Show(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	actor, err := w.service.Actors().Find(acct.User, r.Host) // note, use the host from the request, not the acct
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusNotFound)
+		return
+	}
 	self := acct.ID()
 	rw.Header().Set("Content-Type", "application/jrd+json")
 	json.MarshalFull(rw, map[string]any{

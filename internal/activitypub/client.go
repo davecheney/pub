@@ -13,6 +13,7 @@ import (
 
 	"github.com/davecheney/m/internal/httpsig"
 	"github.com/go-json-experiment/json"
+	"github.com/google/uuid"
 )
 
 // Client is an ActivityPub client which can be used to fetch remote
@@ -58,6 +59,29 @@ type Error struct {
 
 func (e *Error) Error() string {
 	return fmt.Sprintf("%s %s: %d: %s: %s", e.Method, e.URI, e.StatusCode, e.err, e.Body)
+}
+
+// Follow sends a follow request to the given URL.
+func (c *Client) Follow(follower, target string) error {
+	actor, err := c.Get(target)
+	if err != nil {
+		return err
+	}
+	inbox := stringFromAny(actor["sharedInbox"])
+	if inbox == "" {
+		inbox = stringFromAny(actor["inbox"])
+		if inbox == "" {
+			return fmt.Errorf("no inbox found for %s", target)
+		}
+	}
+
+	return c.Post(inbox, map[string]any{
+		"@context": "https://www.w3.org/ns/activitystreams",
+		"id":       uuid.New().String(),
+		"type":     "Follow",
+		"object":   target,
+		"actor":    follower,
+	})
 }
 
 // Get fetches the ActivityPub resource at the given URL.
@@ -126,4 +150,9 @@ func (c *Client) bodyToObj(resp *http.Response) (map[string]any, error) {
 		return nil, err
 	}
 	return obj, nil
+}
+
+func stringFromAny(v any) string {
+	s, _ := v.(string)
+	return s
 }

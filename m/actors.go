@@ -52,7 +52,7 @@ type Webfinger struct {
 }
 
 func (a *Actor) PublicKeyID() string {
-	return fmt.Sprintf("https://%s/users/%s#main-key", a.Domain, a.Name)
+	return fmt.Sprintf("%s#main-key", a.URI)
 }
 
 func (a *Actor) URL() string {

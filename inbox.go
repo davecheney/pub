@@ -110,7 +110,7 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 			remoteStatusFetcher := ip.service.Statuses().NewRemoteStatusFetcher()
 			inReplyTo, err = ip.service.Statuses().FindOrCreate(inReplyToAtomUri, remoteStatusFetcher.Fetch)
 			if err != nil {
-				return nil, err
+				fmt.Println("inReplyToAtomUri:", inReplyToAtomUri, "err:", err)
 			}
 		}
 

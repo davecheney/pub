@@ -65,6 +65,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Get("/custom_emojis", mastodon.Emojis().Index)
 			r.Get("/filters", mastodon.Filters().Index)
 			r.Get("/instance", instance.IndexV1)
+			r.Get("/instance/peers", instance.PeersShow)
 			r.Get("/markers", mastodon.Markers().Index)
 			r.Post("/markers", mastodon.Markers().Create)
 			r.Get("/mutes", mastodon.Mutes().Index)
@@ -114,6 +115,15 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	})
 
 	r.Route("/users/{username}", func(r chi.Router) {
+		r.Get("/", activitypub.Users().Show)
+		r.Post("/inbox", activitypub.Inboxes(getKey).Create)
+		r.Get("/outbox", activitypub.Outboxes().Index)
+		r.Get("/followers", activitypub.Followers().Index)
+		r.Get("/following", activitypub.Following().Index)
+		r.Get("/collections/{collection}", activitypub.Collections().Show)
+	})
+
+	r.Route("/u/{username}", func(r chi.Router) {
 		r.Get("/", activitypub.Users().Show)
 		r.Post("/inbox", activitypub.Inboxes(getKey).Create)
 		r.Get("/outbox", activitypub.Outboxes().Index)

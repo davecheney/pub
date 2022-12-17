@@ -3,6 +3,7 @@ package activitypub
 import (
 	"crypto"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/go-fed/httpsig"
@@ -26,7 +27,10 @@ type Inboxes struct {
 
 func (i *Inboxes) Create(w http.ResponseWriter, r *http.Request) {
 	if err := i.validateSignature(r); err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		// if the signature can't be validated, drop the request
+		body, _ := io.ReadAll(r.Body)
+		fmt.Println("validateSignature failed", err, string(body))
+		http.Error(w, err.Error(), http.StatusAccepted)
 		return
 	}
 
@@ -35,9 +39,6 @@ func (i *Inboxes) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	// buf, _ := httputil.DumpRequest(r, false)
-	// fmt.Println("inbox#create:", string(buf))
 
 	activity := Activity{
 		Object: body,

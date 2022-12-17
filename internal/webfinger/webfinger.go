@@ -47,7 +47,7 @@ func (a *Acct) Webfinger() string {
 
 // ID returns the URL for the ID resource for this Acct.
 func (a *Acct) ID() string {
-	return "https://" + a.Host + "/users/" + a.User
+	return "https://" + a.Host + "/u/" + a.User
 }
 
 // Followers returns the URL for the followers collection for this Acct.
@@ -58,6 +58,16 @@ func (a *Acct) Followers() string {
 // Following returns the URL for the following collection for this Acct.
 func (a *Acct) Following() string {
 	return a.ID() + "/following"
+}
+
+// Collections returns the URL prefix for the collections for this Acct.
+func (a *Acct) Collections() string {
+	return a.ID() + "/collections"
+}
+
+// Tags returns the URL for the tags collection for this Acct.
+func (a *Acct) Tags() string {
+	return a.Collections() + "/tags"
 }
 
 // Inbox returns the URL for the inbox collection for this Acct.

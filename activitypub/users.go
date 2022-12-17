@@ -20,7 +20,6 @@ func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	w.Header().Set("Cache-Control", "max-age=180, public")
 	acct := webfinger.Acct{
 		User: actor.Name,
 		Host: actor.Domain,
@@ -98,8 +97,8 @@ func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 		"followers":                 acct.Followers(),
 		"inbox":                     acct.Inbox(),
 		"outbox":                    acct.Outbox(),
-		"featured":                  acct.ID() + "/collections/featured",
-		"featuredTags":              acct.ID() + "/collections/tags",
+		"featured":                  acct.Collections() + "/featured",
+		"featuredTags":              acct.Collections() + "/tags",
 		"preferredUsername":         actor.Name,
 		"name":                      actor.DisplayName,
 		"summary":                   actor.Note,
@@ -107,7 +106,7 @@ func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 		"manuallyApprovesFollowers": actor.Locked,
 		"discoverable":              false,                                                       // mastodon sets this to false
 		"published":                 snowflake.IDToTime(actor.ID).Format("2006-01-02T00:00:00Z"), // spec says round created_at to nearest day
-		"devices":                   acct.ID() + "/collections/devices",
+		"devices":                   acct.Collections() + "/devices",
 		"publicKey": map[string]any{
 			"id":           actor.PublicKeyID(),
 			"owner":        acct.ID(),
