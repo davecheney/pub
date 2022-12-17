@@ -18,7 +18,7 @@ func (f *Favourites) Create(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	var status m.Status
-	if err := f.service.DB().Joins("Account").First(&status, chi.URLParam(req, "id")).Error; err != nil {
+	if err := f.service.DB().Joins("Actor").First(&status, chi.URLParam(req, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -37,7 +37,7 @@ func (f *Favourites) Destroy(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	var status m.Status
-	if err := f.service.DB().Joins("Account").First(&status, chi.URLParam(req, "id")).Error; err != nil {
+	if err := f.service.DB().Joins("Actor").First(&status, chi.URLParam(req, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -56,7 +56,7 @@ func (f *Favourites) Show(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	var status m.Status
-	if err := f.service.DB().Joins("Account").First(&status, chi.URLParam(req, "id")).Error; err != nil {
+	if err := f.service.DB().Joins("Actor").First(&status, chi.URLParam(req, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}

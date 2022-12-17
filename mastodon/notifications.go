@@ -18,7 +18,7 @@ func (n *Notifications) Index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var notifications []m.Notification
-	if err := n.service.DB().Where("account_id = ?", user.ID).Preload("Status").Preload("Status.Account").Find(&notifications).Error; err != nil {
+	if err := n.service.DB().Where("account_id = ?", user.ID).Preload("Status").Preload("Status.Actor").Find(&notifications).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
