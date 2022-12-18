@@ -77,7 +77,7 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 
 	var app m.Application
 	if err := o.db.Where("client_id = ?", clientID).First(&app).Error; err != nil {
-		http.Error(w, "invalid client_id", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 

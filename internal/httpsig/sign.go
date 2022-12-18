@@ -16,11 +16,16 @@ import (
 	"github.com/go-fed/httpsig"
 )
 
+const (
+	// RequestTarget is the pseudo-header used to sign the request target.
+	RequestTarget = "(request-target)"
+)
+
 // Sign signs the request using the given keyID and privateKey.
 func Sign(req *http.Request, keyID string, privateKey crypto.PrivateKey, body []byte) error {
 	req.Header.Set("Date", time.Now().UTC().Format("Mon, 02 Jan 2006 15:04:05 GMT")) // Date must be in GMT, not UTC 🤯
 	headersToSign := []string{
-		httpsig.RequestTarget,
+		RequestTarget,
 	}
 	switch req.Method {
 	case "GET":

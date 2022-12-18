@@ -38,7 +38,7 @@ func (t *Timelines) Home(w http.ResponseWriter, r *http.Request) {
 
 	var statuses []m.Status
 	scope := t.service.DB().Scopes(t.paginate(r)).Where("actor_id IN (?)", followingIDs)
-	scope = scope.Joins("Actor")
+	scope = scope.Joins("Actor").Preload("Reblog").Preload("Reblog.Actor")
 	if err := scope.Find(&statuses).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -62,7 +62,7 @@ func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var statuses []m.Status
-	scope := t.service.DB().Scopes(t.paginate(r)).Where("visibility = ?", "public")
+	scope := t.service.DB().Scopes(t.paginate(r)).Where("visibility = ? and reblog_id = null", "public")
 	switch r.URL.Query().Get("local") {
 	case "true":
 		scope = scope.Joins("Actor").Where("Actor.domain = ?", r.Host)

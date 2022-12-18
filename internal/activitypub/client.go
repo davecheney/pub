@@ -2,6 +2,7 @@ package activitypub
 
 import (
 	"bytes"
+	"context"
 	"crypto"
 	"crypto/rsa"
 	"crypto/x509"
@@ -10,6 +11,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/davecheney/m/internal/httpsig"
 	"github.com/go-json-experiment/json"
@@ -58,7 +61,18 @@ type Error struct {
 }
 
 func (e *Error) Error() string {
-	return fmt.Sprintf("%s %s: %d: %s: %s", e.Method, e.URI, e.StatusCode, e.err, e.Body)
+	var sb strings.Builder
+	sb.WriteString(e.Method)
+	sb.WriteString(" ")
+	sb.WriteString(e.URI)
+	sb.WriteString(": ")
+	fmt.Fprintf(&sb, "%d ", e.StatusCode)
+	if e.err != nil {
+		sb.WriteString(e.err.Error())
+		sb.WriteString(": ")
+	}
+	sb.WriteString(e.Body)
+	return sb.String()
 }
 
 // Follow sends a follow request to the given URL.
@@ -94,6 +108,10 @@ func (c *Client) Get(uri string) (map[string]any, error) {
 	if err := httpsig.Sign(req, c.keyID, c.privateKey, nil); err != nil {
 		return nil, fmt.Errorf("failed to sign request: %w", err)
 	}
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	req = req.WithContext(ctx)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err

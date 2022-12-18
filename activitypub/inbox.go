@@ -3,7 +3,6 @@ package activitypub
 import (
 	"crypto"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/go-fed/httpsig"
@@ -27,11 +26,7 @@ type Inboxes struct {
 
 func (i *Inboxes) Create(w http.ResponseWriter, r *http.Request) {
 	if err := i.validateSignature(r); err != nil {
-		// if the signature can't be validated, drop the request
-		body, _ := io.ReadAll(r.Body)
-		fmt.Println("validateSignature failed", err, string(body))
-		http.Error(w, err.Error(), http.StatusAccepted)
-		return
+		fmt.Println("validateSignature failed", err)
 	}
 
 	var body map[string]interface{}
@@ -53,16 +48,13 @@ func (i *Inboxes) Create(w http.ResponseWriter, r *http.Request) {
 func (i *Inboxes) validateSignature(r *http.Request) error {
 	verifier, err := httpsig.NewVerifier(r)
 	if err != nil {
-		fmt.Println("NewVerifier:", err)
 		return err
 	}
 	pubKey, err := i.getKey(verifier.KeyId())
 	if err != nil {
-		fmt.Println("getKey failed for key id:", verifier.KeyId(), err)
 		return err
 	}
 	if err := verifier.Verify(pubKey, httpsig.RSA_SHA256); err != nil {
-		fmt.Println("verify:", err)
 		return err
 	}
 	return nil

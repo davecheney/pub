@@ -120,7 +120,7 @@ func (s *Statuses) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var status m.Status
-	if err := s.service.DB().Joins("Actor").First(&status, chi.URLParam(r, "id")).Error; err != nil {
+	if err := s.service.DB().Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").First(&status, chi.URLParam(r, "id")).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -157,9 +157,14 @@ func serializeStatus(s *m.Status) map[string]any {
 		// "reblogged":              false,
 		// "muted":                  false,
 		// "bookmarked":             false,
-		"content":           s.Note,
-		"text":              nil,
-		"reblog":            nil,
+		"content": s.Note,
+		"text":    nil,
+		"reblog": func(s *m.Status) any {
+			if s.Reblog == nil {
+				return nil
+			}
+			return serializeStatus(s.Reblog)
+		}(s),
 		"application":       nil,
 		"account":           serialize(s.Actor),
 		"media_attachments": []map[string]any{},

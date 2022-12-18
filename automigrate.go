@@ -26,7 +26,7 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 		&m.Instance{}, &m.InstanceRule{},
 		&m.Marker{},
 		&m.Notification{},
-		&m.Status{},
+		&m.Status{}, &m.Poll{},
 		&m.Token{},
 	)
 }

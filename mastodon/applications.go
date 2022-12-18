@@ -21,8 +21,8 @@ func (a *Applications) Create(w http.ResponseWriter, r *http.Request) {
 		RedirectURIs string  `json:"redirect_uris"`
 		Scopes       string  `json:"scopes"`
 	}
-	switch mime.MediaType(r) {
-	case "application/x-www-form-urlencoded":
+	switch mt := mime.MediaType(r); mt {
+	case "application/x-www-form-urlencoded", "multipart/form-data":
 		params.ClientName = r.PostFormValue("client_name")
 		params.Website = ptr(r.PostFormValue("website"))
 		params.RedirectURIs = r.PostFormValue("redirect_uris")
@@ -33,7 +33,7 @@ func (a *Applications) Create(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	default:
-		http.Error(w, "unsupported media type", http.StatusUnsupportedMediaType)
+		http.Error(w, "unsupported media type: "+mt, http.StatusUnsupportedMediaType)
 		return
 	}
 

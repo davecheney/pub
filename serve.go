@@ -66,6 +66,8 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Get("/filters", mastodon.Filters().Index)
 			r.Get("/instance", instance.IndexV1)
 			r.Get("/instance/peers", instance.PeersShow)
+			r.Get("/instance/activity", instance.ActivityShow)
+			r.Get("/instance/domain_blocks", instance.DomainBlocksShow)
 			r.Get("/markers", mastodon.Markers().Index)
 			r.Post("/markers", mastodon.Markers().Create)
 			r.Get("/mutes", mastodon.Mutes().Index)

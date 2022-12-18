@@ -59,9 +59,142 @@ func (ip *inboxProcessor) Process(activity *activitypub.Activity) error {
 	case "Create":
 		create := mapFromAny(act["object"])
 		return ip.processCreate(create)
+	case "Delete":
+		return ip.processDelete(act["object"])
+	case "Announce":
+		return ip.processAnnounce(act)
+	case "Update":
+		update := mapFromAny(act["object"])
+		return ip.processUpdate(update)
+	case "Undo":
+		undo := mapFromAny(act["object"])
+		return ip.processUndo(undo)
+	case "Accept":
+		accept := mapFromAny(act["object"])
+		return ip.processAccept(accept)
+	case "Follow":
+		return ip.processFollow(act)
+	case "Add":
+		return ip.processAdd(act)
+	case "Remove":
+		return ip.processRemove(act)
 	default:
+		return fmt.Errorf("unknown activity type: %q", typ)
+	}
+}
+
+func (ip *inboxProcessor) processAdd(act map[string]any) error {
+	target := stringFromAny(act["target"])
+	switch target {
+	case stringFromAny(act["actor"]) + "/collections/featured":
+		status, err := ip.service.Statuses().FindByURI(stringFromAny(act["object"]))
+		if err != nil {
+			return err
+		}
+		status.Pinned = true
+		return ip.db.Save(status).Error
+	default:
+		x, _ := json.MarshalIndent(act, "", "  ")
+		fmt.Println("processAdd:", string(x))
+		return errors.New("not implemented")
+	}
+}
+
+func (ip *inboxProcessor) processRemove(act map[string]any) error {
+	target := stringFromAny(act["target"])
+	switch target {
+	case stringFromAny(act["actor"]) + "/collections/featured":
+		status, err := ip.service.Statuses().FindByURI(stringFromAny(act["object"]))
+		if err != nil {
+			return err
+		}
+		status.Pinned = false
+		return ip.db.Save(status).Error
+	default:
+		x, _ := json.MarshalIndent(act, "", "  ")
+		fmt.Println("processRemove:", string(x))
+		return errors.New("not implemented")
+	}
+}
+
+func (ip *inboxProcessor) processFollow(obj map[string]any) error {
+	_, err := ip.service.Actors().FindByURI(stringFromAny(obj["actor"]))
+	if err != nil {
+		return err
+	}
+	_, err = ip.service.Actors().FindByURI(stringFromAny(obj["object"]))
+	if err != nil {
+		return err
+	}
+	return nil // TODO
+}
+
+func (ip *inboxProcessor) processAccept(obj map[string]any) error {
+	typ := stringFromAny(obj["type"])
+	switch typ {
+	case "Follow":
+		return ip.processAcceptFollow(obj)
+	default:
+		return fmt.Errorf("unknown accept object type: %q", typ)
+	}
+}
+
+func (ip *inboxProcessor) processAcceptFollow(obj map[string]any) error {
+	x, _ := json.MarshalIndent(obj, "", "  ")
+	fmt.Println("processCreateQuestion:", string(x))
+	return errors.New("not implemented")
+
+	_, err := ip.service.Actors().FindByURI(stringFromAny(obj["actor"]))
+	if err != nil {
+		return err
+	}
+	_, err = ip.service.Actors().FindByURI(stringFromAny(obj["object"]))
+	if err != nil {
+		return err
+	}
+	return nil // TODO
+}
+
+func (ip *inboxProcessor) processUndo(obj map[string]any) error {
+	typ := stringFromAny(obj["type"])
+	switch typ {
+	case "Announce":
+		return ip.processUndoAnnounce(obj)
+	default:
+		return fmt.Errorf("unknown undo object type: %q", typ)
+	}
+}
+
+func (ip *inboxProcessor) processUndoAnnounce(obj map[string]any) error {
+	id := stringFromAny(obj["id"])
+	status, err := ip.service.Statuses().FindByURI(id)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// already deleted
 		return nil
 	}
+	if err != nil {
+		return err
+	}
+	return ip.db.Delete(status).Error
+}
+
+func (ip *inboxProcessor) processUpdate(obj map[string]any) error {
+	id := stringFromAny(obj["id"])
+	status, err := ip.service.Statuses().FindByURI(id)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// we don't have this status, treat this update as a create
+		return ip.processCreate(obj)
+	}
+	if err != nil {
+		return err
+	}
+	updated, err := timeFromAny(obj["published"])
+	if err != nil {
+		return err
+	}
+	status.UpdatedAt = updated
+	status.Note = stringFromAny(obj["content"])
+	return ip.db.Save(status).Error
 }
 
 func (ip *inboxProcessor) processCreate(obj map[string]any) error {
@@ -69,9 +202,17 @@ func (ip *inboxProcessor) processCreate(obj map[string]any) error {
 	switch typ {
 	case "Note":
 		return ip.processCreateNote(obj)
+	case "Question":
+		return ip.processCreateQuestion(obj)
 	default:
-		return nil
+		return fmt.Errorf("unknown create object type: %q", typ)
 	}
+}
+
+func (ip *inboxProcessor) processCreateQuestion(obj map[string]any) error {
+	x, _ := json.MarshalIndent(obj, "", "  ")
+	fmt.Println("processCreateQuestion:", string(x))
+	return errors.New("not implemented")
 }
 
 func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
@@ -90,19 +231,10 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 		if err != nil {
 			return nil, err
 		}
-
-		var visibility string
-		for _, recipient := range anyToSlice(obj["to"]) {
-			switch recipient {
-			case "https://www.w3.org/ns/activitystreams#Public":
-				visibility = "public"
-			case actor.ToAcct().Followers():
-				visibility = "limited"
-			}
-		}
-		if visibility == "" {
+		vis := visiblity(obj)
+		if vis == "" {
 			x, _ := json.MarshalIndent(obj, "", "  ")
-			return nil, fmt.Errorf("unsupported visibility %q: %s", visibility, x)
+			return nil, fmt.Errorf("unsupported visibility %q: %s", vis, x)
 		}
 
 		var inReplyTo *m.Status
@@ -119,7 +251,7 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 			conversationID = inReplyTo.ConversationID
 		} else {
 			conv := m.Conversation{
-				Visibility: visibility,
+				Visibility: vis,
 			}
 			if err := ip.db.Create(&conv).Error; err != nil {
 				return nil, err
@@ -155,6 +287,62 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 	return err
 }
 
+func (ip *inboxProcessor) processAnnounce(obj map[string]any) error {
+	target := stringFromAny(obj["object"])
+	original, err := ip.service.Statuses().FindOrCreate(target, ip.service.Statuses().NewRemoteStatusFetcher().Fetch)
+	if err != nil {
+		return err
+	}
+
+	actor, err := ip.service.Actors().FindOrCreate(stringFromAny(obj["actor"]), ip.service.Actors().NewRemoteActorFetcher().Fetch)
+	if err != nil {
+		return err
+	}
+
+	published, err := timeFromAny(obj["published"])
+	if err != nil {
+		return err
+	}
+
+	conv := m.Conversation{
+		Visibility: "public",
+	}
+	if err := ip.db.Create(&conv).Error; err != nil {
+		return err
+	}
+
+	status := &m.Status{
+		ID:               snowflake.TimeToID(published),
+		ActorID:          actor.ID,
+		Actor:            actor,
+		ConversationID:   conv.ID,
+		URI:              stringFromAny(obj["id"]),
+		InReplyToID:      nil,
+		InReplyToActorID: nil,
+		Sensitive:        false,
+		SpoilerText:      "",
+		Visibility:       "public",
+		Language:         "",
+		Note:             "",
+		ReblogID:         &original.ID,
+		Reblog:           original,
+	}
+
+	return ip.db.Create(status).Error
+}
+
+func (ip *inboxProcessor) processDelete(acct any) error {
+	actor, err := ip.service.Actors().FindByURI(stringFromAny(acct))
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// already deleted
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return ip.db.Delete(actor).Error
+}
+
 func boolFromAny(v any) bool {
 	b, _ := v.(bool)
 	return b
@@ -188,4 +376,23 @@ func anyToSlice(v any) []any {
 	default:
 		return nil
 	}
+}
+
+func visiblity(obj map[string]any) string {
+	actor := stringFromAny(obj["attributedTo"])
+	for _, recipient := range anyToSlice(obj["to"]) {
+		switch recipient {
+		case "https://www.w3.org/ns/activitystreams#Public":
+			return "public"
+		case actor + "/followers":
+			return "limited"
+		}
+	}
+	for _, recipient := range anyToSlice(obj["cc"]) {
+		switch recipient {
+		case "https://www.w3.org/ns/activitystreams#Public":
+			return "public"
+		}
+	}
+	return ""
 }

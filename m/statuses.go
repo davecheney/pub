@@ -48,8 +48,26 @@ type Status struct {
 	RepliesCount     int    `gorm:"not null;default:0"`
 	ReblogsCount     int    `gorm:"not null;default:0"`
 	FavouritesCount  int    `gorm:"not null;default:0"`
+	ReblogID         *uint64
+	Reblog           *Status
+	PollID           *uint32
+	Pinned           bool
 
 	FavouritedBy []Account `gorm:"many2many:account_favourites"`
+}
+
+type Poll struct {
+	ID         uint32 `gorm:"primarykey"`
+	CreatedAt  time.Time
+	ExpiresAt  time.Time
+	Multiple   bool
+	VotesCount int          `gorm:"not null;default:0"`
+	Options    []PollOption `gorm:"serializer:json"`
+}
+
+type PollOption struct {
+	Title string `json:"title"`
+	Count int    `json:"count"`
 }
 
 type statuses struct {
@@ -81,8 +99,14 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*Status, error) {
 		return nil, err
 	}
 
-	if obj["type"] != "Note" {
-		return nil, fmt.Errorf("unsupported type %q", obj["type"])
+	typ := stringFromAny(obj["type"])
+	switch typ {
+	case "Note":
+		// cool
+	case "Question":
+		// cool
+	default:
+		return nil, fmt.Errorf("unsupported type %q", typ)
 	}
 
 	var visibility string

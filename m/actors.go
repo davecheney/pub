@@ -33,6 +33,7 @@ type Actor struct {
 	Statuses       []Status
 	Favourites     []Status `gorm:"many2many:account_favourites"`
 	Following      []Actor  `gorm:"many2many:account_following"`
+	Followers      []Actor  `gorm:"many2many:account_followers"`
 }
 
 type Webfinger struct {

@@ -48,6 +48,14 @@ func (i *Instances) PeersShow(w http.ResponseWriter, r *http.Request) {
 	toJSON(w, domains)
 }
 
+func (i *Instances) ActivityShow(w http.ResponseWriter, r *http.Request) {
+	toJSON(w, []map[string]interface{}{})
+}
+
+func (i *Instances) DomainBlocksShow(w http.ResponseWriter, r *http.Request) {
+	toJSON(w, []map[string]interface{}{})
+}
+
 func serializeV1(i *m.Instance) map[string]any {
 	return map[string]any{
 		"uri":               i.Domain,
