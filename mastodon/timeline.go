@@ -37,7 +37,7 @@ func (t *Timelines) Home(w http.ResponseWriter, r *http.Request) {
 	followingIDs = append(followingIDs, int64(user.ID))
 
 	var statuses []m.Status
-	scope := t.service.DB().Scopes(t.paginate(r)).Where("actor_id IN (?)", followingIDs)
+	scope := t.service.DB().Scopes(t.paginate(r)).Where("actor_id IN (?) or (actor_id in (?) and in_reply_to_actor_id IN (?))", followingIDs, followingIDs, followingIDs)
 	scope = scope.Joins("Actor").Preload("Reblog").Preload("Reblog.Actor")
 	if err := scope.Find(&statuses).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

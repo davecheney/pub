@@ -8,7 +8,6 @@ import (
 
 	"github.com/davecheney/m/internal/activitypub"
 	"github.com/davecheney/m/internal/snowflake"
-	"github.com/davecheney/m/internal/webfinger"
 	"gorm.io/gorm"
 )
 
@@ -58,13 +57,6 @@ func (a *Actor) PublicKeyID() string {
 
 func (a *Actor) URL() string {
 	return fmt.Sprintf("https://%s/@%s", a.Domain, a.Name)
-}
-
-func (a *Actor) ToAcct() *webfinger.Acct {
-	return &webfinger.Acct{
-		User: a.Name,
-		Host: a.Domain,
-	}
 }
 
 type Actors struct {

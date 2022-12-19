@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/davecheney/m/internal/snowflake"
-	"github.com/davecheney/m/internal/webfinger"
 	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
 )
@@ -19,10 +18,6 @@ func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 	if err := u.service.db.First(&actor, "name = ? and domain = ?", username, r.Host).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
-	}
-	acct := webfinger.Acct{
-		User: actor.Name,
-		Host: actor.Domain,
 	}
 	toJSON(w, map[string]any{
 		"@context": []any{
@@ -84,7 +79,7 @@ func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 				},
 			},
 		},
-		"id": acct.ID(),
+		"id": actor.URI,
 		"type": func(a *m.Actor) string {
 			switch a.Type {
 			case "LocalPerson":
@@ -93,12 +88,12 @@ func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 				return a.Type
 			}
 		}(&actor),
-		"following":                 acct.Following(),
-		"followers":                 acct.Followers(),
-		"inbox":                     acct.Inbox(),
-		"outbox":                    acct.Outbox(),
-		"featured":                  acct.Collections() + "/featured",
-		"featuredTags":              acct.Collections() + "/tags",
+		"following":                 actor.URI + "/following",
+		"followers":                 actor.URI + "/followers",
+		"inbox":                     actor.URI + "/inbox",
+		"outbox":                    actor.URI + "/outbox",
+		"featured":                  actor.URI + "/collections/featured",
+		"featuredTags":              actor.URI + "/collections/featured-tags",
 		"preferredUsername":         actor.Name,
 		"name":                      actor.DisplayName,
 		"summary":                   actor.Note,
@@ -106,16 +101,16 @@ func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 		"manuallyApprovesFollowers": actor.Locked,
 		"discoverable":              false,                                                       // mastodon sets this to false
 		"published":                 snowflake.IDToTime(actor.ID).Format("2006-01-02T00:00:00Z"), // spec says round created_at to nearest day
-		"devices":                   acct.Collections() + "/devices",
+		"devices":                   actor.URI + "/collections/devices",
 		"publicKey": map[string]any{
 			"id":           actor.PublicKeyID(),
-			"owner":        acct.ID(),
+			"owner":        actor.URI,
 			"publicKeyPem": string(actor.PublicKey),
 		},
 		"tag":        []any{},
 		"attachment": []any{},
 		"endpoints": map[string]any{
-			"sharedInbox": acct.SharedInbox(),
+			"sharedInbox": "https://" + r.Host + "/inbox",
 		},
 		"icon": map[string]any{
 			"type":      "Image",
