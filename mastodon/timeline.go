@@ -62,7 +62,7 @@ func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var statuses []m.Status
-	scope := t.service.DB().Scopes(t.paginate(r)).Where("visibility = ? and reblog_id = null", "public")
+	scope := t.service.DB().Scopes(t.paginate(r)).Where("visibility = ? and reblog_id is null and in_reply_to_id is null", "public")
 	switch r.URL.Query().Get("local") {
 	case "true":
 		scope = scope.Joins("Actor").Where("Actor.domain = ?", r.Host)

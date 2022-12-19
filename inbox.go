@@ -141,7 +141,7 @@ func (ip *inboxProcessor) processAccept(obj map[string]any) error {
 
 func (ip *inboxProcessor) processAcceptFollow(obj map[string]any) error {
 	x, _ := json.MarshalIndent(obj, "", "  ")
-	fmt.Println("processCreateQuestion:", string(x))
+	fmt.Println("processAcceptFollow:", string(x))
 	return errors.New("not implemented")
 
 	_, err := ip.service.Actors().FindByURI(stringFromAny(obj["actor"]))
