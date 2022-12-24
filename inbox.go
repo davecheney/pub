@@ -64,11 +64,6 @@ func (ip *inboxProcessor) Process(activity *activitypub.Activity) error {
 	case "Undo":
 		undo := mapFromAny(act["object"])
 		return ip.processUndo(undo)
-	case "Accept":
-		accept := mapFromAny(act["object"])
-		return ip.processAccept(accept)
-	case "Follow":
-		return ip.processFollow(act)
 	case "Add":
 		return ip.processAdd(act)
 	case "Remove":
@@ -110,40 +105,6 @@ func (ip *inboxProcessor) processRemove(act map[string]any) error {
 		fmt.Println("processRemove:", string(x))
 		return errors.New("not implemented")
 	}
-}
-
-func (ip *inboxProcessor) processFollow(obj map[string]any) error {
-	_, err := ip.service.Actors().FindByURI(stringFromAny(obj["actor"]))
-	if err != nil {
-		return err
-	}
-	_, err = ip.service.Actors().FindByURI(stringFromAny(obj["object"]))
-	if err != nil {
-		return err
-	}
-	return nil // TODO
-}
-
-func (ip *inboxProcessor) processAccept(obj map[string]any) error {
-	typ := stringFromAny(obj["type"])
-	switch typ {
-	case "Follow":
-		return ip.processAcceptFollow(obj)
-	default:
-		return fmt.Errorf("unknown accept object type: %q", typ)
-	}
-}
-
-func (ip *inboxProcessor) processAcceptFollow(obj map[string]any) error {
-	follower, err := ip.service.Actors().FindByURI(stringFromAny(obj["actor"]))
-	if err != nil {
-		return err
-	}
-	following, err := ip.service.Actors().FindByURI(stringFromAny(obj["object"]))
-	if err != nil {
-		return err
-	}
-	return ip.db.Model(following).Association("Followers").Append(follower)
 }
 
 func (ip *inboxProcessor) processUndo(obj map[string]any) error {

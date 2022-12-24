@@ -13,15 +13,6 @@ type Timelines struct {
 	service *Service
 }
 
-type AccountFollowing struct {
-	AccountID   uint
-	FollowingID uint
-}
-
-func (AccountFollowing) TableName() string {
-	return "account_following"
-}
-
 func (t *Timelines) Home(w http.ResponseWriter, r *http.Request) {
 	user, err := t.service.authenticate(r)
 	if err != nil {
@@ -30,7 +21,7 @@ func (t *Timelines) Home(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var followingIDs []int64
-	if err := t.service.DB().Model(&AccountFollowing{AccountID: user.ID}).Pluck("following_id", &followingIDs).Error; err != nil {
+	if err := t.service.DB().Model(&m.Relationship{ActorID: user.Actor.ID}).Where("following = true").Pluck("target_id", &followingIDs).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

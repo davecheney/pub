@@ -7,6 +7,8 @@ import (
 	"github.com/davecheney/m/internal/activitypub"
 	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Relationships struct {
@@ -14,67 +16,67 @@ type Relationships struct {
 }
 
 func (r *Relationships) Show(w http.ResponseWriter, req *http.Request) {
-	_, err := r.service.authenticate(req)
+	user, err := r.service.authenticate(req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	id := req.URL.Query().Get("id")
-	toJSON(w, []map[string]interface{}{{
-		"id":                   id,
-		"following":            false,
-		"showing_reblogs":      true,
-		"notifying":            false,
-		"followed_by":          true,
-		"blocking":             false,
-		"blocked_by":           false,
-		"muting":               false,
-		"muting_notifications": false,
-		"requested":            false,
-		"domain_blocking":      false,
-		"endorsed":             false,
-		"note":                 "",
-	}})
+	targets := req.URL.Query()["id"]
+	targets = append(targets, req.URL.Query()["id[]"]...)
+	var rels []m.Relationship
+	if err := r.service.DB().Joins("Target").Find(&rels, "actor_id = ? and target_id IN (?) ", user.Actor.ID, targets).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var resp []any
+	for _, rel := range rels {
+		resp = append(resp, serializeRelationship(&rel))
+	}
+	toJSON(w, resp)
 }
 
 func (r *Relationships) Create(w http.ResponseWriter, req *http.Request) {
-	account, err := r.service.authenticate(req)
+	user, err := r.service.authenticate(req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var actor m.Actor
-	if err := r.service.DB().First(&actor, chi.URLParam(req, "id")).Error; err != nil {
+	var target m.Actor
+	if err := r.service.DB().First(&target, chi.URLParam(req, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	err = r.sendFollowRequest(account, &actor)
+	err = r.sendFollowRequest(user, &target)
 	if err != nil {
 		fmt.Println("sendFollowRequest failed", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if err := r.service.DB().Model(account.Actor).Association("Following").Append(&actor); err != nil {
-		fmt.Println("append failed", err)
+	var rel m.Relationship
+	if err := r.service.DB().Joins("Target").First(&rel, "actor_id = ? and target_id = ?", user.Actor.ID, target.ID).Error; err != nil {
+		if err != gorm.ErrRecordNotFound {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		rel = m.Relationship{
+			ActorID:  user.Actor.ID,
+			TargetID: target.ID,
+			Target:   &target,
+		}
+	}
+
+	rel.Following = true
+	if err := r.service.DB().Clauses(clause.OnConflict{UpdateAll: true}).Create(&rel).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, map[string]interface{}{
-		"id":                   toString(actor.ID),
-		"following":            true,
-		"showing_reblogs":      true,  // todo
-		"notifying":            true,  // todo
-		"followed_by":          false, // todo
-		"blocking":             false,
-		"blocked_by":           false,
-		"muting":               false,
-		"muting_notifications": false,
-		"requested":            false,
-		"domain_blocking":      false,
-		"endorsed":             false,
-		"note":                 actor.Note,
-	})
+	toJSON(w, serializeRelationship(&rel))
 }
 
 func (r *Relationships) sendFollowRequest(account *m.Account, target *m.Actor) error {
@@ -86,32 +88,56 @@ func (r *Relationships) sendFollowRequest(account *m.Account, target *m.Actor) e
 }
 
 func (r *Relationships) Destroy(w http.ResponseWriter, req *http.Request) {
-	account, err := r.service.authenticate(req)
+	user, err := r.service.authenticate(req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var actor m.Actor
-	if err := r.service.DB().First(&actor, chi.URLParam(req, "id")).Error; err != nil {
+	var target m.Actor
+	if err := r.service.DB().First(&target, chi.URLParam(req, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	if err := r.service.DB().Model(account.Actor).Association("Following").Delete(&actor); err != nil {
+	err = r.sendUnfollowRequest(user, &target)
+	if err != nil {
+		fmt.Println("sendUnfollowRequest failed", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serializeRelationship(&m.Relationship{
-		Target: &actor,
-	}))
+
+	var rel m.Relationship
+	if err := r.service.DB().Joins("Target").First(&rel, "actor_id = ? and target_id = ?", user.Actor.ID, target.ID).Error; err != nil {
+		if err != gorm.ErrRecordNotFound {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		rel = m.Relationship{
+			ActorID:  user.Actor.ID,
+			TargetID: target.ID,
+			Target:   &target,
+		}
+	}
+
+	rel.Following = false
+	if err := r.service.DB().Clauses(clause.OnConflict{UpdateAll: true}).Create(&rel).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	toJSON(w, serializeRelationship(&rel))
+}
+
+func (r *Relationships) sendUnfollowRequest(account *m.Account, target *m.Actor) error {
+	// todo
+	return nil
 }
 
 func serializeRelationship(rel *m.Relationship) map[string]any {
 	return map[string]any{
 		"id":                   toString(rel.Target.ID),
-		"following":            false,
+		"following":            rel.Following,
 		"showing_reblogs":      false, // todo
 		"notifying":            false, // todo
-		"followed_by":          false, // todo
+		"followed_by":          rel.FollowedBy,
 		"blocking":             false,
 		"blocked_by":           false,
 		"muting":               rel.Muting,

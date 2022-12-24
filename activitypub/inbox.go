@@ -11,6 +11,7 @@ import (
 	"github.com/go-fed/httpsig"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Activity struct {
@@ -58,6 +59,11 @@ func (i *Inboxes) processActivity(body map[string]any) error {
 		return i.processUpdate(update)
 	case "Delete":
 		return i.processDelete(body)
+	case "Follow":
+		return i.processFollow(body)
+	case "Accept":
+		accept := mapFromAny(body["object"])
+		return i.processAccept(accept)
 	default:
 		id := stringFromAny(body["id"])
 		fmt.Println("processActivity: queuing activity", id)
@@ -67,6 +73,47 @@ func (i *Inboxes) processActivity(body map[string]any) error {
 		}
 		return i.service.db.Create(&activity).Error
 	}
+}
+
+func (i *Inboxes) processAccept(obj map[string]any) error {
+	typ := stringFromAny(obj["type"])
+	switch typ {
+	case "Follow":
+		return i.processAcceptFollow(obj)
+	default:
+		return fmt.Errorf("unknown accept object type: %q", typ)
+	}
+}
+
+func (i *Inboxes) processAcceptFollow(obj map[string]any) error {
+	// consume
+	return nil
+}
+
+func (i *Inboxes) processFollow(body map[string]any) error {
+	var actor m.Actor
+	if err := i.service.db.First(&actor, "actor_id = ?", stringFromAny(body["actor"])).Error; err != nil {
+		return err
+	}
+	var target m.Actor
+	if err := i.service.db.First(&target, "actor_id = ?", stringFromAny(body["object"])).Error; err != nil {
+		return err
+	}
+
+	var rel m.Relationship
+	if err := i.service.db.Joins("Target").First(&rel, "actor_id = ? and target_id = ?", actor.ID, target.ID).Error; err != nil {
+		if err != gorm.ErrRecordNotFound {
+			return err
+		}
+		rel = m.Relationship{
+			ActorID:  actor.ID,
+			TargetID: target.ID,
+			Target:   &target,
+		}
+	}
+
+	rel.FollowedBy = true
+	return i.service.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&rel).Error
 }
 
 func (i *Inboxes) processUpdate(update map[string]any) error {

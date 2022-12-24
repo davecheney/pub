@@ -30,18 +30,18 @@ type Actor struct {
 	PublicKey      []byte   `gorm:"not null"`
 	Attachments    []any    `gorm:"serializer:json"`
 	Statuses       []Status `gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
-	Following      []Actor  `gorm:"many2many:account_following"`
-	Followers      []Actor  `gorm:"many2many:account_followers"`
 	Favourites     []Status `gorm:"many2many:favourites;"`
 	Relationships  []Relationship
 }
 
 type Relationship struct {
-	ActorID  uint64 `gorm:"primarykey"`
-	TargetID uint64 `gorm:"primarykey"`
-	Target   *Actor
-	Muting   bool
-	Blocking bool
+	ActorID    uint64 `gorm:"primarykey"`
+	TargetID   uint64 `gorm:"primarykey"`
+	Target     *Actor
+	Muting     bool `gorm:"not null;default:false"`
+	Blocking   bool `gorm:"not null;default:false"`
+	Following  bool `gorm:"not null;default:false"`
+	FollowedBy bool `gorm:"not null;default:false"`
 }
 
 type Webfinger struct {
