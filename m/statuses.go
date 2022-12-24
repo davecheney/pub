@@ -53,7 +53,7 @@ type Status struct {
 	PollID           *uint32
 	Pinned           bool
 
-	FavouritedBy []Account `gorm:"many2many:account_favourites"`
+	FavouritedBy []Actor `gorm:"many2many:favourites;"`
 }
 
 type Poll struct {

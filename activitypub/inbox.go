@@ -2,9 +2,12 @@ package activitypub
 
 import (
 	"crypto"
+	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
+	"github.com/davecheney/m/m"
 	"github.com/go-fed/httpsig"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
@@ -29,20 +32,67 @@ func (i *Inboxes) Create(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("validateSignature failed", err)
 	}
 
-	var body map[string]interface{}
+	var body map[string]any
 	if err := json.UnmarshalFull(r.Body, &body); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	activity := Activity{
-		Object: body,
-	}
-	if err := i.service.db.Create(&activity).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	err := i.processActivity(body)
+	if err != nil {
+		fmt.Println("processActivity failed", stringFromAny(body["id"]), err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	w.WriteHeader(http.StatusAccepted)
+}
+
+// processActivity processes an activity. If the activity can be handled without
+// blocking, it is handled immediately. If the activity requires blocking, it is
+// queued for later processing.
+func (i *Inboxes) processActivity(body map[string]any) error {
+	typ := stringFromAny(body["type"])
+	switch typ {
+	case "Update":
+		update := mapFromAny(body["object"])
+		return i.processUpdate(update)
+	case "Delete":
+		return i.processDelete(body)
+	default:
+		id := stringFromAny(body["id"])
+		fmt.Println("processActivity: queuing activity", id)
+		// Too hard, queue it.
+		activity := Activity{
+			Object: body,
+		}
+		return i.service.db.Create(&activity).Error
+	}
+}
+
+func (i *Inboxes) processUpdate(update map[string]any) error {
+	id := stringFromAny(update["id"])
+	var status m.Status
+	if err := i.service.db.Where("uri = ?", id).First(&status).Error; err != nil {
+		return err
+	}
+	updated, err := timeFromAny(update["published"])
+	if err != nil {
+		return err
+	}
+	status.UpdatedAt = updated
+	status.Note = stringFromAny(update["content"])
+	return i.service.db.Save(&status).Error
+}
+
+func (i *Inboxes) processDelete(body map[string]any) error {
+	fmt.Println("processDelete", body)
+	actor := stringFromAny(body["object"])
+	err := i.service.db.Where("uri = ?", actor).Delete(&m.Actor{}).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// already deleted
+		return nil
+	}
+	return err
 }
 
 func (i *Inboxes) validateSignature(r *http.Request) error {
@@ -59,4 +109,25 @@ func (i *Inboxes) validateSignature(r *http.Request) error {
 	}
 	return nil
 
+}
+
+func stringFromAny(v any) string {
+	s, _ := v.(string)
+	return s
+}
+
+func mapFromAny(v any) map[string]any {
+	m, _ := v.(map[string]any)
+	return m
+}
+
+func timeFromAny(v any) (time.Time, error) {
+	switch v := v.(type) {
+	case string:
+		return time.Parse(time.RFC3339, v)
+	case time.Time:
+		return v, nil
+	default:
+		return time.Time{}, errors.New("timeFromAny: invalid type")
+	}
 }

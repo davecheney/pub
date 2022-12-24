@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/davecheney/m/activitypub"
 	"github.com/davecheney/m/m"
-	"github.com/davecheney/m/mastodon"
 	"gorm.io/gorm"
 )
 
@@ -22,8 +21,9 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 		&activitypub.Activity{},
 		&m.Application{},
 		&m.Conversation{},
-		&mastodon.ClientFilter{},
+		&m.ClientFilter{},
 		&m.Instance{}, &m.InstanceRule{},
+		&m.Relationship{},
 		&m.Marker{},
 		&m.Notification{},
 		&m.Status{}, &m.Poll{},

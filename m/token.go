@@ -97,4 +97,16 @@ type Account struct {
 	EncryptedPassword []byte
 	PrivateKey        []byte `gorm:"not null"`
 	Tokens            []Token
+	ClientFilters     []ClientFilter
+}
+
+// https://docs.joinmastodon.org/entities/V1_Filter/
+type ClientFilter struct {
+	gorm.Model
+	AccountID    uint
+	Phrase       string
+	WholeWord    bool
+	Context      []string `gorm:"serializer:json"`
+	ExpiresAt    time.Time
+	Irreversible bool
 }

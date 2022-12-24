@@ -2,6 +2,7 @@ package activitypub
 
 import (
 	"net/http"
+	"net/http/httputil"
 
 	"github.com/davecheney/m/internal/snowflake"
 	"github.com/davecheney/m/m"
@@ -13,6 +14,9 @@ type Users struct {
 }
 
 func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
+	buf, _ := httputil.DumpRequest(r, true)
+	println("users.Show", string(buf))
+
 	username := chi.URLParam(r, "username")
 	var actor m.Actor
 	if err := u.service.db.First(&actor, "name = ? and domain = ?", username, r.Host).Error; err != nil {
@@ -93,7 +97,7 @@ func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 		"inbox":                     actor.URI + "/inbox",
 		"outbox":                    actor.URI + "/outbox",
 		"featured":                  actor.URI + "/collections/featured",
-		"featuredTags":              actor.URI + "/collections/featured-tags",
+		"featuredTags":              actor.URI + "/collections/tags",
 		"preferredUsername":         actor.Name,
 		"name":                      actor.DisplayName,
 		"summary":                   actor.Note,

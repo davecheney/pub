@@ -59,13 +59,8 @@ func (ip *inboxProcessor) Process(activity *activitypub.Activity) error {
 	case "Create":
 		create := mapFromAny(act["object"])
 		return ip.processCreate(create)
-	case "Delete":
-		return ip.processDelete(act["object"])
 	case "Announce":
 		return ip.processAnnounce(act)
-	case "Update":
-		update := mapFromAny(act["object"])
-		return ip.processUpdate(update)
 	case "Undo":
 		undo := mapFromAny(act["object"])
 		return ip.processUndo(undo)
@@ -140,19 +135,15 @@ func (ip *inboxProcessor) processAccept(obj map[string]any) error {
 }
 
 func (ip *inboxProcessor) processAcceptFollow(obj map[string]any) error {
-	x, _ := json.MarshalIndent(obj, "", "  ")
-	fmt.Println("processAcceptFollow:", string(x))
-	return errors.New("not implemented")
-
-	_, err := ip.service.Actors().FindByURI(stringFromAny(obj["actor"]))
+	follower, err := ip.service.Actors().FindByURI(stringFromAny(obj["actor"]))
 	if err != nil {
 		return err
 	}
-	_, err = ip.service.Actors().FindByURI(stringFromAny(obj["object"]))
+	following, err := ip.service.Actors().FindByURI(stringFromAny(obj["object"]))
 	if err != nil {
 		return err
 	}
-	return nil // TODO
+	return ip.db.Model(following).Association("Followers").Append(follower)
 }
 
 func (ip *inboxProcessor) processUndo(obj map[string]any) error {
@@ -176,25 +167,6 @@ func (ip *inboxProcessor) processUndoAnnounce(obj map[string]any) error {
 		return err
 	}
 	return ip.db.Delete(status).Error
-}
-
-func (ip *inboxProcessor) processUpdate(obj map[string]any) error {
-	id := stringFromAny(obj["id"])
-	status, err := ip.service.Statuses().FindByURI(id)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		// we don't have this status, treat this update as a create
-		return ip.processCreate(obj)
-	}
-	if err != nil {
-		return err
-	}
-	updated, err := timeFromAny(obj["published"])
-	if err != nil {
-		return err
-	}
-	status.UpdatedAt = updated
-	status.Note = stringFromAny(obj["content"])
-	return ip.db.Save(status).Error
 }
 
 func (ip *inboxProcessor) processCreate(obj map[string]any) error {
@@ -258,6 +230,9 @@ func (ip *inboxProcessor) processCreateNote(obj map[string]any) error {
 			}
 			conversationID = conv.ID
 		}
+
+		att, _ := json.MarshalIndent(obj["attachment"], "", "  ")
+		fmt.Println("attachment:", string(att))
 
 		return &m.Status{
 			ID:             snowflake.TimeToID(published),
@@ -329,18 +304,6 @@ func (ip *inboxProcessor) processAnnounce(obj map[string]any) error {
 	}
 
 	return ip.db.Create(status).Error
-}
-
-func (ip *inboxProcessor) processDelete(acct any) error {
-	actor, err := ip.service.Actors().FindByURI(stringFromAny(acct))
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		// already deleted
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	return ip.db.Delete(actor).Error
 }
 
 func boolFromAny(v any) bool {

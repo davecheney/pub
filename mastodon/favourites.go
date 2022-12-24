@@ -1,6 +1,7 @@
 package mastodon
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/davecheney/m/m"
@@ -22,7 +23,8 @@ func (f *Favourites) Create(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	if err := f.service.DB().Model(user).Association("Favourites").Append(&status); err != nil {
+	if err := f.service.DB().Model(&status).Association("FavouritedBy").Append(&user.Actor); err != nil {
+		fmt.Println("append failed", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -41,7 +43,8 @@ func (f *Favourites) Destroy(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	if err := f.service.DB().Model(user).Association("Favourites").Delete(&status); err != nil {
+	if err := f.service.DB().Model(&status).Association("FavouritedBy").Delete(&user.Actor); err != nil {
+		fmt.Println("delete failed", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

@@ -100,19 +100,25 @@ func (r *Relationships) Destroy(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, map[string]interface{}{
-		"id":                   toString(actor.ID),
+	toJSON(w, serializeRelationship(&m.Relationship{
+		Target: &actor,
+	}))
+}
+
+func serializeRelationship(rel *m.Relationship) map[string]any {
+	return map[string]any{
+		"id":                   toString(rel.Target.ID),
 		"following":            false,
 		"showing_reblogs":      false, // todo
 		"notifying":            false, // todo
 		"followed_by":          false, // todo
 		"blocking":             false,
 		"blocked_by":           false,
-		"muting":               false,
+		"muting":               rel.Muting,
 		"muting_notifications": false,
 		"requested":            false,
 		"domain_blocking":      false,
 		"endorsed":             false,
-		"note":                 actor.Note,
-	})
+		"note":                 rel.Target.Note,
+	}
 }
