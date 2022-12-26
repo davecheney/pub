@@ -4,12 +4,12 @@ import "gorm.io/gorm"
 
 type Attachment struct {
 	gorm.Model
-	Type     string
-	URL      string
-	Name     string
-	Blurhash string
-	Width    int
-	Height   int
+	MediaType string
+	URL       string
+	Name      string
+	Blurhash  string
+	Width     int
+	Height    int
 }
 
 type StatusAttachment struct {

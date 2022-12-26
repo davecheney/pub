@@ -22,8 +22,9 @@ func (r *Relationships) Show(w http.ResponseWriter, req *http.Request) {
 	}
 	targets := req.URL.Query()["id"]
 	targets = append(targets, req.URL.Query()["id[]"]...)
+	fmt.Println("relationships show: targets: ", targets)
 	var rels []m.Relationship
-	if err := r.service.DB().Joins("Target").Find(&rels, "actor_id = ? and target_id IN (?) ", user.Actor.ID, targets).Error; err != nil {
+	if err := r.service.DB().Preload("Target").Find(&rels, "actor_id = ? and target_id IN (?) ", user.Actor.ID, targets).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return

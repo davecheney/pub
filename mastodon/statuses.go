@@ -51,10 +51,8 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		conv = &m.Conversation{
-			Visibility: toot.Visibility,
-		}
-		if err := s.service.DB().Create(conv).Error; err != nil {
+		conv, err = s.service.Service.Conversations().New(toot.Visibility)
+		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -120,7 +118,7 @@ func (s *Statuses) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var status m.Status
-	if err := s.service.DB().Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").First(&status, chi.URLParam(r, "id")).Error; err != nil {
+	if err := s.service.DB().Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").Preload("Attachments").First(&status, chi.URLParam(r, "id")).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -167,11 +165,48 @@ func serializeStatus(s *m.Status) map[string]any {
 		}(s),
 		"application":       nil,
 		"account":           serialize(s.Actor),
-		"media_attachments": []map[string]any{},
+		"media_attachments": serializeAttachments(s.Attachments),
 		"mentions":          []map[string]any{},
 		"tags":              []map[string]any{},
 		"emojis":            []map[string]any{},
 		"card":              nil,
 		"poll":              nil,
+	}
+}
+
+func serializeAttachments(atts []m.StatusAttachment) []map[string]any {
+	var res []map[string]any
+	for _, att := range atts {
+		res = append(res, map[string]any{
+			"id":          toString(att.ID),
+			"type":        attachmentType(&att.Attachment),
+			"url":         att.Attachment.URL,
+			"preview_url": att.Attachment.URL,
+			"remote_url":  nil,
+			"description": att.Attachment.Name,
+			"blurhash":    att.Attachment.Blurhash,
+		})
+	}
+	return res
+}
+
+func attachmentType(att *m.Attachment) string {
+	switch att.MediaType {
+	case "image/jpeg":
+		return "image"
+	case "image/png":
+		return "image"
+	case "image/gif":
+		return "image"
+	case "video/mp4":
+		return "video"
+	case "video/webm":
+		return "video"
+	case "audio/mpeg":
+		return "audio"
+	case "audio/ogg":
+		return "audio"
+	default:
+		return "unknown"
 	}
 }

@@ -86,7 +86,9 @@ type Token struct {
 // An Account is a user account on an Instance.
 // An Account belongs to an Actor.
 type Account struct {
-	gorm.Model
+	ID                uint `gorm:"primarykey"`
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 	InstanceID        uint
 	ActorID           uint64
 	Actor             *Actor

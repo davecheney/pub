@@ -207,11 +207,6 @@ func (i *Inboxes) processCreateNote(create map[string]any) error {
 		if err != nil {
 			return nil, err
 		}
-		vis := visiblity(create)
-		if vis == "" {
-			x, _ := marshalIndent(create)
-			return nil, fmt.Errorf("unsupported visibility %q: %s", vis, x)
-		}
 
 		var inReplyTo *m.Status
 		if inReplyToAtomUri, ok := create["inReplyTo"].(string); ok {
@@ -222,52 +217,67 @@ func (i *Inboxes) processCreateNote(create map[string]any) error {
 			}
 		}
 
+		vis := visiblity(create)
 		conversationID := uint32(0)
 		if inReplyTo != nil {
 			conversationID = inReplyTo.ConversationID
 		} else {
-			conv := m.Conversation{
-				Visibility: vis,
-			}
-			if err := i.service.db.Create(&conv).Error; err != nil {
+			conv, err := svc.Conversations().New(vis)
+			if err != nil {
 				return nil, err
 			}
 			conversationID = conv.ID
 		}
 
-		att, _ := marshalIndent(create["attachment"])
-		fmt.Println("attachment:", string(att))
+		st := &m.Status{
+			ID:               snowflake.TimeToID(published),
+			ActorID:          actor.ID,
+			Actor:            actor,
+			ConversationID:   conversationID,
+			URI:              uri,
+			InReplyToID:      inReplyToID(inReplyTo),
+			InReplyToActorID: inReplyToActorID(inReplyTo),
+			Sensitive:        boolFromAny(create["sensitive"]),
+			SpoilerText:      stringFromAny(create["summary"]),
+			Visibility:       vis,
+			Language:         "en",
+			Note:             stringFromAny(create["content"]),
+		}
+		for _, att := range anyToSlice(create["attachment"]) {
+			at := mapFromAny(att)
+			st.Attachments = append(st.Attachments, m.StatusAttachment{
+				Attachment: m.Attachment{
+					MediaType: stringFromAny(at["mediaType"]),
+					URL:       stringFromAny(at["url"]),
+					Name:      stringFromAny(at["name"]),
+					Width:     intFromAny(at["width"]),
+					Height:    intFromAny(at["height"]),
+					Blurhash:  stringFromAny(at["blurhash"]),
+				},
+			})
+		}
 
-		return &m.Status{
-			ID:             snowflake.TimeToID(published),
-			ActorID:        actor.ID,
-			Actor:          actor,
-			ConversationID: conversationID,
-			URI:            uri,
-			InReplyToID: func() *uint64 {
-				if inReplyTo != nil {
-					return &inReplyTo.ID
-				}
-				return nil
-			}(),
-			InReplyToActorID: func() *uint64 {
-				if inReplyTo != nil {
-					return &inReplyTo.ActorID
-				}
-				return nil
-			}(),
-			Sensitive:   boolFromAny(create["sensitive"]),
-			SpoilerText: stringFromAny(create["summary"]),
-			Visibility:  "public",
-			Language:    "en",
-			Note:        stringFromAny(create["content"]),
-		}, nil
+		return st, nil
 	})
 	if err != nil {
 		b, _ := marshalIndent(create)
 		fmt.Println("processCreate", string(b), err)
 	}
 	return err
+}
+
+func inReplyToID(inReplyTo *m.Status) *uint64 {
+	if inReplyTo != nil {
+		return &inReplyTo.ID
+	}
+	return nil
+}
+
+func inReplyToActorID(inReplyTo *m.Status) *uint64 {
+	if inReplyTo != nil {
+		return &inReplyTo.ActorID
+	}
+	return nil
 }
 
 func (i *Inboxes) processAccept(obj map[string]any) error {
@@ -317,7 +327,6 @@ func (i *Inboxes) processUpdate(update map[string]any) error {
 }
 
 func (i *Inboxes) processDelete(body map[string]any) error {
-	fmt.Println("processDelete", body)
 	actor := stringFromAny(body["object"])
 	err := i.service.db.Where("uri = ?", actor).Delete(&m.Actor{}).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -362,6 +371,11 @@ func timeFromAny(v any) (time.Time, error) {
 	default:
 		return time.Time{}, errors.New("timeFromAny: invalid type")
 	}
+}
+
+func intFromAny(v any) int {
+	i, _ := v.(int)
+	return i
 }
 
 func anyToSlice(v any) []any {

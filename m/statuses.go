@@ -140,6 +140,7 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*Status, error) {
 		}
 	}
 
+	f.service.Conversations()
 	conversationID := uint32(0)
 	if inReplyTo != nil {
 		conversationID = inReplyTo.ConversationID
@@ -160,7 +161,7 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*Status, error) {
 	}
 	createdAt := timeFromAny(obj["published"])
 
-	return &Status{
+	st := &Status{
 		ID:             snowflake.TimeToID(createdAt),
 		ActorID:        actor.ID,
 		Actor:          actor,
@@ -183,7 +184,8 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*Status, error) {
 		Language:    stringFromAny(obj["language"]),
 		URI:         uri,
 		Note:        stringFromAny(obj["content"]),
-	}, nil
+	}
+	return st, nil
 }
 
 func (f *RemoteStatusFetcher) fetch(uri string) (map[string]interface{}, error) {
