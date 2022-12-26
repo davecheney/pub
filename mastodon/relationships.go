@@ -106,11 +106,11 @@ func serializeRelationship(rel *m.Relationship) map[string]any {
 	return map[string]any{
 		"id":                   toString(rel.Target.ID),
 		"following":            rel.Following,
-		"showing_reblogs":      false, // todo
+		"showing_reblogs":      true,  // todo
 		"notifying":            false, // todo
 		"followed_by":          rel.FollowedBy,
-		"blocking":             false,
-		"blocked_by":           false,
+		"blocking":             rel.Blocking,
+		"blocked_by":           rel.BlockedBy,
 		"muting":               rel.Muting,
 		"muting_notifications": false,
 		"requested":            false,

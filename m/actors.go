@@ -40,6 +40,7 @@ type Relationship struct {
 	Target     *Actor
 	Muting     bool `gorm:"not null;default:false"`
 	Blocking   bool `gorm:"not null;default:false"`
+	BlockedBy  bool `gorm:"not null;default:false"`
 	Following  bool `gorm:"not null;default:false"`
 	FollowedBy bool `gorm:"not null;default:false"`
 }

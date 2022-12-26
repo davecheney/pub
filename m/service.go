@@ -63,17 +63,45 @@ type relationships struct {
 	db *gorm.DB
 }
 
+// Block blocks the target from the actor.
+func (r *relationships) Block(actor, target *Actor) (*Relationship, error) {
+	forward, inverse, err := r.pair(actor, target)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.db.Model(forward).Update("blocking", true).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Model(inverse).Update("blocked_by", true).Error; err != nil {
+		return nil, err
+	}
+	forward.Blocking = true
+	return forward, nil
+}
+
+// Unblock removes a block relationship between actor and the target.
+func (r *relationships) Unblock(actor, target *Actor) (*Relationship, error) {
+	forward, inverse, err := r.pair(actor, target)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.db.Model(forward).Update("blocking", false).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.Model(inverse).Update("blocked_by", false).Error; err != nil {
+		return nil, err
+	}
+	forward.Blocking = false
+	return forward, nil
+}
+
 // Follow establishes a follow relationship between actor and the target.
 func (r *relationships) Follow(actor, target *Actor) (*Relationship, error) {
-	forward, err := r.findOrCreate(actor, target)
+	forward, inverse, err := r.pair(actor, target)
 	if err != nil {
 		return nil, err
 	}
 	if err := r.db.Model(forward).Update("following", true).Error; err != nil {
-		return nil, err
-	}
-	inverse, err := r.findOrCreate(target, actor)
-	if err != nil {
 		return nil, err
 	}
 	if err := r.db.Model(inverse).Update("followed_by", true).Error; err != nil {
@@ -85,15 +113,11 @@ func (r *relationships) Follow(actor, target *Actor) (*Relationship, error) {
 
 // Unfollow removes a follow relationship between actor and the target.
 func (r *relationships) Unfollow(actor, target *Actor) (*Relationship, error) {
-	forward, err := r.findOrCreate(actor, target)
+	forward, inverse, err := r.pair(actor, target)
 	if err != nil {
 		return nil, err
 	}
 	if err := r.db.Model(forward).Update("following", false).Error; err != nil {
-		return nil, err
-	}
-	inverse, err := r.findOrCreate(target, actor)
-	if err != nil {
 		return nil, err
 	}
 	if err := r.db.Model(inverse).Update("followed_by", false).Error; err != nil {
@@ -101,6 +125,19 @@ func (r *relationships) Unfollow(actor, target *Actor) (*Relationship, error) {
 	}
 	forward.Following = false
 	return forward, nil
+}
+
+// pair returns the pair of relationships between actor and target.
+func (r *relationships) pair(actor, target *Actor) (*Relationship, *Relationship, error) {
+	forward, err := r.findOrCreate(actor, target)
+	if err != nil {
+		return nil, nil, err
+	}
+	inverse, err := r.findOrCreate(target, actor)
+	if err != nil {
+		return nil, nil, err
+	}
+	return forward, inverse, nil
 }
 
 func (r *relationships) findOrCreate(actor, target *Actor) (*Relationship, error) {

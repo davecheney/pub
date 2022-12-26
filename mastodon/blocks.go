@@ -6,7 +6,6 @@ import (
 	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type Blocks struct {
@@ -44,25 +43,13 @@ func (b *Blocks) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	var rel m.Relationship
-	if err := b.service.DB().Joins("Target").First(&rel, "actor_id = ? and target_id = ?", user.Actor.ID, target.ID).Error; err != nil {
-		if err != gorm.ErrRecordNotFound {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		rel = m.Relationship{
-			ActorID:  user.Actor.ID,
-			TargetID: target.ID,
-			Target:   &target,
-		}
-	}
-
-	rel.Blocking = true
-	if err := b.service.DB().Clauses(clause.OnConflict{UpdateAll: true}).Create(&rel).Error; err != nil {
+	svc := m.NewService(b.service.DB())
+	rel, err := svc.Relationships().Block(user.Actor, &target)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serializeRelationship(&rel))
+	toJSON(w, serializeRelationship(rel))
 }
 
 func (b *Blocks) Destroy(w http.ResponseWriter, r *http.Request) {
@@ -76,16 +63,11 @@ func (b *Blocks) Destroy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	var rel m.Relationship
-	if err := b.service.DB().Joins("Target").First(&rel, "actor_id = ? and target_id = ?", user.Actor.ID, target.ID).Error; err != nil {
+	svc := m.NewService(b.service.DB())
+	rel, err := svc.Relationships().Unblock(user.Actor, &target)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	rel.Blocking = false
-	if err := b.service.DB().Clauses(clause.OnConflict{UpdateAll: true}).Create(&rel).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	toJSON(w, serializeRelationship(&rel))
+	toJSON(w, serializeRelationship(rel))
 }
