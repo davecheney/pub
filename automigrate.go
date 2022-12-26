@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/davecheney/m/activitypub"
 	"github.com/davecheney/m/m"
 	"gorm.io/gorm"
 )
@@ -18,7 +17,6 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 	return db.AutoMigrate(
 		&m.Actor{}, &m.Webfinger{},
 		&m.Account{}, &m.AccountList{},
-		&activitypub.Activity{},
 		&m.Application{},
 		&m.Conversation{},
 		&m.ClientFilter{},
@@ -26,7 +24,7 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 		&m.Relationship{},
 		&m.Marker{},
 		&m.Notification{},
-		&m.Status{}, &m.Poll{},
+		&m.Status{}, &m.Poll{}, &m.StatusAttachment{},
 		&m.Token{},
 	)
 }

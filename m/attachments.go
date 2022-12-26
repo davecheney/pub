@@ -11,3 +11,8 @@ type Attachment struct {
 	Width    int
 	Height   int
 }
+
+type StatusAttachment struct {
+	Attachment
+	StatusID uint64
+}

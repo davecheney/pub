@@ -32,7 +32,6 @@ type Conversation struct {
 type Status struct {
 	ID               uint64 `gorm:"primaryKey;autoIncrement:false"`
 	UpdatedAt        time.Time
-	DeletedAt        gorm.DeletedAt `gorm:"index"`
 	ActorID          uint64
 	Actor            *Actor
 	ConversationID   uint32
@@ -52,8 +51,8 @@ type Status struct {
 	Reblog           *Status
 	PollID           *uint32
 	Pinned           bool
-
-	FavouritedBy []Actor `gorm:"many2many:favourites;"`
+	Attachments      []StatusAttachment
+	FavouritedBy     []Actor `gorm:"many2many:favourites;"`
 }
 
 type Poll struct {

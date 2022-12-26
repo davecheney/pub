@@ -7,21 +7,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/davecheney/m/internal/snowflake"
 	"github.com/davecheney/m/m"
 	"github.com/go-fed/httpsig"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
-
-type Activity struct {
-	gorm.Model
-	Object map[string]interface{} `gorm:"serializer:json"`
-}
-
-func (Activity) TableName() string {
-	return "inbox"
-}
 
 type Inboxes struct {
 	service *Service
@@ -54,6 +46,14 @@ func (i *Inboxes) Create(w http.ResponseWriter, r *http.Request) {
 func (i *Inboxes) processActivity(body map[string]any) error {
 	typ := stringFromAny(body["type"])
 	switch typ {
+	case "Create":
+		create := mapFromAny(body["object"])
+		return i.processCreate(create)
+	case "Announce":
+		return i.processAnnounce(body)
+	case "Undo":
+		undo := mapFromAny(body["object"])
+		return i.processUndo(undo)
 	case "Update":
 		update := mapFromAny(body["object"])
 		return i.processUpdate(update)
@@ -64,15 +64,211 @@ func (i *Inboxes) processActivity(body map[string]any) error {
 	case "Accept":
 		accept := mapFromAny(body["object"])
 		return i.processAccept(accept)
+	case "Add":
+		return i.processAdd(body)
+	case "Remove":
+		return i.processRemove(body)
 	default:
 		id := stringFromAny(body["id"])
-		fmt.Println("processActivity: queuing activity", id)
-		// Too hard, queue it.
-		activity := Activity{
-			Object: body,
-		}
-		return i.service.db.Create(&activity).Error
+		fmt.Println("processActivity: unknown type", typ, id)
+		return errors.New("unknown activity type " + typ)
 	}
+}
+
+func (i *Inboxes) processUndo(obj map[string]any) error {
+	typ := stringFromAny(obj["type"])
+	switch typ {
+	case "Announce":
+		return i.processUndoAnnounce(obj)
+	default:
+		return fmt.Errorf("unknown undo object type: %q", typ)
+	}
+}
+
+func (i *Inboxes) processUndoAnnounce(obj map[string]any) error {
+	id := stringFromAny(obj["id"])
+	svc := m.NewService(i.service.db)
+	status, err := svc.Statuses().FindByURI(id)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// already deleted
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return i.service.db.Delete(status).Error
+}
+
+func (i *Inboxes) processAnnounce(obj map[string]any) error {
+	target := stringFromAny(obj["object"])
+	svc := m.NewService(i.service.db)
+	original, err := svc.Statuses().FindOrCreate(target, svc.Statuses().NewRemoteStatusFetcher().Fetch)
+	if err != nil {
+		return err
+	}
+
+	actor, err := svc.Actors().FindOrCreate(stringFromAny(obj["actor"]), svc.Actors().NewRemoteActorFetcher().Fetch)
+	if err != nil {
+		return err
+	}
+
+	published, err := timeFromAny(obj["published"])
+	if err != nil {
+		return err
+	}
+
+	conv := m.Conversation{
+		Visibility: "public",
+	}
+	if err := i.service.db.Create(&conv).Error; err != nil {
+		return err
+	}
+
+	status := &m.Status{
+		ID:               snowflake.TimeToID(published),
+		ActorID:          actor.ID,
+		Actor:            actor,
+		ConversationID:   conv.ID,
+		URI:              stringFromAny(obj["id"]),
+		InReplyToID:      nil,
+		InReplyToActorID: nil,
+		Sensitive:        false,
+		SpoilerText:      "",
+		Visibility:       "public",
+		Language:         "",
+		Note:             "",
+		ReblogID:         &original.ID,
+		Reblog:           original,
+	}
+
+	return i.service.db.Create(status).Error
+}
+
+func (i *Inboxes) processAdd(act map[string]any) error {
+	target := stringFromAny(act["target"])
+	switch target {
+	case stringFromAny(act["actor"]) + "/collections/featured":
+		svc := m.NewService(i.service.db)
+		status, err := svc.Statuses().FindByURI(stringFromAny(act["object"]))
+		if err != nil {
+			return err
+		}
+		status.Pinned = true
+		return i.service.db.Save(status).Error
+	default:
+		x, _ := marshalIndent(act)
+		fmt.Println("processAdd:", string(x))
+		return errors.New("not implemented")
+	}
+}
+
+func (i *Inboxes) processRemove(act map[string]any) error {
+	target := stringFromAny(act["target"])
+	switch target {
+	case stringFromAny(act["actor"]) + "/collections/featured":
+		svc := m.NewService(i.service.db)
+		status, err := svc.Statuses().FindByURI(stringFromAny(act["object"]))
+		if err != nil {
+			return err
+		}
+		status.Pinned = false
+		return i.service.db.Save(status).Error
+	default:
+		x, _ := marshalIndent(act)
+		fmt.Println("processRemove:", string(x))
+		return errors.New("not implemented")
+	}
+}
+
+func (i *Inboxes) processCreate(create map[string]any) error {
+	typ := stringFromAny(create["type"])
+	switch typ {
+	case "Note":
+		return i.processCreateNote(create)
+	default:
+		return fmt.Errorf("unknown create object type: %q", typ)
+	}
+}
+
+func (i *Inboxes) processCreateNote(create map[string]any) error {
+	uri := stringFromAny(create["atomUri"])
+	if uri == "" {
+		return errors.New("missing atomUri")
+	}
+
+	svc := m.NewService(i.service.db)
+	_, err := svc.Statuses().FindOrCreate(uri, func(string) (*m.Status, error) {
+		fetcher := svc.Actors().NewRemoteActorFetcher()
+		actor, err := svc.Actors().FindOrCreate(stringFromAny(create["attributedTo"]), fetcher.Fetch)
+		if err != nil {
+			return nil, err
+		}
+
+		published, err := timeFromAny(create["published"])
+		if err != nil {
+			return nil, err
+		}
+		vis := visiblity(create)
+		if vis == "" {
+			x, _ := marshalIndent(create)
+			return nil, fmt.Errorf("unsupported visibility %q: %s", vis, x)
+		}
+
+		var inReplyTo *m.Status
+		if inReplyToAtomUri, ok := create["inReplyTo"].(string); ok {
+			remoteStatusFetcher := svc.Statuses().NewRemoteStatusFetcher()
+			inReplyTo, err = svc.Statuses().FindOrCreate(inReplyToAtomUri, remoteStatusFetcher.Fetch)
+			if err != nil {
+				fmt.Println("inReplyToAtomUri:", inReplyToAtomUri, "err:", err)
+			}
+		}
+
+		conversationID := uint32(0)
+		if inReplyTo != nil {
+			conversationID = inReplyTo.ConversationID
+		} else {
+			conv := m.Conversation{
+				Visibility: vis,
+			}
+			if err := i.service.db.Create(&conv).Error; err != nil {
+				return nil, err
+			}
+			conversationID = conv.ID
+		}
+
+		att, _ := marshalIndent(create["attachment"])
+		fmt.Println("attachment:", string(att))
+
+		return &m.Status{
+			ID:             snowflake.TimeToID(published),
+			ActorID:        actor.ID,
+			Actor:          actor,
+			ConversationID: conversationID,
+			URI:            uri,
+			InReplyToID: func() *uint64 {
+				if inReplyTo != nil {
+					return &inReplyTo.ID
+				}
+				return nil
+			}(),
+			InReplyToActorID: func() *uint64 {
+				if inReplyTo != nil {
+					return &inReplyTo.ActorID
+				}
+				return nil
+			}(),
+			Sensitive:   boolFromAny(create["sensitive"]),
+			SpoilerText: stringFromAny(create["summary"]),
+			Visibility:  "public",
+			Language:    "en",
+			Note:        stringFromAny(create["content"]),
+		}, nil
+	})
+	if err != nil {
+		b, _ := marshalIndent(create)
+		fmt.Println("processCreate", string(b), err)
+	}
+	return err
 }
 
 func (i *Inboxes) processAccept(obj map[string]any) error {
@@ -177,4 +373,44 @@ func timeFromAny(v any) (time.Time, error) {
 	default:
 		return time.Time{}, errors.New("timeFromAny: invalid type")
 	}
+}
+
+func anyToSlice(v any) []any {
+	switch v := v.(type) {
+	case []any:
+		return v
+	default:
+		return nil
+	}
+}
+
+func boolFromAny(v any) bool {
+	b, _ := v.(bool)
+	return b
+}
+
+func visiblity(obj map[string]any) string {
+	actor := stringFromAny(obj["attributedTo"])
+	for _, recipient := range anyToSlice(obj["to"]) {
+		switch recipient {
+		case "https://www.w3.org/ns/activitystreams#Public":
+			return "public"
+		case actor + "/followers":
+			return "limited"
+		}
+	}
+	for _, recipient := range anyToSlice(obj["cc"]) {
+		switch recipient {
+		case "https://www.w3.org/ns/activitystreams#Public":
+			return "public"
+		}
+	}
+	return ""
+}
+
+func marshalIndent(v any) ([]byte, error) {
+	b, err := json.MarshalOptions{}.Marshal(json.EncodeOptions{
+		Indent: "\t", // indent for readability
+	}, v)
+	return b, err
 }

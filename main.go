@@ -26,7 +26,6 @@ var cli struct {
 	Serve                ServeCmd                `cmd:"" help:"Serve a local web server."`
 	SynchroniseFollowers SynchroniseFollowersCmd `cmd:"" help:"Synchronise followers."`
 	Imoport              ImportCmd               `cmd:"" help:"Import data from another instance."`
-	Inbox                InboxCmd                `cmd:"" help:"Process the inbox."`
 	Follow               FollowCmd               `cmd:"" help:"Follow an object."`
 	Purge                PurgeCmd                `cmd:"" help:"Purge a URI."`
 }
