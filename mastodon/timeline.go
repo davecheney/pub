@@ -46,12 +46,6 @@ func (t *Timelines) Home(w http.ResponseWriter, r *http.Request) {
 }
 
 func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
-	_, err := t.service.authenticate(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
 	var statuses []m.Status
 	scope := t.service.DB().Scopes(t.paginate(r)).Where("visibility = ? and reblog_id is null and in_reply_to_id is null", "public")
 	switch r.URL.Query().Get("local") {

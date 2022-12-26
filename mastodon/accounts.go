@@ -8,6 +8,7 @@ import (
 	"github.com/davecheney/m/internal/snowflake"
 	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
+	"gorm.io/gorm"
 )
 
 type Accounts struct {
@@ -66,6 +67,79 @@ func (a *Accounts) StatusesShow(w http.ResponseWriter, r *http.Request) {
 		resp = append(resp, serializeStatus(&status))
 	}
 	toJSON(w, resp)
+}
+
+func (a *Accounts) FollowersShow(w http.ResponseWriter, r *http.Request) {
+	_, err := a.service.authenticate(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	var followers []m.Relationship
+	if err := a.service.DB().Scopes(a.paginateRelationship(r)).Preload("Target").Where("actor_id = ? and followed_by = true", chi.URLParam(r, "id")).Find(&followers).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var resp []any
+	for _, follower := range followers {
+		resp = append(resp, serialize(follower.Target))
+	}
+	if len(followers) > 0 {
+		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/accounts/%s/followers?max_id=%d>; rel=\"next\", <https://%s/api/v1/accounts/%s/followers?min_id=%d>; rel=\"prev\"", r.Host, chi.URLParam(r, "id"), followers[len(followers)-1].TargetID, r.Host, chi.URLParam(r, "id"), followers[0].TargetID))
+	}
+	toJSON(w, resp)
+}
+
+func (a *Accounts) FollowingShow(w http.ResponseWriter, r *http.Request) {
+	_, err := a.service.authenticate(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	var following []m.Relationship
+	if err := a.service.DB().Scopes(a.paginateRelationship(r)).Preload("Target").Where("actor_id = ? and following = true", chi.URLParam(r, "id")).Find(&following).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	var resp []any
+	for _, f := range following {
+		resp = append(resp, serialize(f.Target))
+	}
+	if len(following) > 0 {
+		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/accounts/%s/following?max_id=%d>; rel=\"next\", <https://%s/api/v1/accounts/%s/following?min_id=%d>; rel=\"prev\"", r.Host, chi.URLParam(r, "id"), following[len(following)-1].TargetID, r.Host, chi.URLParam(r, "id"), following[0].TargetID))
+	}
+	toJSON(w, resp)
+}
+
+func (a *Accounts) paginateRelationship(r *http.Request) func(db *gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		q := r.URL.Query()
+
+		limit, _ := strconv.Atoi(q.Get("limit"))
+		switch {
+		case limit > 40:
+			limit = 40
+		case limit <= 0:
+			limit = 20
+		}
+		db = db.Limit(limit)
+
+		sinceID, _ := strconv.Atoi(r.URL.Query().Get("since_id"))
+		if sinceID > 0 {
+			db = db.Where("target_id > ?", sinceID)
+		}
+		minID, _ := strconv.Atoi(r.URL.Query().Get("min_id"))
+		if minID > 0 {
+			db = db.Where("target_id > ?", minID)
+		}
+		maxID, _ := strconv.Atoi(r.URL.Query().Get("max_id"))
+		if maxID > 0 {
+			db = db.Where("target_id < ?", maxID)
+		}
+		return db.Order("target_id desc")
+	}
 }
 
 func (a *Accounts) Update(w http.ResponseWriter, r *http.Request) {
