@@ -12,7 +12,6 @@ import (
 	"github.com/go-fed/httpsig"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type Inboxes struct {
@@ -295,27 +294,17 @@ func (i *Inboxes) processFollow(body map[string]any) error {
 	if err := i.service.db.First(&target, "actor_id = ?", stringFromAny(body["object"])).Error; err != nil {
 		return err
 	}
-
-	var rel m.Relationship
-	if err := i.service.db.Joins("Target").First(&rel, "actor_id = ? and target_id = ?", actor.ID, target.ID).Error; err != nil {
-		if err != gorm.ErrRecordNotFound {
-			return err
-		}
-		rel = m.Relationship{
-			ActorID:  actor.ID,
-			TargetID: target.ID,
-			Target:   &target,
-		}
-	}
-
-	rel.FollowedBy = true
-	return i.service.db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&rel).Error
+	svc := m.NewService(i.service.db)
+	_, err := svc.Relationships().Follow(&actor, &target)
+	return err
 }
 
 func (i *Inboxes) processUpdate(update map[string]any) error {
 	id := stringFromAny(update["id"])
 	var status m.Status
 	if err := i.service.db.Where("uri = ?", id).First(&status).Error; err != nil {
+		x, _ := marshalIndent(update)
+		fmt.Println("processUpdate", string(x), err)
 		return err
 	}
 	updated, err := timeFromAny(update["published"])

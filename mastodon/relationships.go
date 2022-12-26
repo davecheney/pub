@@ -8,7 +8,6 @@ import (
 	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type Relationships struct {
@@ -58,25 +57,9 @@ func (r *Relationships) Create(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var rel m.Relationship
-	if err := r.service.DB().Joins("Target").First(&rel, "actor_id = ? and target_id = ?", user.Actor.ID, target.ID).Error; err != nil {
-		if err != gorm.ErrRecordNotFound {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		rel = m.Relationship{
-			ActorID:  user.Actor.ID,
-			TargetID: target.ID,
-			Target:   &target,
-		}
-	}
-
-	rel.Following = true
-	if err := r.service.DB().Clauses(clause.OnConflict{UpdateAll: true}).Create(&rel).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	toJSON(w, serializeRelationship(&rel))
+	svc := m.NewService(r.service.DB())
+	rel, err := svc.Relationships().Follow(user.Actor, &target)
+	toJSON(w, serializeRelationship(rel))
 }
 
 func (r *Relationships) sendFollowRequest(account *m.Account, target *m.Actor) error {
@@ -105,25 +88,13 @@ func (r *Relationships) Destroy(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var rel m.Relationship
-	if err := r.service.DB().Joins("Target").First(&rel, "actor_id = ? and target_id = ?", user.Actor.ID, target.ID).Error; err != nil {
-		if err != gorm.ErrRecordNotFound {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		rel = m.Relationship{
-			ActorID:  user.Actor.ID,
-			TargetID: target.ID,
-			Target:   &target,
-		}
-	}
-
-	rel.Following = false
-	if err := r.service.DB().Clauses(clause.OnConflict{UpdateAll: true}).Create(&rel).Error; err != nil {
+	svc := m.NewService(r.service.DB())
+	rel, err := svc.Relationships().Unfollow(user.Actor, &target)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serializeRelationship(&rel))
+	toJSON(w, serializeRelationship(rel))
 }
 
 func (r *Relationships) sendUnfollowRequest(account *m.Account, target *m.Actor) error {

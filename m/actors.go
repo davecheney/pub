@@ -44,6 +44,24 @@ type Relationship struct {
 	FollowedBy bool `gorm:"not null;default:false"`
 }
 
+func (r *Relationship) AfterUpdate(tx *gorm.DB) error {
+	var following int64
+	if err := tx.Model(r).Where("actor_id = ? and following = true", r.ActorID).Count(&following).Error; err != nil {
+		return err
+	}
+	var followedBy int64
+	if err := tx.Model(r).Where("target_id = ? and following = true", r.ActorID).Count(&followedBy).Error; err != nil {
+		return err
+	}
+	actor := &Actor{
+		ID: r.ActorID,
+	}
+	if err := tx.Model(actor).Update("followers_count", followedBy).Error; err != nil {
+		return err
+	}
+	return tx.Model(actor).Update("following_count", following).Error
+}
+
 type Webfinger struct {
 	ID        uint `gorm:"primarykey"`
 	CreatedAt time.Time
