@@ -56,6 +56,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 				r.Get("/instance", instance.IndexV1)
 				r.Get("/instance/peers", instance.PeersShow)
 				r.Get("/{id}", accounts.Show)
+				r.Get("/{id}/lists", mastodon.Lists().Show)
 				r.Get("/{id}/statuses", accounts.StatusesShow)
 				r.Post("/{id}/follow", mastodon.Relationships().Create)
 				r.Get("/{id}/followers", accounts.FollowersShow)

@@ -142,18 +142,9 @@ func (r *relationships) pair(actor, target *Actor) (*Relationship, *Relationship
 
 func (r *relationships) findOrCreate(actor, target *Actor) (*Relationship, error) {
 	var rel Relationship
-	err := r.db.Joins("Target").First(&rel, "actor_id = ? and target_id = ?", actor.ID, target.ID).Error
-	if err == nil {
-		return &rel, nil
-	}
-	if err != gorm.ErrRecordNotFound {
+	if err := r.db.FirstOrCreate(&rel, Relationship{ActorID: actor.ID, TargetID: target.ID}).Error; err != nil {
 		return nil, err
 	}
-	rel = Relationship{
-		ActorID:  actor.ID,
-		TargetID: target.ID,
-		Target:   target,
-	}
-	result := r.db.Create(&rel)
-	return &rel, result.Error
+	rel.Target = target
+	return &rel, nil
 }

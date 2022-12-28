@@ -33,3 +33,15 @@ func (l *Lists) Index(w http.ResponseWriter, r *http.Request) {
 	}
 	toJSON(w, resp)
 }
+
+func (l *Lists) Show(w http.ResponseWriter, r *http.Request) {
+	_, err := l.service.authenticate(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	var resp []any
+
+	toJSON(w, resp)
+}

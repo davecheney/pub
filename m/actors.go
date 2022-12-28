@@ -34,6 +34,22 @@ type Actor struct {
 	Relationships  []Relationship
 }
 
+func (a *Actor) IsBot() bool {
+	return !a.IsPerson()
+}
+
+func (a *Actor) IsPerson() bool {
+	return a.Type == "Person" || a.Type == "LocalPerson"
+}
+
+func (a *Actor) IsLocal() bool {
+	return a.Type == "LocalPerson"
+}
+
+func (a *Actor) IsGroup() bool {
+	return a.Type == "Group"
+}
+
 type Relationship struct {
 	ActorID    uint64 `gorm:"primarykey"`
 	TargetID   uint64 `gorm:"primarykey"`

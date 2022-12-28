@@ -78,7 +78,7 @@ func (a *Accounts) FollowersShow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var followers []m.Relationship
-	if err := a.service.DB().Scopes(a.paginateRelationship(r)).Preload("Target").Where("actor_id = ? and followed_by = true", chi.URLParam(r, "id")).Find(&followers).Error; err != nil {
+	if err := a.service.DB().Scopes(paginateRelationship(r)).Preload("Target").Where("actor_id = ? and followed_by = true", chi.URLParam(r, "id")).Find(&followers).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -100,7 +100,7 @@ func (a *Accounts) FollowingShow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var following []m.Relationship
-	if err := a.service.DB().Scopes(a.paginateRelationship(r)).Preload("Target").Where("actor_id = ? and following = true", chi.URLParam(r, "id")).Find(&following).Error; err != nil {
+	if err := a.service.DB().Scopes(paginateRelationship(r)).Preload("Target").Where("actor_id = ? and following = true", chi.URLParam(r, "id")).Find(&following).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -114,7 +114,7 @@ func (a *Accounts) FollowingShow(w http.ResponseWriter, r *http.Request) {
 	toJSON(w, resp)
 }
 
-func (a *Accounts) paginateRelationship(r *http.Request) func(db *gorm.DB) *gorm.DB {
+func paginateRelationship(r *http.Request) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		q := r.URL.Query()
 
@@ -174,16 +174,16 @@ func serializeAccount(a *m.Actor) map[string]any {
 		"id":       toString(a.ID),
 		"username": a.Name,
 		"acct": func(a *m.Actor) string {
-			if a.Type == "LocalPerson" {
+			if a.IsLocal() {
 				return a.Name
 			}
 			return fmt.Sprintf("%s@%s", a.Name, a.Domain)
 		}(a),
 		"display_name":    a.DisplayName,
 		"locked":          a.Locked,
-		"bot":             a.Type == "Person",
+		"bot":             a.IsBot(),
 		"discoverable":    true,
-		"group":           a.Type == "Group",
+		"group":           a.IsGroup(),
 		"created_at":      snowflake.IDToTime(a.ID).Round(time.Hour).Format("2006-01-02T00:00:00.000Z"),
 		"note":            a.Note,
 		"url":             fmt.Sprintf("https://%s/@%s", a.Domain, a.Name),

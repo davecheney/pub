@@ -244,6 +244,7 @@ func (i *Inboxes) processCreateNote(create map[string]any) error {
 		}
 		for _, att := range anyToSlice(create["attachment"]) {
 			at := mapFromAny(att)
+			fmt.Println("attchment:", at)
 			st.Attachments = append(st.Attachments, m.StatusAttachment{
 				Attachment: m.Attachment{
 					MediaType: stringFromAny(at["mediaType"]),
@@ -373,8 +374,14 @@ func timeFromAny(v any) (time.Time, error) {
 }
 
 func intFromAny(v any) int {
-	i, _ := v.(int)
-	return i
+	switch v := v.(type) {
+	case int:
+		return v
+	case float64:
+		// shakes fist at json number type
+		return int(v)
+	}
+	return 0
 }
 
 func anyToSlice(v any) []any {

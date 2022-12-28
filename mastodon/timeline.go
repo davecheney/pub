@@ -28,7 +28,7 @@ func (t *Timelines) Home(w http.ResponseWriter, r *http.Request) {
 	followingIDs = append(followingIDs, int64(user.ID))
 
 	var statuses []m.Status
-	scope := t.service.DB().Scopes(t.paginate(r)).Where("(actor_id IN (?) AND in_reply_to_actor_id is null) or (actor_id in (?) and in_reply_to_actor_id IN (?))", followingIDs, followingIDs, followingIDs)
+	scope := t.service.DB().Scopes(paginateStatuses(r)).Where("(actor_id IN (?) AND in_reply_to_actor_id is null) or (actor_id in (?) and in_reply_to_actor_id IN (?))", followingIDs, followingIDs, followingIDs)
 	scope = scope.Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").Preload("Attachments")
 	if err := scope.Find(&statuses).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -47,7 +47,7 @@ func (t *Timelines) Home(w http.ResponseWriter, r *http.Request) {
 
 func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
 	var statuses []m.Status
-	scope := t.service.DB().Scopes(t.paginate(r)).Where("visibility = ? and reblog_id is null and in_reply_to_id is null", "public")
+	scope := t.service.DB().Scopes(paginateStatuses(r)).Where("visibility = ? and reblog_id is null and in_reply_to_id is null", "public")
 	switch r.URL.Query().Get("local") {
 	case "true":
 		scope = scope.Joins("Actor").Where("Actor.domain = ?", r.Host)
@@ -69,7 +69,7 @@ func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
 	toJSON(w, resp)
 }
 
-func (t *Timelines) paginate(r *http.Request) func(db *gorm.DB) *gorm.DB {
+func paginateStatuses(r *http.Request) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		q := r.URL.Query()
 

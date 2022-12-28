@@ -22,7 +22,6 @@ func (r *Relationships) Show(w http.ResponseWriter, req *http.Request) {
 	}
 	targets := req.URL.Query()["id"]
 	targets = append(targets, req.URL.Query()["id[]"]...)
-	fmt.Println("relationships show: targets: ", targets)
 	var resp []any
 	for _, target := range targets {
 		tid, err := strconv.ParseUint(target, 10, 64)
