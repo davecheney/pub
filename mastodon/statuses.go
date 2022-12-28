@@ -128,7 +128,8 @@ func (s *Statuses) Show(w http.ResponseWriter, r *http.Request) {
 func serializeStatus(s *m.Status) map[string]any {
 	return map[string]any{
 		"id":                     toString(s.ID),
-		"created_at":             snowflake.IDToTime(s.ID).UTC().Format("2006-01-02T15:04:05.006Z"),
+		"created_at":             snowflake.IDToTime(s.ID).Round(time.Second).Format("2006-01-02T15:04:05.000Z"),
+		"edited_at":              nil,
 		"in_reply_to_id":         stringOrNull(s.InReplyToID),
 		"in_reply_to_account_id": stringOrNull(s.InReplyToActorID),
 		"sensitive":              s.Sensitive,
@@ -152,14 +153,13 @@ func serializeStatus(s *m.Status) map[string]any {
 		"muted":            false, // todo
 		"bookmarked":       false, // todo
 		"content":          s.Note,
-		"text":             nil,
 		"reblog": func(s *m.Status) any {
 			if s.Reblog == nil {
 				return nil
 			}
 			return serializeStatus(s.Reblog)
 		}(s),
-		"application":       nil,
+		"filtered":          []map[string]any{},
 		"account":           serializeAccount(s.Actor),
 		"media_attachments": serializeAttachments(s.Attachments),
 		"mentions":          []map[string]any{},

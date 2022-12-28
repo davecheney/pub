@@ -64,9 +64,13 @@ func (st *Status) AfterCreate(tx *gorm.DB) error {
 			return err
 		}
 	}
-	// update the last_status_at field on the actor
+	// update the status_count and last_status_at fields on the actor
+	statusesCount := tx.Select("COUNT(id)").Where("actor_id = ?", st.ActorID).Table("statuses")
 	createdAt := snowflake.IDToTime(st.ID)
-	return tx.Model(st.Actor).Update("last_status_at", createdAt).Error
+	return tx.Model(st.Actor).Updates(map[string]interface{}{
+		"statuses_count": statusesCount,
+		"last_status_at": createdAt,
+	}).Error
 }
 
 type Poll struct {

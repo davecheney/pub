@@ -29,7 +29,6 @@ type Instance struct {
 	DomainsCount int `gorm:"-"`
 
 	Rules        []InstanceRule `gorm:"foreignKey:InstanceID"`
-	Accounts     []Account
 	Applications []Application
 }
 
@@ -91,7 +90,7 @@ type Account struct {
 	ID                uint `gorm:"primarykey"`
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
-	InstanceID        uint32
+	InstanceID        uint32 `gorm:"index"`
 	ActorID           uint64
 	Actor             *Actor
 	Notifications     []Notification

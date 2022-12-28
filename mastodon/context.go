@@ -38,15 +38,18 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 
 	ancestors, decendants := thread(statusID, statuses)
 	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, map[string]interface{}{
-		"ancestors": func() []map[string]interface{} {
+	json.MarshalFull(w, struct {
+		Ancestors   []map[string]any `json:"ancestors"`
+		Descendants []map[string]any `json:"descendants"`
+	}{
+		Ancestors: func() []map[string]interface{} {
 			var a []map[string]interface{}
 			for _, s := range ancestors {
 				a = append(a, serializeStatus(s))
 			}
 			return a
 		}(),
-		"descendants": func() []map[string]interface{} {
+		Descendants: func() []map[string]interface{} {
 			var a []map[string]interface{}
 			for _, s := range decendants {
 				a = append(a, serializeStatus(s))
