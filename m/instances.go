@@ -33,7 +33,7 @@ func (i *instances) ForRequest(r *http.Request) (*Instance, error) {
 
 func (i *instances) FindByDomain(domain string) (*Instance, error) {
 	var instance Instance
-	if err := i.db.Where("domain = ?", domain).Preload("Admin").Preload("Admin.Actor").First(&instance).Error; err != nil {
+	if err := i.db.Where("domain = ?", domain).Preload("Admin").Preload("Admin.Actor").Preload("Rules").First(&instance).Error; err != nil {
 		return nil, err
 	}
 	return &instance, nil

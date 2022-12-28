@@ -14,10 +14,7 @@ type Directory struct {
 
 func (d *Directory) Index(w http.ResponseWriter, r *http.Request) {
 	var actors []m.Actor
-	query := d.service.DB().Scopes(paginateActors(r))
-	if r.URL.Query().Get("local") != "" {
-		query = query.Where("domain = ?", r.Host)
-	}
+	query := d.service.DB().Scopes(paginateActors(r), isLocal(r))
 	if err := query.Find(&actors).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -27,6 +24,15 @@ func (d *Directory) Index(w http.ResponseWriter, r *http.Request) {
 		resp = append(resp, serializeAccount(&a))
 	}
 	toJSON(w, resp)
+}
+
+func isLocal(r *http.Request) func(db *gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		if r.URL.Query().Get("local") != "" {
+			return db.Where("domain = ?", r.Host)
+		}
+		return db
+	}
 }
 
 func paginateActors(r *http.Request) func(db *gorm.DB) *gorm.DB {

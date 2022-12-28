@@ -98,8 +98,11 @@ func (r *Relationships) Destroy(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Relationships) sendUnfollowRequest(account *m.Account, target *m.Actor) error {
-	// todo
-	return nil
+	client, err := activitypub.NewClient(account.Actor.PublicKeyID(), account.PrivateKey)
+	if err != nil {
+		return err
+	}
+	return client.Unfollow(account.Actor.URI, target.URI)
 }
 
 func serializeRelationship(rel *m.Relationship) map[string]any {

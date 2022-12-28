@@ -193,6 +193,16 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*Status, error) {
 	return st, nil
 }
 
+// // noteToStatus converts an ActivityPub note to a Status.
+// func noteToStatus(note map[string]interface{}) (*Status, error) {
+// 	createdAt := timeFromAny(note["published"])
+// 	st := &Status{
+// 		ID:             snowflake.TimeToID(createdAt),
+// 		ActorID:        actor.ID,
+// 		Actor:          actor,
+// 	}
+// }
+
 func (f *RemoteStatusFetcher) fetch(uri string) (map[string]interface{}, error) {
 	// use admin account to sign the request
 	signAs, err := f.service.Accounts().FindAdminAccount()
