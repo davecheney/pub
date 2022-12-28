@@ -200,9 +200,8 @@ func serializeAccount(a *m.Actor) map[string]any {
 			}
 			return a.LastStatusAt.Format("2006-01-02")
 		}(a),
-		"noindex": false, // todo
-		"emojis":  []map[string]any{},
-		"fields":  []map[string]any{},
+		"emojis": []map[string]any{},
+		"fields": []map[string]any{},
 	}
 }
 

@@ -56,6 +56,15 @@ type Status struct {
 }
 
 func (st *Status) AfterCreate(tx *gorm.DB) error {
+	// update the replies_count field on the parent status
+	if st.InReplyToID != nil {
+		parent := &Status{ID: *st.InReplyToID}
+		repliesCount := tx.Select("COUNT(id)").Where("in_reply_to_id = ?", *st.InReplyToID).Table("statuses")
+		if err := tx.Model(parent).Update("replies_count", repliesCount).Error; err != nil {
+			return err
+		}
+	}
+	// update the last_status_at field on the actor
 	createdAt := snowflake.IDToTime(st.ID)
 	return tx.Model(st.Actor).Update("last_status_at", createdAt).Error
 }

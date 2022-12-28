@@ -31,7 +31,7 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 
 	// load conversation statuses
 	var statuses []m.Status
-	if err := c.service.DB().Where("conversation_id = ?", conv.ID).Joins("Actor").Find(&statuses).Error; err != nil {
+	if err := c.service.DB().Where("conversation_id = ?", conv.ID).Preload("Actor").Find(&statuses).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -39,15 +39,15 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 	ancestors, decendants := thread(statusID, statuses)
 	w.Header().Set("Content-Type", "application/json")
 	json.MarshalFull(w, map[string]interface{}{
-		"ancestors": func() any {
-			var a []any
+		"ancestors": func() []map[string]interface{} {
+			var a []map[string]interface{}
 			for _, s := range ancestors {
 				a = append(a, serializeStatus(s))
 			}
 			return a
 		}(),
-		"descendants": func() any {
-			var a []any
+		"descendants": func() []map[string]interface{} {
+			var a []map[string]interface{}
 			for _, s := range decendants {
 				a = append(a, serializeStatus(s))
 			}

@@ -147,12 +147,12 @@ func serializeStatus(s *m.Status) map[string]any {
 		"replies_count":    s.RepliesCount,
 		"reblogs_count":    s.ReblogsCount,
 		"favourites_count": s.FavouritesCount,
-		// "favourited":             false,
-		// "reblogged":              false,
-		// "muted":                  false,
-		// "bookmarked":             false,
-		"content": s.Note,
-		"text":    nil,
+		"favourited":       false, // todo
+		"reblogged":        false, // todo
+		"muted":            false, // todo
+		"bookmarked":       false, // todo
+		"content":          s.Note,
+		"text":             nil,
 		"reblog": func(s *m.Status) any {
 			if s.Reblog == nil {
 				return nil
