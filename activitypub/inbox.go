@@ -43,6 +43,7 @@ func (i *Inboxes) Create(w http.ResponseWriter, r *http.Request) {
 // blocking, it is handled immediately. If the activity requires blocking, it is
 // queued for later processing.
 func (i *Inboxes) processActivity(body map[string]any) error {
+	fmt.Println("processActivity: type:", stringFromAny(body["type"]), "id:", stringFromAny(body["id"]))
 	typ := stringFromAny(body["type"])
 	switch typ {
 	case "Create":
@@ -68,8 +69,6 @@ func (i *Inboxes) processActivity(body map[string]any) error {
 	case "Remove":
 		return i.processRemove(body)
 	default:
-		id := stringFromAny(body["id"])
-		fmt.Println("processActivity: unknown type", typ, id)
 		return errors.New("unknown activity type " + typ)
 	}
 }

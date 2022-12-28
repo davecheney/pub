@@ -55,6 +55,11 @@ type Status struct {
 	FavouritedBy     []Actor `gorm:"many2many:favourites;"`
 }
 
+func (st *Status) AfterCreate(tx *gorm.DB) error {
+	createdAt := snowflake.IDToTime(st.ID)
+	return tx.Model(st.Actor).Update("last_status_at", createdAt).Error
+}
+
 type Poll struct {
 	ID         uint32 `gorm:"primarykey"`
 	CreatedAt  time.Time

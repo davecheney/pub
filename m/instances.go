@@ -10,7 +10,7 @@ import (
 
 type InstanceRule struct {
 	gorm.Model
-	InstanceID uint
+	InstanceID uint32
 	Text       string
 }
 

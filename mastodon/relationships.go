@@ -3,11 +3,11 @@ package mastodon
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/davecheney/m/internal/activitypub"
 	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
-	"gorm.io/gorm"
 )
 
 type Relationships struct {
@@ -23,18 +23,18 @@ func (r *Relationships) Show(w http.ResponseWriter, req *http.Request) {
 	targets := req.URL.Query()["id"]
 	targets = append(targets, req.URL.Query()["id[]"]...)
 	fmt.Println("relationships show: targets: ", targets)
-	var rels []m.Relationship
-	if err := r.service.DB().Preload("Target").Find(&rels, "actor_id = ? and target_id IN (?) ", user.Actor.ID, targets).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+	var resp []any
+	for _, target := range targets {
+		tid, err := strconv.ParseUint(target, 10, 64)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		var rel m.Relationship
+		if err := r.service.DB().Preload("Target").FirstOrCreate(&rel, m.Relationship{ActorID: user.Actor.ID, TargetID: tid}).Error; err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	var resp []any
-	for _, rel := range rels {
 		resp = append(resp, serializeRelationship(&rel))
 	}
 	toJSON(w, resp)
@@ -105,7 +105,7 @@ func (r *Relationships) sendUnfollowRequest(account *m.Account, target *m.Actor)
 
 func serializeRelationship(rel *m.Relationship) map[string]any {
 	return map[string]any{
-		"id":                   toString(rel.Target.ID),
+		"id":                   toString(rel.TargetID),
 		"following":            rel.Following,
 		"showing_reblogs":      true,  // todo
 		"notifying":            false, // todo
@@ -117,6 +117,14 @@ func serializeRelationship(rel *m.Relationship) map[string]any {
 		"requested":            false,
 		"domain_blocking":      false,
 		"endorsed":             false,
-		"note":                 rel.Target.Note,
+		"note": func() string {
+			// FirstOrCreate won't preload the Target
+			// so it will be zero. :(
+			if rel.Target != nil {
+				return rel.Target.Note
+			} else {
+				return ""
+			}
+		}(),
 	}
 }

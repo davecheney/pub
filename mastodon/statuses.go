@@ -20,12 +20,12 @@ type Statuses struct {
 }
 
 func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
-	account, err := s.service.authenticate(r)
+	user, err := s.service.authenticate(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	actor := account.Actor
+	actor := user.Actor
 	var toot struct {
 		Status      string     `json:"status"`
 		InReplyToID *uint64    `json:"in_reply_to_id,string"`
@@ -73,11 +73,7 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 		Language:       toot.Language,
 		Note:           toot.Status,
 	}
-	if err := s.service.DB().Model(conv).Association("Statuses").Append(&status); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if err := s.service.DB().Model(account).Association("Statuses").Append(&status); err != nil {
+	if err := s.service.DB().Create(&status).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

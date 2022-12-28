@@ -12,7 +12,7 @@ import (
 // An Instance has many InstanceRules.
 // An Instance has an Admin Account.
 type Instance struct {
-	ID               uint `gorm:"primarykey"`
+	ID               uint32 `gorm:"primarykey"`
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	Domain           string `gorm:"size:64;uniqueIndex"`
@@ -60,7 +60,7 @@ func (i *Instance) updateStatusesCount(tx *gorm.DB) error {
 // An Application has many Tokens.
 type Application struct {
 	gorm.Model
-	InstanceID   uint
+	InstanceID   uint32
 	Instance     *Instance
 	Name         string
 	Website      *string
@@ -91,7 +91,7 @@ type Account struct {
 	ID                uint `gorm:"primarykey"`
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
-	InstanceID        uint
+	InstanceID        uint32
 	ActorID           uint64
 	Actor             *Actor
 	Notifications     []Notification

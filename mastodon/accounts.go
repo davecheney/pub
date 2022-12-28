@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/davecheney/m/internal/snowflake"
 	"github.com/davecheney/m/m"
@@ -183,7 +184,7 @@ func serializeAccount(a *m.Actor) map[string]any {
 		"bot":             a.Type == "Person",
 		"discoverable":    true,
 		"group":           a.Type == "Group",
-		"created_at":      snowflake.IDToTime(a.ID).Format("2006-01-02T00:00:00.000Z"),
+		"created_at":      snowflake.IDToTime(a.ID).Round(time.Hour).Format("2006-01-02T00:00:00.000Z"),
 		"note":            a.Note,
 		"url":             fmt.Sprintf("https://%s/@%s", a.Domain, a.Name),
 		"avatar":          stringOrDefault(a.Avatar, fmt.Sprintf("https://%s/avatar.png", a.Domain)),
