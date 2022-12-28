@@ -12,7 +12,9 @@ import (
 // An Instance has many InstanceRules.
 // An Instance has an Admin Account.
 type Instance struct {
-	gorm.Model
+	ID               uint `gorm:"primarykey"`
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 	Domain           string `gorm:"size:64;uniqueIndex"`
 	AdminID          *uint
 	Admin            *Account
@@ -100,6 +102,19 @@ type Account struct {
 	PrivateKey        []byte `gorm:"not null"`
 	Tokens            []Token
 	ClientFilters     []ClientFilter
+	RoleID            uint
+	Role              *AccountRole
+}
+
+type AccountRole struct {
+	ID          uint `gorm:"primarykey"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	Name        string
+	Color       string
+	Position    int
+	Permissions uint
+	Highlighted bool
 }
 
 // https://docs.joinmastodon.org/entities/V1_Filter/

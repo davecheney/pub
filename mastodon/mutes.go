@@ -28,7 +28,7 @@ func (svc *Mutes) Index(w http.ResponseWriter, r *http.Request) {
 	}
 	var resp []any
 	for _, a := range mutes {
-		resp = append(resp, serialize(a.Target))
+		resp = append(resp, serializeAccount(a.Target))
 	}
 	toJSON(w, resp)
 }

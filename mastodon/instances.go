@@ -127,7 +127,7 @@ func serializeV1(i *m.Instance) map[string]any {
 				"max_expiration":            2629746,
 			},
 		},
-		"contact_account": serialize(i.Admin.Actor),
+		"contact_account": serializeAccount(i.Admin.Actor),
 		"rules":           serialiseRules(i),
 	}
 }
@@ -209,7 +209,7 @@ func serializeV2(i *m.Instance) map[string]any {
 			},
 			"contact": map[string]any{
 				"email":   i.Admin.Email,
-				"account": serialize(i.Admin.Actor),
+				"account": serializeAccount(i.Admin.Actor),
 			},
 			"rules": []map[string]any{
 				{

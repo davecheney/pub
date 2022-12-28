@@ -164,7 +164,7 @@ func serializeStatus(s *m.Status) map[string]any {
 			return serializeStatus(s.Reblog)
 		}(s),
 		"application":       nil,
-		"account":           serialize(s.Actor),
+		"account":           serializeAccount(s.Actor),
 		"media_attachments": serializeAttachments(s.Attachments),
 		"mentions":          []map[string]any{},
 		"tags":              []map[string]any{},

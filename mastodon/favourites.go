@@ -71,7 +71,7 @@ func (f *Favourites) Show(w http.ResponseWriter, req *http.Request) {
 
 	var resp []interface{}
 	for _, fav := range favs {
-		resp = append(resp, serialize(&fav))
+		resp = append(resp, serializeAccount(&fav))
 	}
 	toJSON(w, resp)
 }

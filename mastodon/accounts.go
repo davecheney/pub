@@ -26,7 +26,7 @@ func (a *Accounts) Show(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	toJSON(w, serialize(&actor))
+	toJSON(w, serializeAccount(&actor))
 }
 
 func (a *Accounts) VerifyCredentials(w http.ResponseWriter, r *http.Request) {
@@ -35,7 +35,7 @@ func (a *Accounts) VerifyCredentials(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	toJSON(w, serialize(user.Actor))
+	toJSON(w, serialiseCredentialAccount(user))
 }
 
 func (a *Accounts) StatusesShow(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +84,7 @@ func (a *Accounts) FollowersShow(w http.ResponseWriter, r *http.Request) {
 
 	var resp []any
 	for _, follower := range followers {
-		resp = append(resp, serialize(follower.Target))
+		resp = append(resp, serializeAccount(follower.Target))
 	}
 	if len(followers) > 0 {
 		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/accounts/%s/followers?max_id=%d>; rel=\"next\", <https://%s/api/v1/accounts/%s/followers?min_id=%d>; rel=\"prev\"", r.Host, chi.URLParam(r, "id"), followers[len(followers)-1].TargetID, r.Host, chi.URLParam(r, "id"), followers[0].TargetID))
@@ -105,7 +105,7 @@ func (a *Accounts) FollowingShow(w http.ResponseWriter, r *http.Request) {
 	}
 	var resp []any
 	for _, f := range following {
-		resp = append(resp, serialize(f.Target))
+		resp = append(resp, serializeAccount(f.Target))
 	}
 	if len(following) > 0 {
 		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/accounts/%s/following?max_id=%d>; rel=\"next\", <https://%s/api/v1/accounts/%s/following?min_id=%d>; rel=\"prev\"", r.Host, chi.URLParam(r, "id"), following[len(following)-1].TargetID, r.Host, chi.URLParam(r, "id"), following[0].TargetID))
@@ -165,10 +165,10 @@ func (a *Accounts) Update(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serialize(account.Actor))
+	toJSON(w, serializeAccount(account.Actor))
 }
 
-func serialize(a *m.Actor) map[string]any {
+func serializeAccount(a *m.Actor) map[string]any {
 	return map[string]any{
 		"id":       toString(a.ID),
 		"username": a.Name,
@@ -202,5 +202,34 @@ func serialize(a *m.Actor) map[string]any {
 		"noindex": false, // todo
 		"emojis":  []map[string]any{},
 		"fields":  []map[string]any{},
+	}
+}
+
+func serialiseCredentialAccount(a *m.Account) map[string]any {
+	m := serializeAccount(a.Actor)
+	m["source"] = map[string]any{
+		"privacy":               "public",
+		"sensitive":             false,
+		"language":              "en",
+		"note":                  a.Actor.Note,
+		"fields":                []map[string]any{},
+		"follow_requests_count": 0,
+	}
+	if a.Role != nil {
+		m["role"] = serialiseRole(a.Role)
+	}
+	return m
+}
+
+func serialiseRole(role *m.AccountRole) map[string]any {
+	return map[string]any{
+		"id":          role.ID,
+		"name":        role.Name,
+		"color":       role.Color,
+		"position":    role.Position,
+		"permissions": role.Permissions,
+		"highlighted": role.Highlighted,
+		"created_at":  role.CreatedAt.Format("2006-01-02T15:04:05.006Z"),
+		"updated_at":  role.UpdatedAt.Format("2006-01-02T15:04:05.006Z"),
 	}
 }
