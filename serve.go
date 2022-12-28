@@ -69,6 +69,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Get("/blocks", mastodon.Blocks().Index)
 			r.Get("/conversations", mastodon.Conversations().Index)
 			r.Get("/custom_emojis", mastodon.Emojis().Index)
+			r.Get("/directory", mastodon.Directory().Index)
 			r.Get("/filters", mastodon.Filters().Index)
 			r.Get("/instance", instance.IndexV1)
 			r.Get("/instance/", instance.IndexV1) // sigh

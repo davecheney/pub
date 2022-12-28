@@ -52,6 +52,12 @@ func (s *Service) Conversations() *Conversations {
 	}
 }
 
+func (s *Service) Directory() *Directory {
+	return &Directory{
+		service: s,
+	}
+}
+
 func (s *Service) Emojis() *Emojis {
 	return &Emojis{
 		service: s,
