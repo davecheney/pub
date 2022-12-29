@@ -171,14 +171,9 @@ func (a *Accounts) Update(w http.ResponseWriter, r *http.Request) {
 
 func serializeAccount(a *m.Actor) map[string]any {
 	return map[string]any{
-		"id":       toString(a.ID),
-		"username": a.Name,
-		"acct": func(a *m.Actor) string {
-			if a.IsLocal() {
-				return a.Name
-			}
-			return fmt.Sprintf("%s@%s", a.Name, a.Domain)
-		}(a),
+		"id":              toString(a.ID),
+		"username":        a.Name,
+		"acct":            a.Acct(),
 		"display_name":    a.DisplayName,
 		"locked":          a.Locked,
 		"bot":             a.IsBot(),

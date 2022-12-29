@@ -21,7 +21,7 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 		&m.Conversation{},
 		&m.ClientFilter{},
 		&m.Instance{}, &m.InstanceRule{},
-		&m.Relationship{},
+		&m.Relationship{}, &m.Reaction{},
 		&m.Marker{},
 		&m.Notification{},
 		&m.Status{}, &m.Poll{}, &m.StatusAttachment{},

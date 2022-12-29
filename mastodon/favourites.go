@@ -6,6 +6,7 @@ import (
 
 	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
+	"gorm.io/gorm"
 )
 
 type Favourites struct {
@@ -23,11 +24,14 @@ func (f *Favourites) Create(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	if err := f.service.DB().Model(&status).Association("FavouritedBy").Append(&user.Actor); err != nil {
-		fmt.Println("append failed", err)
+	svc := m.NewService(f.service.DB())
+	reaction, err := svc.Reactions().Favourite(&status, user.Actor)
+	if err != nil {
+		fmt.Println("favourite failed", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	status.Reaction = reaction
 	status.FavouritesCount++
 	toJSON(w, serializeStatus(&status))
 }
@@ -43,11 +47,14 @@ func (f *Favourites) Destroy(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	if err := f.service.DB().Model(&status).Association("FavouritedBy").Delete(&user.Actor); err != nil {
-		fmt.Println("delete failed", err)
+	svc := m.NewService(f.service.DB())
+	reaction, err := svc.Reactions().Unfavourite(&status, user.Actor)
+	if err != nil {
+		fmt.Println("unfavourite failed", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	status.Reaction = reaction
 	status.FavouritesCount--
 	toJSON(w, serializeStatus(&status))
 }
@@ -58,20 +65,18 @@ func (f *Favourites) Show(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var status m.Status
-	if err := f.service.DB().Joins("Actor").First(&status, chi.URLParam(req, "id")).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-	var favs []m.Actor
-	if err := f.service.DB().Model(&status).Association("Favourites").Find(&favs); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	var reactions []m.Reaction
+	if err := f.service.DB().Preload("Actor").Where("status_id = ?", chi.URLParam(req, "id")).Find(&reactions).Error; err != nil {
+		if err != gorm.ErrRecordNotFound {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	var resp []interface{}
-	for _, fav := range favs {
-		resp = append(resp, serializeAccount(&fav))
+	for _, fav := range reactions {
+		resp = append(resp, serializeAccount(fav.Actor))
 	}
+	fmt.Println(resp)
 	toJSON(w, resp)
 }

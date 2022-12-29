@@ -151,8 +151,14 @@ func (i *Inboxes) processAdd(act map[string]any) error {
 		if err != nil {
 			return err
 		}
-		status.Pinned = true
-		return i.service.db.Save(status).Error
+		actor, err := svc.Actors().FindByURI(stringFromAny(act["actor"]))
+		if err != nil {
+			return err
+		}
+		if actor.ID != status.ActorID {
+			return errors.New("actor is not the author of the status")
+		}
+		return svc.Reactions().Pin(status, actor)
 	default:
 		x, _ := marshalIndent(act)
 		fmt.Println("processAdd:", string(x))
@@ -169,8 +175,14 @@ func (i *Inboxes) processRemove(act map[string]any) error {
 		if err != nil {
 			return err
 		}
-		status.Pinned = false
-		return i.service.db.Save(status).Error
+		actor, err := svc.Actors().FindByURI(stringFromAny(act["actor"]))
+		if err != nil {
+			return err
+		}
+		if actor.ID != status.ActorID {
+			return errors.New("actor is not the author of the status")
+		}
+		return svc.Reactions().Unpin(status, actor)
 	default:
 		x, _ := marshalIndent(act)
 		fmt.Println("processRemove:", string(x))

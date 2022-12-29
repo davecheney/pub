@@ -110,13 +110,14 @@ func (s *Statuses) Destroy(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Statuses) Show(w http.ResponseWriter, r *http.Request) {
-	_, err := s.service.authenticate(r)
+	user, err := s.service.authenticate(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 	var status m.Status
-	if err := s.service.DB().Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").Preload("Attachments").First(&status, chi.URLParam(r, "id")).Error; err != nil {
+	query := s.service.DB().Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").Preload("Attachments").Preload("Reaction", "actor_id = ?", user.Actor.ID)
+	if err := query.First(&status, chi.URLParam(r, "id")).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -150,10 +151,10 @@ func serializeStatus(s *m.Status) map[string]any {
 		"replies_count":    s.RepliesCount,
 		"reblogs_count":    s.ReblogsCount,
 		"favourites_count": s.FavouritesCount,
-		"favourited":       false, // todo
-		"reblogged":        false, // todo
-		"muted":            false, // todo
-		"bookmarked":       false, // todo
+		"favourited":       s.Reaction != nil && s.Reaction.Favourited,
+		"reblogged":        s.Reaction != nil && s.Reaction.Reblogged,
+		"muted":            s.Reaction != nil && s.Reaction.Muted,
+		"bookmarked":       s.Reaction != nil && s.Reaction.Bookmarked,
 		"content":          s.Note,
 		"reblog": func(s *m.Status) any {
 			if s.Reblog == nil {

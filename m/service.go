@@ -53,6 +53,64 @@ func (s *Service) Instances() *instances {
 	}
 }
 
+func (s *Service) Reactions() *reactions {
+	return &reactions{
+		db: s.db,
+	}
+}
+
+type reactions struct {
+	db *gorm.DB
+}
+
+func (r *reactions) Pin(status *Status, actor *Actor) error {
+	reaction, err := r.findOrCreate(status, actor)
+	if err != nil {
+		return err
+	}
+	return r.db.Model(reaction).Update("pinned", true).Error
+}
+
+func (r *reactions) Unpin(status *Status, actor *Actor) error {
+	reaction, err := r.findOrCreate(status, actor)
+	if err != nil {
+		return err
+	}
+	return r.db.Model(reaction).Update("pinned", false).Error
+}
+
+func (r *reactions) Favourite(status *Status, actor *Actor) (*Reaction, error) {
+	reaction, err := r.findOrCreate(status, actor)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.db.Model(reaction).Update("favourited", true).Error; err != nil {
+		return nil, err
+	}
+	reaction.Favourited = true
+	return reaction, nil
+}
+
+func (r *reactions) Unfavourite(status *Status, actor *Actor) (*Reaction, error) {
+	reaction, err := r.findOrCreate(status, actor)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.db.Model(reaction).Update("favourited", false).Error; err != nil {
+		return nil, err
+	}
+	reaction.Favourited = false
+	return reaction, nil
+}
+
+func (r *reactions) findOrCreate(status *Status, actor *Actor) (*Reaction, error) {
+	var reaction Reaction
+	if err := r.db.FirstOrCreate(&reaction, Reaction{StatusID: status.ID, ActorID: actor.ID}).Error; err != nil {
+		return nil, err
+	}
+	return &reaction, nil
+}
+
 func (s *Service) Relationships() *relationships {
 	return &relationships{
 		db: s.db,

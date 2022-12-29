@@ -27,11 +27,15 @@ type Actor struct {
 	LastStatusAt   time.Time
 	Avatar         string
 	Header         string
-	PublicKey      []byte   `gorm:"not null"`
-	Attachments    []any    `gorm:"serializer:json"`
-	Statuses       []Status `gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
-	Favourites     []Status `gorm:"many2many:favourites;"`
-	Relationships  []Relationship
+	PublicKey      []byte `gorm:"not null"`
+	Attachments    []any  `gorm:"serializer:json"`
+}
+
+func (a *Actor) Acct() string {
+	if a.IsLocal() {
+		return a.Name
+	}
+	return fmt.Sprintf("%s@%s", a.Name, a.Domain)
 }
 
 func (a *Actor) IsBot() bool {

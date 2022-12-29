@@ -95,8 +95,8 @@ type Account struct {
 	Actor             *Actor
 	Notifications     []Notification
 	Lists             []AccountList
-	Email             string
-	EncryptedPassword []byte
+	Email             string `gorm:"size:64;not null"`
+	EncryptedPassword []byte `gorm:"size:60;not null"`
 	PrivateKey        []byte `gorm:"not null"`
 	ClientFilters     []ClientFilter
 	RoleID            uint32

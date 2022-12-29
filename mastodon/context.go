@@ -13,7 +13,7 @@ type Contexts struct {
 }
 
 func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
-	_, err := c.service.authenticate(r)
+	user, err := c.service.authenticate(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
@@ -27,7 +27,8 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 
 	// load conversation statuses
 	var statuses []m.Status
-	if err := c.service.DB().Where("conversation_id = ?", status.ConversationID).Joins("Actor").Find(&statuses).Error; err != nil {
+	query := c.service.DB().Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").Preload("Attachments").Preload("Reaction", "actor_id = ?", user.Actor.ID)
+	if err := query.Where("conversation_id = ?", status.ConversationID).Find(&statuses).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
