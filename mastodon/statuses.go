@@ -174,7 +174,7 @@ func serializeStatus(s *m.Status) map[string]any {
 }
 
 func serializeAttachments(atts []m.StatusAttachment) []map[string]any {
-	var res []map[string]any
+	res := make([]map[string]any, 0) // ensure we return a slice, not null
 	for _, att := range atts {
 		res = append(res, map[string]any{
 			"id":          toString(att.ID),
