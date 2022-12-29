@@ -77,6 +77,5 @@ func (f *Favourites) Show(w http.ResponseWriter, req *http.Request) {
 	for _, fav := range reactions {
 		resp = append(resp, serializeAccount(fav.Actor))
 	}
-	fmt.Println(resp)
 	toJSON(w, resp)
 }

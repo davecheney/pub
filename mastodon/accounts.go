@@ -169,7 +169,62 @@ func (a *Accounts) Update(w http.ResponseWriter, r *http.Request) {
 	toJSON(w, serializeAccount(account.Actor))
 }
 
-func serializeAccount(a *m.Actor) map[string]any {
+type Account struct {
+	ID             string           `json:"id"` // snowflake.ID `json:"id"`
+	Username       string           `json:"username"`
+	Acct           string           `json:"acct"`
+	DisplayName    string           `json:"display_name"`
+	Locked         bool             `json:"locked"`
+	Bot            bool             `json:"bot"`
+	Discoverable   bool             `json:"discoverable"`
+	Group          bool             `json:"group"`
+	CreatedAt      string           `json:"created_at"`
+	Note           string           `json:"note"`
+	URL            string           `json:"url"`
+	Avatar         string           `json:"avatar"`        // these four fields _cannot_ be blank
+	AvatarStatic   string           `json:"avatar_static"` // if they are, various clients will consider the
+	Header         string           `json:"header"`        // account to be invalid and ignore it or just go weird :grr:
+	HeaderStatic   string           `json:"header_static"` // so they must be set to a default image.
+	FollowersCount int32            `json:"followers_count"`
+	FollowingCount int32            `json:"following_count"`
+	StatusesCount  int32            `json:"statuses_count"`
+	LastStatusAt   *string          `json:"last_status_at"`
+	NoIndex        bool             `json:"noindex"` // default false
+	Emojis         []map[string]any `json:"emojis"`
+	Fields         []map[string]any `json:"fields"`
+}
+
+func serializeAccount(a *m.Actor) *Account {
+	return &Account{
+		ID:             toString(a.ID),
+		Username:       a.Name,
+		Acct:           a.Acct(),
+		DisplayName:    a.DisplayName,
+		Locked:         a.Locked,
+		Bot:            a.IsBot(),
+		Discoverable:   true,
+		Group:          a.IsGroup(),
+		CreatedAt:      snowflake.IDToTime(a.ID).Round(time.Hour).Format("2006-01-02T00:00:00.000Z"),
+		Note:           a.Note,
+		URL:            fmt.Sprintf("https://%s/@%s", a.Domain, a.Name),
+		Avatar:         a.Avatar,
+		AvatarStatic:   a.Avatar,
+		Header:         stringOrDefault(a.Header, "https://static.ma-cdn.net/headers/original/missing.png"),
+		HeaderStatic:   stringOrDefault(a.Header, "https://static.ma-cdn.net/headers/original/missing.png"),
+		FollowersCount: a.FollowersCount,
+		FollowingCount: a.FollowingCount,
+		StatusesCount:  a.StatusesCount,
+		LastStatusAt: func() *string {
+			if a.LastStatusAt.IsZero() {
+				return nil
+			}
+			st := a.LastStatusAt.Format("2006-01-02")
+			return &st
+		}(),
+	}
+}
+
+func serializeAccount0(a *m.Actor) map[string]any {
 	return map[string]any{
 		"id":              toString(a.ID),
 		"username":        a.Name,
@@ -201,7 +256,7 @@ func serializeAccount(a *m.Actor) map[string]any {
 }
 
 func serialiseCredentialAccount(a *m.Account) map[string]any {
-	m := serializeAccount(a.Actor)
+	m := serializeAccount0(a.Actor)
 	m["source"] = map[string]any{
 		"privacy":               "public",
 		"sensitive":             false,

@@ -78,6 +78,8 @@ func (i *Inboxes) processUndo(obj map[string]any) error {
 	switch typ {
 	case "Announce":
 		return i.processUndoAnnounce(obj)
+	case "Follow":
+		return i.processUndoFollow(obj)
 	default:
 		return fmt.Errorf("unknown undo object type: %q", typ)
 	}
@@ -95,6 +97,20 @@ func (i *Inboxes) processUndoAnnounce(obj map[string]any) error {
 		return err
 	}
 	return i.service.db.Delete(status).Error
+}
+
+func (i *Inboxes) processUndoFollow(body map[string]any) error {
+	svc := m.NewService(i.service.db)
+	actor, err := svc.Actors().FindByURI(stringFromAny(body["actor"]))
+	if err != nil {
+		return err
+	}
+	target, err := svc.Actors().FindByURI(stringFromAny(body["object"]))
+	if err != nil {
+		return err
+	}
+	_, err = svc.Relationships().Unfollow(actor, target)
+	return err
 }
 
 func (i *Inboxes) processAnnounce(obj map[string]any) error {
@@ -308,16 +324,16 @@ func (i *Inboxes) processAcceptFollow(obj map[string]any) error {
 }
 
 func (i *Inboxes) processFollow(body map[string]any) error {
-	var actor m.Actor
-	if err := i.service.db.First(&actor, "actor_id = ?", stringFromAny(body["actor"])).Error; err != nil {
-		return err
-	}
-	var target m.Actor
-	if err := i.service.db.First(&target, "actor_id = ?", stringFromAny(body["object"])).Error; err != nil {
-		return err
-	}
 	svc := m.NewService(i.service.db)
-	_, err := svc.Relationships().Follow(&actor, &target)
+	actor, err := svc.Actors().FindByURI(stringFromAny(body["actor"]))
+	if err != nil {
+		return err
+	}
+	target, err := svc.Actors().FindByURI(stringFromAny(body["object"]))
+	if err != nil {
+		return err
+	}
+	_, err = svc.Relationships().Follow(actor, target)
 	return err
 }
 

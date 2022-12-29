@@ -8,6 +8,7 @@ import (
 
 	"github.com/davecheney/m/internal/webfinger"
 	"github.com/davecheney/m/m"
+	"github.com/go-json-experiment/json"
 )
 
 type Search struct {
@@ -115,4 +116,11 @@ func (s *Search) searchStatuses(w http.ResponseWriter, r *http.Request, q string
 		},
 	}
 	toJSON(w, resp)
+}
+
+func marshalIndent(v any) ([]byte, error) {
+	b, err := json.MarshalOptions{}.Marshal(json.EncodeOptions{
+		Indent: "\t", // indent for readability
+	}, v)
+	return b, err
 }
