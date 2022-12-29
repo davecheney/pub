@@ -13,7 +13,7 @@ m is not intended to host an ActivityPub community, rather it is aimed at enabli
 
 ## What _doesn't_ it do?
 
-m doesn't have much of a web interface beyond what ActivityPub requires, you're expected to interact with it via a Mastodon app.
+m doesn't have much of a web interface beyond what ActivityPub requires, you're expected to interact with it via a Mastodon compatible app.
 
 ## Getting started
 

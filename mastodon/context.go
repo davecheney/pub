@@ -5,7 +5,6 @@ import (
 
 	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-json-experiment/json"
 )
 
 type Contexts struct {
@@ -34,26 +33,26 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ancestors, decendants := thread(status.ID, statuses)
-	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, struct {
+	resp := struct {
 		Ancestors   []map[string]any `json:"ancestors"`
 		Descendants []map[string]any `json:"descendants"`
 	}{
 		Ancestors: func() []map[string]interface{} {
-			var a []map[string]interface{}
+			a := make([]map[string]interface{}, 0) // make sure we return an empty array, not null
 			for _, s := range ancestors {
 				a = append(a, serializeStatus(s))
 			}
 			return a
 		}(),
 		Descendants: func() []map[string]interface{} {
-			var a []map[string]interface{}
+			a := make([]map[string]interface{}, 0) // make sure we return an empty array, not null
 			for _, s := range decendants {
 				a = append(a, serializeStatus(s))
 			}
 			return a
 		}(),
-	})
+	}
+	toJSON(w, resp)
 }
 
 // thread sorts statuses into a tree, it returns the statuses

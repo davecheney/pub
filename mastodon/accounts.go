@@ -176,7 +176,7 @@ type Account struct {
 	DisplayName    string           `json:"display_name"`
 	Locked         bool             `json:"locked"`
 	Bot            bool             `json:"bot"`
-	Discoverable   bool             `json:"discoverable"`
+	Discoverable   *bool            `json:"discoverable"`
 	Group          bool             `json:"group"`
 	CreatedAt      string           `json:"created_at"`
 	Note           string           `json:"note"`
@@ -194,6 +194,32 @@ type Account struct {
 	Fields         []map[string]any `json:"fields"`
 }
 
+type CredentialAccount struct {
+	*Account
+	Source Source `json:"source"`
+	Role   *Role  `json:"role,omitempty"`
+}
+
+type Role struct {
+	ID          uint32 `json:"id"`
+	Name        string `json:"name"`
+	Color       string `json:"color"`
+	Position    int32  `json:"position"`
+	Permissions uint32 `json:"permissions"`
+	Highlighted bool   `json:"highlighted"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+}
+
+type Source struct {
+	Privacy             string           `json:"privacy"`
+	Sensitive           bool             `json:"sensitive"`
+	Language            string           `json:"language"`
+	Note                string           `json:"note"`
+	FollowRequestsCount int32            `json:"follow_requests_count"`
+	Fields              []map[string]any `json:"fields"`
+}
+
 func serializeAccount(a *m.Actor) *Account {
 	return &Account{
 		ID:             toString(a.ID),
@@ -202,7 +228,6 @@ func serializeAccount(a *m.Actor) *Account {
 		DisplayName:    a.DisplayName,
 		Locked:         a.Locked,
 		Bot:            a.IsBot(),
-		Discoverable:   true,
 		Group:          a.IsGroup(),
 		CreatedAt:      snowflake.IDToTime(a.ID).Round(time.Hour).Format("2006-01-02T00:00:00.000Z"),
 		Note:           a.Note,
@@ -221,65 +246,32 @@ func serializeAccount(a *m.Actor) *Account {
 			st := a.LastStatusAt.Format("2006-01-02")
 			return &st
 		}(),
+		Emojis: make([]map[string]any, 0), // must be an empty array -- not null
+		Fields: make([]map[string]any, 0), // ditto
 	}
 }
 
-func serializeAccount0(a *m.Actor) map[string]any {
-	return map[string]any{
-		"id":              toString(a.ID),
-		"username":        a.Name,
-		"acct":            a.Acct(),
-		"display_name":    a.DisplayName,
-		"locked":          a.Locked,
-		"bot":             a.IsBot(),
-		"discoverable":    true,
-		"group":           a.IsGroup(),
-		"created_at":      snowflake.IDToTime(a.ID).Round(time.Hour).Format("2006-01-02T00:00:00.000Z"),
-		"note":            a.Note,
-		"url":             fmt.Sprintf("https://%s/@%s", a.Domain, a.Name),
-		"avatar":          a.Avatar,
-		"avatar_static":   a.Avatar,
-		"header":          a.Header,
-		"header_static":   a.Header,
-		"followers_count": a.FollowersCount,
-		"following_count": a.FollowingCount,
-		"statuses_count":  a.StatusesCount,
-		"last_status_at": func(a *m.Actor) any {
-			if a.LastStatusAt.IsZero() {
-				return nil
-			}
-			return a.LastStatusAt.Format("2006-01-02")
-		}(a),
-		"emojis": []map[string]any{},
-		"fields": []map[string]any{},
-	}
-}
-
-func serialiseCredentialAccount(a *m.Account) map[string]any {
-	m := serializeAccount0(a.Actor)
-	m["source"] = map[string]any{
-		"privacy":               "public",
-		"sensitive":             false,
-		"language":              "en",
-		"note":                  a.Actor.Note,
-		"fields":                []map[string]any{},
-		"follow_requests_count": 0,
+func serialiseCredentialAccount(a *m.Account) *CredentialAccount {
+	ca := CredentialAccount{
+		Account: serializeAccount(a.Actor),
+		Source: Source{
+			Privacy:   "public",
+			Sensitive: false,
+			Language:  "en",
+			Note:      a.Actor.Note,
+		},
 	}
 	if a.Role != nil {
-		m["role"] = serialiseRole(a.Role)
+		ca.Role = &Role{
+			ID:          a.Role.ID,
+			Name:        a.Role.Name,
+			Color:       a.Role.Color,
+			Position:    a.Role.Position,
+			Permissions: a.Role.Permissions,
+			Highlighted: a.Role.Highlighted,
+			CreatedAt:   a.Role.CreatedAt.Format("2006-01-02T15:04:05.006Z"),
+			UpdatedAt:   a.Role.UpdatedAt.Format("2006-01-02T15:04:05.006Z"),
+		}
 	}
-	return m
-}
-
-func serialiseRole(role *m.AccountRole) map[string]any {
-	return map[string]any{
-		"id":          role.ID,
-		"name":        role.Name,
-		"color":       role.Color,
-		"position":    role.Position,
-		"permissions": role.Permissions,
-		"highlighted": role.Highlighted,
-		"created_at":  role.CreatedAt.Format("2006-01-02T15:04:05.006Z"),
-		"updated_at":  role.UpdatedAt.Format("2006-01-02T15:04:05.006Z"),
-	}
+	return &ca
 }

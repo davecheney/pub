@@ -5,6 +5,12 @@ import (
 	"time"
 )
 
+// ID is a Mastodon compatible Snowflake ID.
+// TODO use ID type instead of uint64 in the codebase.
+type ID uint64
+
+// TODO implement ID MarshalJSON and UnmarshalJSON methods.
+
 // TimeToID converts a time.Time to a Snowflake ID.
 func TimeToID(ts time.Time) uint64 {
 	// 48 bits for time in milliseconds.
