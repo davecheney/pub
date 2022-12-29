@@ -5,9 +5,11 @@
 ## What is m?
 
 m is an ActivityPub host indented for a single actor.
-To interact with ActivityPub, m implements the Mastodon api for use with various apps. 
+To interact with ActivityPub, m implements the Mastodon[^tm] api for use with various apps. 
 
-m is not intended to host a general purpose Mastodon community, rather it is aimed at enabling someone who owns their own domain, and thus controls their identity, to participate in the fediverse. 
+m is not intended to host an ActivityPub community, rather it is aimed at enabling someone who owns their own domain, and thus controls their identity, to participate in the fediverse. 
+
+[^tm]: Mastodon is a trademark of [Mastodon gGmbh](https://joinmastodon.org/trademark). m is not affiliated with Mastodon gGmbH. m is not a Mastodon server.
 
 ## What _doesn't_ it do?
 
