@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
-	"path"
 	"time"
 
 	"github.com/davecheney/m/internal/snowflake"
@@ -140,29 +138,23 @@ func serializeStatus(s *m.Status) map[string]any {
 		"visibility":             s.Visibility,
 		"language":               "en", // s.Language,
 		"uri":                    s.URI,
-		"url": func(s *m.Status) string {
-			u, err := url.Parse(s.URI)
-			if err != nil {
-				return ""
-			}
-			id := path.Base(u.Path)
-			return fmt.Sprintf("%s://%s/@%s/%s", u.Scheme, s.Actor.Domain, s.Actor.Name, id)
-		}(s),
-		"replies_count":    s.RepliesCount,
-		"reblogs_count":    s.ReblogsCount,
-		"favourites_count": s.FavouritesCount,
-		"favourited":       s.Reaction != nil && s.Reaction.Favourited,
-		"reblogged":        s.Reaction != nil && s.Reaction.Reblogged,
-		"muted":            s.Reaction != nil && s.Reaction.Muted,
-		"bookmarked":       s.Reaction != nil && s.Reaction.Bookmarked,
-		"content":          s.Note,
+		"url":                    nil,
+		"text":                   nil, // not optional!!
+		"replies_count":          s.RepliesCount,
+		"reblogs_count":          s.ReblogsCount,
+		"favourites_count":       s.FavouritesCount,
+		"favourited":             s.Reaction != nil && s.Reaction.Favourited,
+		"reblogged":              s.Reaction != nil && s.Reaction.Reblogged,
+		"muted":                  s.Reaction != nil && s.Reaction.Muted,
+		"bookmarked":             s.Reaction != nil && s.Reaction.Bookmarked,
+		"content":                s.Note,
 		"reblog": func(s *m.Status) any {
 			if s.Reblog == nil {
 				return nil
 			}
 			return serializeStatus(s.Reblog)
 		}(s),
-		"filtered":          []map[string]any{},
+		// "filtered":          []map[string]any{},
 		"account":           serializeAccount(s.Actor),
 		"media_attachments": serializeAttachments(s.Attachments),
 		"mentions":          []map[string]any{},
@@ -175,15 +167,36 @@ func serializeStatus(s *m.Status) map[string]any {
 
 func serializeAttachments(atts []m.StatusAttachment) []map[string]any {
 	res := make([]map[string]any, 0) // ensure we return a slice, not null
+	// return res
 	for _, att := range atts {
 		res = append(res, map[string]any{
-			"id":          toString(att.ID),
-			"type":        attachmentType(&att.Attachment),
-			"url":         att.Attachment.URL,
-			"preview_url": att.Attachment.URL,
-			"remote_url":  nil,
-			"description": att.Attachment.Name,
-			"blurhash":    att.Attachment.Blurhash,
+			"id":                 toString(att.ID),
+			"type":               attachmentType(&att.Attachment),
+			"url":                att.Attachment.URL,
+			"preview_url":        att.Attachment.URL,
+			"remote_url":         nil,
+			"text_url":           nil,
+			"preview_remote_url": nil,
+			"description":        att.Attachment.Name,
+			"blurhash":           att.Attachment.Blurhash,
+			"meta": map[string]any{
+				"original": map[string]any{
+					"width":  att.Attachment.Width,
+					"height": att.Attachment.Height,
+					"size":   fmt.Sprintf("%dx%d", att.Attachment.Width, att.Attachment.Height),
+					"aspect": float64(att.Attachment.Width) / float64(att.Attachment.Height),
+				},
+				"small": map[string]any{
+					"width":  att.Attachment.Width,
+					"height": att.Attachment.Height,
+					"size":   fmt.Sprintf("%dx%d", att.Attachment.Width, att.Attachment.Height),
+					"aspect": float64(att.Attachment.Width) / float64(att.Attachment.Height),
+				},
+				// "focus": map[string]any{
+				// 	"x": 0.0,
+				// 	"y": 0.0,
+				// },
+			},
 		})
 	}
 	return res
@@ -206,6 +219,6 @@ func attachmentType(att *m.Attachment) string {
 	case "audio/ogg":
 		return "audio"
 	default:
-		return "unknown"
+		return "unknown" // todo YOLO
 	}
 }

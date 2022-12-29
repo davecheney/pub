@@ -2,15 +2,12 @@
 package mastodon
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 
 	"github.com/davecheney/m/m"
+	"github.com/go-json-experiment/json"
 )
 
 // Service represents a Mastodon API service.
@@ -147,15 +144,10 @@ func (s *Service) authenticate(r *http.Request) (*m.Account, error) {
 // toJSON writes the given object to the response body as JSON.
 func toJSON(w http.ResponseWriter, obj interface{}) error {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	mw := io.MultiWriter(w, os.Stdout)
-	enc := json.NewEncoder(mw)
-	enc.SetIndent("", "  ")
-	enc.SetEscapeHTML(false)
-	if err := enc.Encode(obj); err != nil {
-		fmt.Println("error encoding json", err)
-		return err
-	}
-	return nil
+	// mw := io.MultiWriter(w, os.Stdout)
+	return json.MarshalOptions{}.MarshalFull(json.EncodeOptions{
+		Indent: "  ",
+	}, w, obj)
 }
 
 func stringOrDefault(s string, def string) string {

@@ -33,7 +33,7 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ancestors, decendants := thread(status.ID, statuses)
-	resp := struct {
+	toJSON(w, struct {
 		Ancestors   []map[string]any `json:"ancestors"`
 		Descendants []map[string]any `json:"descendants"`
 	}{
@@ -51,8 +51,7 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 			}
 			return a
 		}(),
-	}
-	toJSON(w, resp)
+	})
 }
 
 // thread sorts statuses into a tree, it returns the statuses
