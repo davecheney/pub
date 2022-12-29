@@ -40,17 +40,19 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conv, err := s.service.Service.Conversations().FindConversationByStatusID(func(id *uint64) uint64 {
-		if id == nil {
-			return 0
+	var conv *m.Conversation
+	if toot.InReplyToID != nil {
+		var parent m.Status
+		if err := s.service.DB().First(&parent, *toot.InReplyToID).Error; err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
-		return *id
-	}(toot.InReplyToID))
-	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
+		conv, err = s.service.Service.Conversations().FindOrCreate(parent.ConversationID, toot.Visibility)
+		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+	} else {
 		conv, err = s.service.Service.Conversations().New(toot.Visibility)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

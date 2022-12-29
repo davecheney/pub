@@ -16,7 +16,7 @@ type Instance struct {
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	Domain           string `gorm:"size:64;uniqueIndex"`
-	AdminID          *uint
+	AdminID          *uint32
 	Admin            *Account
 	SourceURL        string
 	Title            string `gorm:"size:64"`
@@ -58,68 +58,66 @@ func (i *Instance) updateStatusesCount(tx *gorm.DB) error {
 // An Application belongs to an Instance.
 // An Application has many Tokens.
 type Application struct {
-	gorm.Model
+	ID           uint32 `gorm:"primarykey"`
+	CreatedAt    time.Time
 	InstanceID   uint32
 	Instance     *Instance
-	Name         string
-	Website      *string
-	RedirectURI  string
-	ClientID     string
-	ClientSecret string
-	VapidKey     string
+	Name         string  `gorm:"size:64;not null"`
+	Website      *string `gorm:"size:64"`
+	RedirectURI  string  `gorm:"size:128;not null"`
+	ClientID     string  `gorm:"size:64;not null"`
+	ClientSecret string  `gorm:"size:64;not null"`
+	VapidKey     string  `gorm:"size:128;not null"`
 	Tokens       []Token
 }
 
 // A Token is an access token for an Application.
 // A Token belongs to an Account.
 type Token struct {
-	ID                uint `gorm:"primarykey"`
+	AccessToken       string `gorm:"size:64;primaryKey"`
 	CreatedAt         time.Time
-	AccountID         uint
+	AccountID         uint32
 	Account           *Account
-	ApplicationID     uint
-	AccessToken       string
-	TokenType         string
-	Scope             string
-	AuthorizationCode string
+	ApplicationID     uint32
+	TokenType         string `gorm:"type:enum('Bearer');not null"`
+	Scope             string `gorm:"size:64;not null"`
+	AuthorizationCode string `gorm:"size:64;not null"`
 }
 
 // An Account is a user account on an Instance.
 // An Account belongs to an Actor.
 type Account struct {
-	ID                uint `gorm:"primarykey"`
+	ID                uint32 `gorm:"primarykey"`
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 	InstanceID        uint32 `gorm:"index"`
 	ActorID           uint64
 	Actor             *Actor
 	Notifications     []Notification
-	Markers           []Marker
 	Lists             []AccountList
 	Email             string
 	EncryptedPassword []byte
 	PrivateKey        []byte `gorm:"not null"`
-	Tokens            []Token
 	ClientFilters     []ClientFilter
-	RoleID            uint
+	RoleID            uint32
 	Role              *AccountRole
 }
 
 type AccountRole struct {
-	ID          uint `gorm:"primarykey"`
+	ID          uint32 `gorm:"primarykey"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
-	Name        string
-	Color       string
-	Position    int
-	Permissions uint
+	Name        string `gorm:"size:16;not null"`
+	Color       string `gorm:"size:8;not null,default:''"`
+	Position    int32
+	Permissions uint32
 	Highlighted bool
 }
 
 // https://docs.joinmastodon.org/entities/V1_Filter/
 type ClientFilter struct {
 	gorm.Model
-	AccountID    uint
+	AccountID    uint32
 	Phrase       string
 	WholeWord    bool
 	Context      []string `gorm:"serializer:json"`

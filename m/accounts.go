@@ -10,7 +10,7 @@ import (
 
 type Marker struct {
 	gorm.Model
-	AccountID  uint
+	AccountID  uint32
 	Name       string `gorm:"size:32"`
 	Version    int    `gorm:"default:0"`
 	LastReadId uint
@@ -18,9 +18,9 @@ type Marker struct {
 
 type Notification struct {
 	gorm.Model
-	AccountID uint
+	AccountID uint32
 	Account   *Account
-	StatusID  *uint
+	StatusID  *uint64
 	Status    *Status
 	Type      string `gorm:"size:64"`
 }
@@ -88,7 +88,7 @@ func splitAcct(acct string) (string, string, error) {
 
 type AccountList struct {
 	gorm.Model
-	AccountID     uint
+	AccountID     uint32
 	Title         string `gorm:"size:64"`
 	RepliesPolicy string `gorm:"size:64"`
 }

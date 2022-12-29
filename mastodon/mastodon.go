@@ -155,7 +155,7 @@ func stringOrDefault(s string, def string) string {
 }
 
 type number interface {
-	uint | uint64
+	uint | uint64 | uint32
 }
 
 func stringOrNull[T number](v *T) any {

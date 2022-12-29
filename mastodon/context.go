@@ -2,7 +2,6 @@ package mastodon
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
@@ -20,23 +19,20 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := chi.URLParam(r, "id")
-	statusID, _ := strconv.ParseUint(id, 10, 64)
-
-	conv, err := c.service.Service.Conversations().FindConversationByStatusID(statusID)
-	if err != nil {
+	var status m.Status
+	if err := c.service.DB().First(&status, chi.URLParam(r, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
 	// load conversation statuses
 	var statuses []m.Status
-	if err := c.service.DB().Where("conversation_id = ?", conv.ID).Preload("Actor").Find(&statuses).Error; err != nil {
+	if err := c.service.DB().Where("conversation_id = ?", status.ConversationID).Joins("Actor").Find(&statuses).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
-	ancestors, decendants := thread(statusID, statuses)
+	ancestors, decendants := thread(status.ID, statuses)
 	w.Header().Set("Content-Type", "application/json")
 	json.MarshalFull(w, struct {
 		Ancestors   []map[string]any `json:"ancestors"`

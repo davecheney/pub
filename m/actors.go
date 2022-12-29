@@ -62,20 +62,24 @@ type Relationship struct {
 }
 
 func (r *Relationship) AfterUpdate(tx *gorm.DB) error {
-	var following int64
-	if err := tx.Model(r).Where("actor_id = ? and following = true", r.ActorID).Count(&following).Error; err != nil {
-		return err
-	}
-	var followedBy int64
-	if err := tx.Model(r).Where("target_id = ? and following = true", r.ActorID).Count(&followedBy).Error; err != nil {
-		return err
-	}
+	return withTX(tx, r.updateFollowersCount, r.updateFollowingCount)
+}
+
+// updateFollowersCount updates the followers count for the target.
+func (r *Relationship) updateFollowersCount(tx *gorm.DB) error {
 	actor := &Actor{
 		ID: r.ActorID,
 	}
-	if err := tx.Model(actor).Update("followers_count", followedBy).Error; err != nil {
-		return err
+	followers := tx.Select("COUNT(*)").Where("target_id = ? and following = true", r.ActorID).Table("relationships")
+	return tx.Model(actor).Update("followers_count", followers).Error
+}
+
+// updateFollowingCount updates the following count for the actor.
+func (r *Relationship) updateFollowingCount(tx *gorm.DB) error {
+	actor := &Actor{
+		ID: r.TargetID,
 	}
+	following := tx.Select("COUNT(*)").Where("actor_id = ? and following = true", r.TargetID).Table("relationships")
 	return tx.Model(actor).Update("following_count", following).Error
 }
 

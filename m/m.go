@@ -5,7 +5,18 @@ import (
 	"strconv"
 
 	"github.com/go-json-experiment/json"
+	"gorm.io/gorm"
 )
+
+// withTX runs each function in the given slice within the supplied transaction.
+func withTX(tx *gorm.DB, fns ...func(tx *gorm.DB) error) error {
+	for _, fn := range fns {
+		if err := fn(tx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func utoa(u uint) string {
 	return strconv.FormatUint(uint64(u), 10)
