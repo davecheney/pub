@@ -125,15 +125,6 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		r.Post("/revoke", oauth.Revoke)
 	})
 
-	r.Route("/users/{username}", func(r chi.Router) {
-		r.Get("/", activitypub.Users().Show)
-		r.Post("/inbox", activitypub.Inboxes(getKey).Create)
-		r.Get("/outbox", activitypub.Outboxes().Index)
-		r.Get("/followers", activitypub.Followers().Index)
-		r.Get("/following", activitypub.Following().Index)
-		r.Get("/collections/{collection}", activitypub.Collections().Show)
-	})
-
 	r.Route("/u/{username}", func(r chi.Router) {
 		r.Get("/", activitypub.Users().Show)
 		r.Post("/inbox", activitypub.Inboxes(getKey).Create)

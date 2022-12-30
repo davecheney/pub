@@ -77,18 +77,20 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 
 	var app models.Application
 	if err := o.db.Where("client_id = ?", clientID).First(&app).Error; err != nil {
+		fmt.Println("failed to find application", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	var account models.Account
-	if err := o.db.Joins("Actor", "name = ? and domain = ?", username, r.Host).First(&account).Error; err != nil {
+	if err := o.db.Joins("Actor").First(&account, "name = ? and domain = ?", username, r.Host).Error; err != nil {
+		fmt.Println("failed to find account", err)
 		http.Error(w, "invalid username", http.StatusUnauthorized)
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword(account.EncryptedPassword, []byte(password)); err != nil {
-		http.Error(w, "invalid password", http.StatusUnauthorized)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
