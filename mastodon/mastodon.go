@@ -2,9 +2,7 @@
 package mastodon
 
 import (
-	"io"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 
@@ -148,10 +146,9 @@ func (s *Service) authenticate(r *http.Request) (*models.Account, error) {
 func toJSON(w http.ResponseWriter, obj interface{}) error {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	// mw := io.MultiWriter(w, os.Stdout)
-	mw := io.MultiWriter(w, os.Stderr)
 	return json.MarshalOptions{}.MarshalFull(json.EncodeOptions{
 		Indent: "  ",
-	}, mw, obj)
+	}, w, obj)
 }
 
 func stringOrDefault(s string, def string) string {
