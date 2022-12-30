@@ -7,11 +7,11 @@ import "github.com/davecheney/m/internal/snowflake"
 type Application struct {
 	snowflake.ID `gorm:"primarykey;autoIncrement:false"`
 	InstanceID   snowflake.ID
-	Instance     *Instance
-	Name         string  `gorm:"size:64;not null"`
-	Website      *string `gorm:"size:64"`
-	RedirectURI  string  `gorm:"size:128;not null"`
-	ClientID     string  `gorm:"size:64;not null"`
-	ClientSecret string  `gorm:"size:64;not null"`
-	VapidKey     string  `gorm:"size:128;not null"`
+	Instance     *Instance `gorm:"constraint:OnDelete:CASCADE;"`
+	Name         string    `gorm:"size:64;not null"`
+	Website      *string   `gorm:"size:64"`
+	RedirectURI  string    `gorm:"size:128;not null"`
+	ClientID     string    `gorm:"size:64;not null"`
+	ClientSecret string    `gorm:"size:64;not null"`
+	VapidKey     string    `gorm:"size:128;not null"`
 }

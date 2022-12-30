@@ -14,9 +14,9 @@ type Status struct {
 	snowflake.ID     `gorm:"primarykey;autoIncrement:false"`
 	UpdatedAt        time.Time
 	ActorID          snowflake.ID
-	Actor            *Actor
+	Actor            *Actor `gorm:"constraint:OnDelete:CASCADE;"`
 	ConversationID   uint32
-	Conversation     *Conversation
+	Conversation     *Conversation `gorm:"constraint:OnDelete:CASCADE;"`
 	InReplyToID      *snowflake.ID
 	InReplyToActorID *snowflake.ID
 	Sensitive        bool
@@ -31,7 +31,7 @@ type Status struct {
 	ReblogID         *snowflake.ID
 	Reblog           *Status
 	Reaction         *Reaction
-	Attachments      []StatusAttachment
+	Attachments      []StatusAttachment `gorm:"constraint:OnDelete:CASCADE;"`
 }
 
 func (st *Status) AfterCreate(tx *gorm.DB) error {

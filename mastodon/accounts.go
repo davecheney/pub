@@ -109,6 +109,7 @@ func (a *Accounts) FollowingShow(w http.ResponseWriter, r *http.Request) {
 		resp = append(resp, serializeAccount(f.Target))
 	}
 	if len(following) > 0 {
+		// TODO don't send if we're at the end of the list
 		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/accounts/%s/following?max_id=%d>; rel=\"next\", <https://%s/api/v1/accounts/%s/following?min_id=%d>; rel=\"prev\"", r.Host, chi.URLParam(r, "id"), following[len(following)-1].TargetID, r.Host, chi.URLParam(r, "id"), following[0].TargetID))
 	}
 	toJSON(w, resp)
