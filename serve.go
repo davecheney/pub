@@ -52,7 +52,6 @@ func (s *ServeCmd) Run(ctx *Context) error {
 				r.Patch("/update_credentials", accounts.Update)
 				r.Get("/relationships", mastodon.Relationships().Show)
 				r.Get("/filters", mastodon.Filters().Index)
-				r.Get("/lists", mastodon.Lists().Index)
 				r.Get("/instance", instance.IndexV1)
 				r.Get("/instance/peers", instance.PeersShow)
 				r.Get("/{id}", accounts.Show)
@@ -72,6 +71,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Get("/custom_emojis", mastodon.Emojis().Index)
 			r.Get("/directory", mastodon.Directory().Index)
 			r.Get("/filters", mastodon.Filters().Index)
+			r.Get("/lists", mastodon.Lists().Index)
 			r.Get("/instance", instance.IndexV1)
 			r.Get("/instance/", instance.IndexV1) // sigh
 			r.Get("/instance/peers", instance.PeersShow)

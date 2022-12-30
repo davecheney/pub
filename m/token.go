@@ -28,8 +28,7 @@ type Instance struct {
 
 	DomainsCount int `gorm:"-"`
 
-	Rules        []InstanceRule `gorm:"foreignKey:InstanceID"`
-	Applications []Application
+	Rules []InstanceRule `gorm:"foreignKey:InstanceID"`
 }
 
 func (i *Instance) AfterCreate(tx *gorm.DB) error {
@@ -68,7 +67,6 @@ type Application struct {
 	ClientID     string  `gorm:"size:64;not null"`
 	ClientSecret string  `gorm:"size:64;not null"`
 	VapidKey     string  `gorm:"size:128;not null"`
-	Tokens       []Token
 }
 
 // A Token is an access token for an Application.
@@ -86,11 +84,13 @@ type Token struct {
 
 // An Account is a user account on an Instance.
 // An Account belongs to an Actor.
+// An Account belongs to an Instance.
 type Account struct {
 	ID                uint32 `gorm:"primarykey"`
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
-	InstanceID        uint32 `gorm:"index"`
+	InstanceID        uint32
+	Instance          *Instance
 	ActorID           uint64
 	Actor             *Actor
 	Notifications     []Notification

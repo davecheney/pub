@@ -23,7 +23,7 @@ func (n *Notifications) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var resp []any
+	resp := make([]any, 0)
 	for _, n := range notifications {
 		resp = append(resp, map[string]any{
 			"id":         toString(n.ID),
