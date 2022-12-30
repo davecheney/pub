@@ -20,8 +20,8 @@ func TimeToID(ts time.Time) ID {
 	return ID(uint64(ts.UnixNano()/int64(time.Millisecond))<<16 | uint64(time.Now().Nanosecond()&0xffff))
 }
 
-// IDToTime converts a Snowflake ID to a time.Time.
-func (id ID) IDToTime() time.Time {
+// ToTime converts a Snowflake ID to a time.Time.
+func (id ID) ToTime() time.Time {
 	return time.Unix(0, int64(id>>16)*1e6)
 }
 
@@ -29,22 +29,3 @@ func (id ID) IDToTime() time.Time {
 func Now() ID {
 	return TimeToID(time.Now())
 }
-
-// // GormDataType gorm common data type
-// func (ID) GormDataType() string {
-// 	return "uint64"
-// }
-
-// // GormDBDataType gorm db data type
-// func (ID) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-// 	switch db.Dialector.Name() {
-// 	case "mysql":
-// 		return "BIGINT UNSIGNED"
-// 	default:
-// 		return ""
-// 	}
-// }
-
-// func (id ID) Value() (driver.Value, error) {
-// 	return uint64(id), nil
-// }

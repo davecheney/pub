@@ -25,13 +25,13 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	actor := user.Actor
 	var toot struct {
-		Status      string     `json:"status"`
-		InReplyToID *uint64    `json:"in_reply_to_id,string"`
-		Sensitive   bool       `json:"sensitive"`
-		SpoilerText string     `json:"spoiler_text"`
-		Visibility  string     `json:"visibility"`
-		Language    string     `json:"language"`
-		ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
+		Status      string        `json:"status"`
+		InReplyToID *snowflake.ID `json:"in_reply_to_id,string"`
+		Sensitive   bool          `json:"sensitive"`
+		SpoilerText string        `json:"spoiler_text"`
+		Visibility  string        `json:"visibility"`
+		Language    string        `json:"language"`
+		ScheduledAt *time.Time    `json:"scheduled_at,omitempty"`
 	}
 	if err := json.UnmarshalFull(r.Body, &toot); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -59,7 +59,7 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	createdAt := time.Now()
-	id := uint64(snowflake.TimeToID(createdAt))
+	id := snowflake.TimeToID(createdAt)
 	status := models.Status{
 		ID:             id,
 		ActorID:        actor.ID,
@@ -129,7 +129,7 @@ func (s *Statuses) Show(w http.ResponseWriter, r *http.Request) {
 func serializeStatus(s *models.Status) map[string]any {
 	return map[string]any{
 		"id":                     toString(s.ID),
-		"created_at":             snowflake.ID(s.ID).IDToTime().Round(time.Second).Format("2006-01-02T15:04:05.000Z"),
+		"created_at":             snowflake.ID(s.ID).ToTime().Round(time.Second).Format("2006-01-02T15:04:05.000Z"),
 		"edited_at":              nil,
 		"in_reply_to_id":         stringOrNull(s.InReplyToID),
 		"in_reply_to_account_id": stringOrNull(s.InReplyToActorID),

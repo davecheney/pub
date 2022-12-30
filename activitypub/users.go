@@ -103,8 +103,8 @@ func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 		"summary":                   actor.Note,
 		"url":                       actor.URL(),
 		"manuallyApprovesFollowers": actor.Locked,
-		"discoverable":              false,                                                            // mastodon sets this to false
-		"published":                 snowflake.ID(actor.ID).IDToTime().Format("2006-01-02T00:00:00Z"), // spec says round created_at to nearest day
+		"discoverable":              false,                                                          // mastodon sets this to false
+		"published":                 snowflake.ID(actor.ID).ToTime().Format("2006-01-02T00:00:00Z"), // spec says round created_at to nearest day
 		"devices":                   actor.URI + "/collections/devices",
 		"publicKey": map[string]any{
 			"id":           actor.PublicKeyID(),

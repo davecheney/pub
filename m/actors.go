@@ -58,7 +58,7 @@ func (f *RemoteActorFetcher) Fetch(uri string) (*models.Actor, error) {
 	}
 
 	return &models.Actor{
-		ID:           uint64(snowflake.TimeToID(published)),
+		ID:           snowflake.TimeToID(published),
 		Type:         stringFromAny(obj["type"]),
 		Name:         stringFromAny(obj["preferredUsername"]),
 		Domain:       u.Host,

@@ -27,3 +27,7 @@ func toJSON(w http.ResponseWriter, obj interface{}) error {
 	w.Header().Set("Content-Type", "application/activity+json; charset=utf-8")
 	return json.MarshalFull(w, obj)
 }
+
+func ptr[T any](v T) *T {
+	return &v
+}

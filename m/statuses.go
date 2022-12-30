@@ -108,9 +108,8 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 	createdAt := timeFromAny(obj["published"])
 
 	st := &models.Status{
-		ID:               uint64(snowflake.TimeToID(createdAt)),
+		ID:               snowflake.TimeToID(createdAt),
 		ActorID:          actor.ID,
-		Actor:            actor,
 		ConversationID:   conversationID,
 		InReplyToID:      inReplyToID(inReplyTo),
 		InReplyToActorID: inReplyToActorID(inReplyTo),
@@ -124,14 +123,14 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 	return st, nil
 }
 
-func inReplyToID(inReplyTo *models.Status) *uint64 {
+func inReplyToID(inReplyTo *models.Status) *snowflake.ID {
 	if inReplyTo != nil {
 		return &inReplyTo.ID
 	}
 	return nil
 }
 
-func inReplyToActorID(inReplyTo *models.Status) *uint64 {
+func inReplyToActorID(inReplyTo *models.Status) *snowflake.ID {
 	if inReplyTo != nil {
 		return &inReplyTo.ActorID
 	}

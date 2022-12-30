@@ -3,6 +3,7 @@ package models
 import (
 	"time"
 
+	"github.com/davecheney/m/internal/snowflake"
 	"gorm.io/gorm"
 )
 
@@ -10,10 +11,10 @@ import (
 // An Instance has many InstanceRules.
 // An Instance has one Admin Account.
 type Instance struct {
-	ID               uint64 `gorm:"primarykey;autoIncrement:false"`
+	snowflake.ID     `gorm:"primarykey;autoIncrement:false"`
 	UpdatedAt        time.Time
 	Domain           string `gorm:"size:64;uniqueIndex"`
-	AdminID          *uint64
+	AdminID          *snowflake.ID
 	Admin            *Account
 	SourceURL        string
 	Title            string `gorm:"size:64"`
@@ -51,7 +52,7 @@ func (i *Instance) updateStatusesCount(tx *gorm.DB) error {
 }
 
 type InstanceRule struct {
-	ID         uint64 `gorm:"primarykey;autoIncrement:false"`
+	ID         uint32 `gorm:"primarykey"`
 	InstanceID uint64
 	Text       string
 }

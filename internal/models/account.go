@@ -2,17 +2,19 @@ package models
 
 import (
 	"time"
+
+	"github.com/davecheney/m/internal/snowflake"
 )
 
 // An Account is a user account on an Instance.
 // An Account belongs to an Actor.
 // An Account belongs to an Instance.
 type Account struct {
-	ID                uint64 `gorm:"primarykey;autoIncrement:false"`
+	snowflake.ID      `gorm:"primarykey;autoIncrement:false"`
 	UpdatedAt         time.Time
-	InstanceID        uint64
+	InstanceID        snowflake.ID
 	Instance          *Instance
-	ActorID           uint64
+	ActorID           snowflake.ID
 	Actor             *Actor
 	Lists             []AccountList
 	Email             string `gorm:"size:64;not null"`

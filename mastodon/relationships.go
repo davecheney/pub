@@ -7,6 +7,7 @@ import (
 
 	"github.com/davecheney/m/internal/activitypub"
 	"github.com/davecheney/m/internal/models"
+	"github.com/davecheney/m/internal/snowflake"
 	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
 )
@@ -25,11 +26,12 @@ func (r *Relationships) Show(w http.ResponseWriter, req *http.Request) {
 	targets = append(targets, req.URL.Query()["id[]"]...)
 	var resp []any
 	for _, target := range targets {
-		tid, err := strconv.ParseUint(target, 10, 64)
+		id, err := strconv.ParseUint(target, 10, 64)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		tid := snowflake.ID(id)
 		var rel models.Relationship
 		if err := r.service.DB().Preload("Target").FirstOrCreate(&rel, models.Relationship{ActorID: user.Actor.ID, TargetID: tid}).Error; err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)

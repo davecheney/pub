@@ -11,14 +11,14 @@ import (
 // status, or a new thread of conversation.
 // A Status belongs to a single Account, and is part of a single Conversation.
 type Status struct {
-	ID               uint64 `gorm:"primarykey;autoIncrement:false"`
+	snowflake.ID     `gorm:"primarykey;autoIncrement:false"`
 	UpdatedAt        time.Time
-	ActorID          uint64
+	ActorID          snowflake.ID
 	Actor            *Actor
 	ConversationID   uint32
 	Conversation     *Conversation
-	InReplyToID      *uint64
-	InReplyToActorID *uint64
+	InReplyToID      *snowflake.ID
+	InReplyToActorID *snowflake.ID
 	Sensitive        bool
 	SpoilerText      string `gorm:"size:128"`
 	Visibility       string `gorm:"type:enum('public', 'unlisted', 'private', 'direct', 'limited')"`
@@ -28,7 +28,7 @@ type Status struct {
 	RepliesCount     int    `gorm:"not null;default:0"`
 	ReblogsCount     int    `gorm:"not null;default:0"`
 	FavouritesCount  int    `gorm:"not null;default:0"`
-	ReblogID         *uint64
+	ReblogID         *snowflake.ID
 	Reblog           *Status
 	Reaction         *Reaction
 	Attachments      []StatusAttachment
@@ -44,7 +44,7 @@ func (st *Status) updateRepliesCount(tx *gorm.DB) error {
 		return nil
 	}
 
-	parent := &Status{ID: *st.InReplyToID}
+	parent := &Status{ID: snowflake.ID(*st.InReplyToID)}
 	repliesCount := tx.Select("COUNT(id)").Where("in_reply_to_id = ?", *st.InReplyToID).Table("statuses")
 	return tx.Model(parent).Update("replies_count", repliesCount).Error
 }
@@ -52,7 +52,7 @@ func (st *Status) updateRepliesCount(tx *gorm.DB) error {
 // updateStatusCount updates the status_count and last_status_at fields on the actor.
 func (st *Status) updateStatusCount(tx *gorm.DB) error {
 	statusesCount := tx.Select("COUNT(id)").Where("actor_id = ?", st.ActorID).Table("statuses")
-	createdAt := snowflake.ID(st.ID).IDToTime()
+	createdAt := st.ID.ToTime()
 	return tx.Model(st.Actor).Updates(map[string]interface{}{
 		"statuses_count": statusesCount,
 		"last_status_at": createdAt,

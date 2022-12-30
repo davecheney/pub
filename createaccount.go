@@ -43,7 +43,7 @@ func (c *CreateAccountCmd) Run(ctx *Context) error {
 		}
 
 		actor := models.Actor{
-			ID:          uint64(snowflake.Now()),
+			ID:          snowflake.Now(),
 			Name:        c.Name,
 			Domain:      c.Domain,
 			Type:        "LocalPerson",

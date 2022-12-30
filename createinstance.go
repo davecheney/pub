@@ -35,7 +35,7 @@ func (c *CreateInstanceCmd) Run(ctx *Context) error {
 	return withTransaction(db, func(tx *gorm.DB) error {
 
 		admin := models.Actor{
-			ID:          uint64(snowflake.Now()),
+			ID:          snowflake.Now(),
 			Type:        "Service",
 			URI:         fmt.Sprintf("https://%s/@admin", c.Domain),
 			Name:        "admin",
@@ -52,7 +52,7 @@ func (c *CreateInstanceCmd) Run(ctx *Context) error {
 		}
 
 		instance := models.Instance{
-			ID:               uint64(snowflake.Now()),
+			ID:               snowflake.Now(),
 			Domain:           c.Domain,
 			SourceURL:        "https://github.com/davecheney/m",
 			Title:            c.Title,
@@ -78,7 +78,7 @@ func (c *CreateInstanceCmd) Run(ctx *Context) error {
 		}
 
 		adminAccount := models.Account{
-			ID:                uint64(snowflake.Now()),
+			ID:                snowflake.Now(),
 			InstanceID:        instance.ID,
 			ActorID:           admin.ID,
 			Email:             c.AdminEmail,

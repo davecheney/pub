@@ -140,7 +140,7 @@ func (i *Inboxes) processAnnounce(obj map[string]any) error {
 	}
 
 	status := &models.Status{
-		ID:               uint64(snowflake.TimeToID(published)),
+		ID:               snowflake.TimeToID(published),
 		ActorID:          actor.ID,
 		Actor:            actor,
 		ConversationID:   conv.ID,
@@ -153,10 +153,13 @@ func (i *Inboxes) processAnnounce(obj map[string]any) error {
 		Language:         "",
 		Note:             "",
 		ReblogID:         &original.ID,
-		Reblog:           original,
 	}
 
 	return i.service.db.Create(status).Error
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
 
 func (i *Inboxes) processAdd(act map[string]any) error {
@@ -172,7 +175,7 @@ func (i *Inboxes) processAdd(act map[string]any) error {
 		if err != nil {
 			return err
 		}
-		if actor.ID != status.ActorID {
+		if status.ActorID != actor.ID {
 			return errors.New("actor is not the author of the status")
 		}
 		return svc.Reactions().Pin(status, actor)
@@ -196,7 +199,7 @@ func (i *Inboxes) processRemove(act map[string]any) error {
 		if err != nil {
 			return err
 		}
-		if actor.ID != status.ActorID {
+		if status.ActorID != actor.ID {
 			return errors.New("actor is not the author of the status")
 		}
 		return svc.Reactions().Unpin(status, actor)
@@ -258,7 +261,7 @@ func (i *Inboxes) processCreateNote(create map[string]any) error {
 		}
 
 		st := &models.Status{
-			ID:               uint64(snowflake.TimeToID(published)),
+			ID:               snowflake.TimeToID(published),
 			ActorID:          actor.ID,
 			Actor:            actor,
 			ConversationID:   conversationID,
@@ -295,14 +298,14 @@ func (i *Inboxes) processCreateNote(create map[string]any) error {
 	return err
 }
 
-func inReplyToID(inReplyTo *models.Status) *uint64 {
+func inReplyToID(inReplyTo *models.Status) *snowflake.ID {
 	if inReplyTo != nil {
 		return &inReplyTo.ID
 	}
 	return nil
 }
 
-func inReplyToActorID(inReplyTo *models.Status) *uint64 {
+func inReplyToActorID(inReplyTo *models.Status) *snowflake.ID {
 	if inReplyTo != nil {
 		return &inReplyTo.ActorID
 	}

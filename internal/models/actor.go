@@ -3,10 +3,12 @@ package models
 import (
 	"fmt"
 	"time"
+
+	"github.com/davecheney/m/internal/snowflake"
 )
 
 type Actor struct {
-	ID             uint64 `gorm:"primarykey;autoIncrement:false"`
+	snowflake.ID   `gorm:"primarykey;autoIncrement:false"`
 	UpdatedAt      time.Time
 	Type           string `gorm:"type:enum('Person', 'Application', 'Service', 'Group', 'Organization', 'LocalPerson');default:'Person';not null"`
 	URI            string `gorm:"uniqueIndex;size:128"`

@@ -94,7 +94,6 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 
 	token := &models.Token{
 		AccountID:         account.ID,
-		Account:           &account,
 		AccessToken:       uuid.New().String(),
 		TokenType:         "bearer",
 		Scope:             "read write follow push",

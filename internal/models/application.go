@@ -1,10 +1,12 @@
 package models
 
+import "github.com/davecheney/m/internal/snowflake"
+
 // An Application is a registered client application.
 // An Application belongs to an Instance.
 type Application struct {
-	ID           uint64 `gorm:"primarykey;autoIncrement:false"`
-	InstanceID   uint64
+	snowflake.ID `gorm:"primarykey;autoIncrement:false"`
+	InstanceID   snowflake.ID
 	Instance     *Instance
 	Name         string  `gorm:"size:64;not null"`
 	Website      *string `gorm:"size:64"`

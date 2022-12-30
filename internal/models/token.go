@@ -2,6 +2,8 @@ package models
 
 import (
 	"time"
+
+	"github.com/davecheney/m/internal/snowflake"
 )
 
 // A Token is an access token for an Application.
@@ -10,9 +12,9 @@ import (
 type Token struct {
 	AccessToken       string `gorm:"size:64;primaryKey;autoIncrement:false"`
 	CreatedAt         time.Time
-	AccountID         uint64
+	AccountID         snowflake.ID
 	Account           *Account
-	ApplicationID     uint64
+	ApplicationID     snowflake.ID
 	Application       *Application
 	TokenType         string `gorm:"type:enum('Bearer');not null"`
 	Scope             string `gorm:"size:64;not null"`

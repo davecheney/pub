@@ -45,7 +45,7 @@ func (a *Applications) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app := &models.Application{
-		ID:           uint64(snowflake.Now()),
+		ID:           snowflake.Now(),
 		Name:         params.ClientName,
 		Website:      params.Website,
 		ClientID:     uuid.New().String(),

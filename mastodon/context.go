@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/davecheney/m/internal/models"
+	"github.com/davecheney/m/internal/snowflake"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -56,13 +57,13 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 
 // thread sorts statuses into a tree, it returns the statuses
 // preceding id, and statuses following id.
-func thread(id uint64, statuses []models.Status) ([]*models.Status, []*models.Status) {
+func thread(id snowflake.ID, statuses []models.Status) ([]*models.Status, []*models.Status) {
 	type link struct {
 		parent   *link
 		status   *models.Status
 		children []*link
 	}
-	ids := make(map[uint64]*link)
+	ids := make(map[snowflake.ID]*link)
 	for i := range statuses {
 		ids[statuses[i].ID] = &link{status: &statuses[i]}
 	}
