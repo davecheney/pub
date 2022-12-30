@@ -78,12 +78,12 @@ func (a *Accounts) FollowersShow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var followers []models.Relationship
-	if err := a.service.DB().Scopes(paginateRelationship(r)).Preload("Target").Where("actor_id = ? and followed_by = true", chi.URLParam(r, "id")).Find(&followers).Error; err != nil {
+	if err := a.service.DB().Scopes(paginateRelationship(r)).Preload("Target").Where("target_id = ? and following = true", chi.URLParam(r, "id")).Find(&followers).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	var resp []any
+	resp := []any{} // make sure this is a slice not null
 	for _, follower := range followers {
 		resp = append(resp, serializeAccount(follower.Target))
 	}
@@ -104,7 +104,7 @@ func (a *Accounts) FollowingShow(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	var resp []any
+	resp := []any{} // make sure this is a slice not null
 	for _, f := range following {
 		resp = append(resp, serializeAccount(f.Target))
 	}
