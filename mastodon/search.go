@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/davecheney/m/internal/models"
 	"github.com/davecheney/m/internal/webfinger"
-	"github.com/davecheney/m/m"
 	"github.com/go-json-experiment/json"
 )
 
@@ -38,7 +38,7 @@ func (s *Search) Index(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Search) searchAccounts(w http.ResponseWriter, r *http.Request, q string) {
-	var actor *m.Actor
+	var actor *models.Actor
 	var err error
 	switch r.URL.Query().Get("resolve") == "true" {
 	case true:
@@ -95,7 +95,7 @@ func (s *Search) searchAccounts(w http.ResponseWriter, r *http.Request, q string
 }
 
 func (s *Search) searchStatuses(w http.ResponseWriter, r *http.Request, q string) {
-	var status *m.Status
+	var status *models.Status
 	var err error
 	switch r.URL.Query().Get("resolve") == "true" {
 	case true:

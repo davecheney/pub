@@ -1,6 +1,7 @@
 package m
 
 import (
+	"github.com/davecheney/m/internal/models"
 	"gorm.io/gorm"
 )
 
@@ -10,8 +11,8 @@ type conversations struct {
 }
 
 // New returns a new conversations with the given visibility.
-func (c *conversations) New(vis string) (*Conversation, error) {
-	conv := Conversation{
+func (c *conversations) New(vis string) (*models.Conversation, error) {
+	conv := models.Conversation{
 		Visibility: vis,
 	}
 	if err := c.db.Create(&conv).Error; err != nil {
@@ -20,9 +21,11 @@ func (c *conversations) New(vis string) (*Conversation, error) {
 	return &conv, nil
 }
 
-func (c *conversations) FindOrCreate(id uint32, vis string) (*Conversation, error) {
-	var conversation Conversation
-	if err := c.db.FirstOrCreate(&conversation, Conversation{Visibility: vis}).Error; err != nil {
+func (c *conversations) FindOrCreate(id uint32, vis string) (*models.Conversation, error) {
+	var conversation models.Conversation
+	if err := c.db.FirstOrCreate(&conversation, models.Conversation{
+		Visibility: vis,
+	}).Error; err != nil {
 		return nil, err
 	}
 	return &conversation, nil

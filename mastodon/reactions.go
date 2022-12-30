@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/davecheney/m/internal/models"
 	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
@@ -19,7 +20,7 @@ func (f *Favourites) Create(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var status m.Status
+	var status models.Status
 	if err := f.service.DB().Joins("Actor").First(&status, chi.URLParam(req, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -42,7 +43,7 @@ func (f *Favourites) Destroy(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var status m.Status
+	var status models.Status
 	if err := f.service.DB().Joins("Actor").First(&status, chi.URLParam(req, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -65,7 +66,7 @@ func (f *Favourites) Show(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var reactions []m.Reaction
+	var reactions []models.Reaction
 	if err := f.service.DB().Preload("Actor").Where("status_id = ?", chi.URLParam(req, "id")).Find(&reactions).Error; err != nil {
 		if err != gorm.ErrRecordNotFound {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

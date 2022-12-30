@@ -21,7 +21,7 @@ import (
 )
 
 type ServeCmd struct {
-	Addr string `help:"address to listen"`
+	Addr string `help:"address to listen" default:"127.0.0.1:9999"`
 }
 
 func (s *ServeCmd) Run(ctx *Context) error {

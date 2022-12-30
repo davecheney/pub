@@ -8,7 +8,7 @@ import (
 	"net/http/httputil"
 	"strings"
 
-	"github.com/davecheney/m/m"
+	"github.com/davecheney/m/internal/models"
 	"github.com/go-json-experiment/json"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -75,13 +75,13 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 	redirectURI := r.PostFormValue("redirect_uri")
 	clientID := r.PostFormValue("client_id")
 
-	var app m.Application
+	var app models.Application
 	if err := o.db.Where("client_id = ?", clientID).First(&app).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	var account m.Account
+	var account models.Account
 	if err := o.db.Where("email = ?", email).Joins("Actor").First(&account).Error; err != nil {
 		http.Error(w, "invalid username", http.StatusUnauthorized)
 		return
@@ -92,7 +92,7 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token := &m.Token{
+	token := &models.Token{
 		AccountID:         account.ID,
 		Account:           &account,
 		AccessToken:       uuid.New().String(),
@@ -100,8 +100,8 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 		Scope:             "read write follow push",
 		AuthorizationCode: uuid.New().String(),
 	}
-	if err := o.db.Model(&app).Association("Tokens").Append(token); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := o.db.Create(token).Error; err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
@@ -151,12 +151,12 @@ func (o *OAuth) Token(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unsupported media type", http.StatusUnsupportedMediaType)
 		return
 	}
-	var token m.Token
+	var token models.Token
 	if err := o.db.Where("authorization_code = ?", params.Code).First(&token).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	var app m.Application
+	var app models.Application
 	if err := o.db.Where("client_id = ?", params.ClientID).First(&app).Error; err != nil {
 		http.Error(w, "invalid client_id", http.StatusBadRequest)
 		return
@@ -182,7 +182,7 @@ func (o *OAuth) Revoke(w http.ResponseWriter, r *http.Request) {
 		ClientSecret string `json:"client_secret"`
 		Token        string `json:"token"`
 	}
-	var token m.Token
+	var token models.Token
 	switch strings.Split(r.Header.Get("Content-Type"), ";")[0] {
 	case "application/x-www-form-urlencoded":
 		params.ClientID = r.FormValue("client_id")

@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/davecheney/m/internal/activitypub"
+	"github.com/davecheney/m/internal/models"
 	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
 )
@@ -29,8 +30,8 @@ func (r *Relationships) Show(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		var rel m.Relationship
-		if err := r.service.DB().Preload("Target").FirstOrCreate(&rel, m.Relationship{ActorID: user.Actor.ID, TargetID: tid}).Error; err != nil {
+		var rel models.Relationship
+		if err := r.service.DB().Preload("Target").FirstOrCreate(&rel, models.Relationship{ActorID: user.Actor.ID, TargetID: tid}).Error; err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
@@ -45,7 +46,7 @@ func (r *Relationships) Create(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var target m.Actor
+	var target models.Actor
 	if err := r.service.DB().First(&target, chi.URLParam(req, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -62,7 +63,7 @@ func (r *Relationships) Create(w http.ResponseWriter, req *http.Request) {
 	toJSON(w, serializeRelationship(rel))
 }
 
-func (r *Relationships) sendFollowRequest(account *m.Account, target *m.Actor) error {
+func (r *Relationships) sendFollowRequest(account *models.Account, target *models.Actor) error {
 	client, err := activitypub.NewClient(account.Actor.PublicKeyID(), account.PrivateKey)
 	if err != nil {
 		return err
@@ -76,7 +77,7 @@ func (r *Relationships) Destroy(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var target m.Actor
+	var target models.Actor
 	if err := r.service.DB().First(&target, chi.URLParam(req, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -97,7 +98,7 @@ func (r *Relationships) Destroy(w http.ResponseWriter, req *http.Request) {
 	toJSON(w, serializeRelationship(rel))
 }
 
-func (r *Relationships) sendUnfollowRequest(account *m.Account, target *m.Actor) error {
+func (r *Relationships) sendUnfollowRequest(account *models.Account, target *models.Actor) error {
 	client, err := activitypub.NewClient(account.Actor.PublicKeyID(), account.PrivateKey)
 	if err != nil {
 		return err
@@ -105,7 +106,7 @@ func (r *Relationships) sendUnfollowRequest(account *m.Account, target *m.Actor)
 	return client.Unfollow(account.Actor.URI, target.URI)
 }
 
-func serializeRelationship(rel *m.Relationship) map[string]any {
+func serializeRelationship(rel *models.Relationship) map[string]any {
 	return map[string]any{
 		"id":                   toString(rel.TargetID),
 		"following":            rel.Following,

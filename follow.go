@@ -8,7 +8,7 @@ import (
 
 	"github.com/carlmjohnson/requests"
 	"github.com/davecheney/m/internal/activitypub"
-	"github.com/davecheney/m/m"
+	"github.com/davecheney/m/internal/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -23,7 +23,7 @@ func (f *FollowCmd) Run(ctx *Context) error {
 	if err != nil {
 		return err
 	}
-	var instance m.Instance
+	var instance models.Instance
 	if err := db.First(&instance).Error; err != nil {
 		return err
 	}
@@ -60,8 +60,8 @@ func (f *FollowCmd) Run(ctx *Context) error {
 	})
 }
 
-func findLocalAccount(db *gorm.DB, username, domain string) (*m.Account, error) {
-	var account m.Account
+func findLocalAccount(db *gorm.DB, username, domain string) (*models.Account, error) {
+	var account models.Account
 	if err := db.Where("username = ? AND domain = ?", username, domain).Joins("LocalAccount").First(&account).Error; err != nil {
 		return nil, err
 	}

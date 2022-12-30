@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/davecheney/m/m"
+	"github.com/davecheney/m/internal/models"
 	"gorm.io/gorm"
 )
 
@@ -15,16 +15,15 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 	}
 
 	return db.AutoMigrate(
-		&m.Actor{}, &m.Webfinger{},
-		&m.Account{}, &m.AccountList{}, &m.AccountRole{},
-		&m.Application{},
-		&m.Conversation{},
-		&m.ClientFilter{},
-		&m.Instance{}, &m.InstanceRule{},
-		&m.Relationship{}, &m.Reaction{},
-		&m.Marker{},
-		&m.Notification{},
-		&m.Status{}, &m.Poll{}, &m.StatusAttachment{},
-		&m.Token{},
+		&models.Actor{},
+		&models.Account{}, &models.AccountList{}, &models.AccountRole{},
+		&models.Application{},
+		&models.Conversation{},
+		&models.Instance{}, &models.InstanceRule{},
+		&models.Relationship{}, &models.Reaction{},
+		// &models.Marker{},
+		// &models.Notification{},
+		&models.Status{}, &models.StatusPoll{}, &models.StatusAttachment{},
+		&models.Token{},
 	)
 }

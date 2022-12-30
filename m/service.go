@@ -1,6 +1,7 @@
 package m
 
 import (
+	"github.com/davecheney/m/internal/models"
 	"gorm.io/gorm"
 )
 
@@ -63,7 +64,7 @@ type reactions struct {
 	db *gorm.DB
 }
 
-func (r *reactions) Pin(status *Status, actor *Actor) error {
+func (r *reactions) Pin(status *models.Status, actor *models.Actor) error {
 	reaction, err := r.findOrCreate(status, actor)
 	if err != nil {
 		return err
@@ -71,7 +72,7 @@ func (r *reactions) Pin(status *Status, actor *Actor) error {
 	return r.db.Model(reaction).Update("pinned", true).Error
 }
 
-func (r *reactions) Unpin(status *Status, actor *Actor) error {
+func (r *reactions) Unpin(status *models.Status, actor *models.Actor) error {
 	reaction, err := r.findOrCreate(status, actor)
 	if err != nil {
 		return err
@@ -79,7 +80,7 @@ func (r *reactions) Unpin(status *Status, actor *Actor) error {
 	return r.db.Model(reaction).Update("pinned", false).Error
 }
 
-func (r *reactions) Favourite(status *Status, actor *Actor) (*Reaction, error) {
+func (r *reactions) Favourite(status *models.Status, actor *models.Actor) (*models.Reaction, error) {
 	reaction, err := r.findOrCreate(status, actor)
 	if err != nil {
 		return nil, err
@@ -91,7 +92,7 @@ func (r *reactions) Favourite(status *Status, actor *Actor) (*Reaction, error) {
 	return reaction, nil
 }
 
-func (r *reactions) Unfavourite(status *Status, actor *Actor) (*Reaction, error) {
+func (r *reactions) Unfavourite(status *models.Status, actor *models.Actor) (*models.Reaction, error) {
 	reaction, err := r.findOrCreate(status, actor)
 	if err != nil {
 		return nil, err
@@ -103,9 +104,9 @@ func (r *reactions) Unfavourite(status *Status, actor *Actor) (*Reaction, error)
 	return reaction, nil
 }
 
-func (r *reactions) findOrCreate(status *Status, actor *Actor) (*Reaction, error) {
-	var reaction Reaction
-	if err := r.db.FirstOrCreate(&reaction, Reaction{StatusID: status.ID, ActorID: actor.ID}).Error; err != nil {
+func (r *reactions) findOrCreate(status *models.Status, actor *models.Actor) (*models.Reaction, error) {
+	var reaction models.Reaction
+	if err := r.db.FirstOrCreate(&reaction, models.Reaction{StatusID: status.ID, ActorID: actor.ID}).Error; err != nil {
 		return nil, err
 	}
 	return &reaction, nil
@@ -122,7 +123,7 @@ type relationships struct {
 }
 
 // Block blocks the target from the actor.
-func (r *relationships) Block(actor, target *Actor) (*Relationship, error) {
+func (r *relationships) Block(actor, target *models.Actor) (*models.Relationship, error) {
 	forward, inverse, err := r.pair(actor, target)
 	if err != nil {
 		return nil, err
@@ -138,7 +139,7 @@ func (r *relationships) Block(actor, target *Actor) (*Relationship, error) {
 }
 
 // Unblock removes a block relationship between actor and the target.
-func (r *relationships) Unblock(actor, target *Actor) (*Relationship, error) {
+func (r *relationships) Unblock(actor, target *models.Actor) (*models.Relationship, error) {
 	forward, inverse, err := r.pair(actor, target)
 	if err != nil {
 		return nil, err
@@ -154,7 +155,7 @@ func (r *relationships) Unblock(actor, target *Actor) (*Relationship, error) {
 }
 
 // Follow establishes a follow relationship between actor and the target.
-func (r *relationships) Follow(actor, target *Actor) (*Relationship, error) {
+func (r *relationships) Follow(actor, target *models.Actor) (*models.Relationship, error) {
 	forward, inverse, err := r.pair(actor, target)
 	if err != nil {
 		return nil, err
@@ -170,7 +171,7 @@ func (r *relationships) Follow(actor, target *Actor) (*Relationship, error) {
 }
 
 // Unfollow removes a follow relationship between actor and the target.
-func (r *relationships) Unfollow(actor, target *Actor) (*Relationship, error) {
+func (r *relationships) Unfollow(actor, target *models.Actor) (*models.Relationship, error) {
 	forward, inverse, err := r.pair(actor, target)
 	if err != nil {
 		return nil, err
@@ -186,7 +187,7 @@ func (r *relationships) Unfollow(actor, target *Actor) (*Relationship, error) {
 }
 
 // pair returns the pair of relationships between actor and target.
-func (r *relationships) pair(actor, target *Actor) (*Relationship, *Relationship, error) {
+func (r *relationships) pair(actor, target *models.Actor) (*models.Relationship, *models.Relationship, error) {
 	forward, err := r.findOrCreate(actor, target)
 	if err != nil {
 		return nil, nil, err
@@ -198,9 +199,9 @@ func (r *relationships) pair(actor, target *Actor) (*Relationship, *Relationship
 	return forward, inverse, nil
 }
 
-func (r *relationships) findOrCreate(actor, target *Actor) (*Relationship, error) {
-	var rel Relationship
-	if err := r.db.FirstOrCreate(&rel, Relationship{ActorID: actor.ID, TargetID: target.ID}).Error; err != nil {
+func (r *relationships) findOrCreate(actor, target *models.Actor) (*models.Relationship, error) {
+	var rel models.Relationship
+	if err := r.db.FirstOrCreate(&rel, models.Relationship{ActorID: actor.ID, TargetID: target.ID}).Error; err != nil {
 		return nil, err
 	}
 	rel.Target = target

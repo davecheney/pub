@@ -3,7 +3,7 @@ package mastodon
 import (
 	"net/http"
 
-	"github.com/davecheney/m/m"
+	"github.com/davecheney/m/internal/models"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -18,14 +18,14 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var status m.Status
+	var status models.Status
 	if err := c.service.DB().First(&status, chi.URLParam(r, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
 	// load conversation statuses
-	var statuses []m.Status
+	var statuses []models.Status
 	query := c.service.DB().Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").Preload("Attachments").Preload("Reaction", "actor_id = ?", user.Actor.ID)
 	if err := query.Where("conversation_id = ?", status.ConversationID).Find(&statuses).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -56,10 +56,10 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 
 // thread sorts statuses into a tree, it returns the statuses
 // preceding id, and statuses following id.
-func thread(id uint64, statuses []m.Status) ([]*m.Status, []*m.Status) {
+func thread(id uint64, statuses []models.Status) ([]*models.Status, []*models.Status) {
 	type link struct {
 		parent   *link
-		status   *m.Status
+		status   *models.Status
 		children []*link
 	}
 	ids := make(map[uint64]*link)
@@ -78,7 +78,7 @@ func thread(id uint64, statuses []m.Status) ([]*m.Status, []*m.Status) {
 		}
 	}
 
-	var ancestors []*m.Status
+	var ancestors []*models.Status
 	var l = ids[id].parent
 	for l != nil {
 		ancestors = append(ancestors, l.status)
@@ -86,7 +86,7 @@ func thread(id uint64, statuses []m.Status) ([]*m.Status, []*m.Status) {
 	}
 	reverse(ancestors)
 
-	var descendants []*m.Status
+	var descendants []*models.Status
 	var walk func(*link)
 	walk = func(l *link) {
 		for _, c := range l.children {

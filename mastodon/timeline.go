@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/davecheney/m/m"
+	"github.com/davecheney/m/internal/models"
 	"gorm.io/gorm"
 )
 
@@ -21,13 +21,13 @@ func (t *Timelines) Home(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var followingIDs []int64
-	if err := t.service.DB().Model(&m.Relationship{ActorID: user.Actor.ID}).Where("following = true").Pluck("target_id", &followingIDs).Error; err != nil {
+	if err := t.service.DB().Model(&models.Relationship{ActorID: user.Actor.ID}).Where("following = true").Pluck("target_id", &followingIDs).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	followingIDs = append(followingIDs, int64(user.ID))
 
-	var statuses []m.Status
+	var statuses []models.Status
 	scope := t.service.DB().Scopes(paginateStatuses(r)).Where("(actor_id IN (?) AND in_reply_to_actor_id is null) or (actor_id in (?) and in_reply_to_actor_id IN (?))", followingIDs, followingIDs, followingIDs)
 	scope = scope.Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").Preload("Attachments").Preload("Reaction", "actor_id = ?", user.Actor.ID)
 	if err := scope.Find(&statuses).Error; err != nil {
@@ -52,7 +52,7 @@ func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var statuses []m.Status
+	var statuses []models.Status
 	scope := t.service.DB().Scopes(paginateStatuses(r)).Where("visibility = ? and reblog_id is null and in_reply_to_id is null", "public")
 	switch r.URL.Query().Get("local") {
 	case "true":

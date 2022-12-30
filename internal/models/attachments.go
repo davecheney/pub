@@ -1,9 +1,7 @@
-package m
-
-import "gorm.io/gorm"
+package models
 
 type Attachment struct {
-	gorm.Model
+	ID        uint64 `gorm:"primarykey;autoIncrement:false"`
 	MediaType string
 	URL       string
 	Name      string
@@ -12,6 +10,8 @@ type Attachment struct {
 	Height    int
 }
 
+// A StatusAttachment is an attachment to a Status.
+// A Status has many StatusAttachments.
 type StatusAttachment struct {
 	Attachment
 	StatusID uint64

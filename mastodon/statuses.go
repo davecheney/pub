@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/davecheney/m/internal/models"
 	"github.com/davecheney/m/internal/snowflake"
-	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
@@ -38,9 +38,9 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var conv *m.Conversation
+	var conv *models.Conversation
 	if toot.InReplyToID != nil {
-		var parent m.Status
+		var parent models.Status
 		if err := s.service.DB().First(&parent, *toot.InReplyToID).Error; err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -59,8 +59,8 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	createdAt := time.Now()
-	id := snowflake.TimeToID(createdAt)
-	status := m.Status{
+	id := uint64(snowflake.TimeToID(createdAt))
+	status := models.Status{
 		ID:             id,
 		ActorID:        actor.ID,
 		Actor:          actor,
@@ -87,7 +87,7 @@ func (s *Statuses) Destroy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	actor := account.Actor
-	var status m.Status
+	var status models.Status
 	if err := s.service.DB().Joins("Actor").First(&status, chi.URLParam(r, "id")).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
@@ -113,7 +113,7 @@ func (s *Statuses) Show(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var status m.Status
+	var status models.Status
 	query := s.service.DB().Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").Preload("Attachments").Preload("Reaction", "actor_id = ?", user.Actor.ID)
 	if err := query.First(&status, chi.URLParam(r, "id")).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -126,10 +126,10 @@ func (s *Statuses) Show(w http.ResponseWriter, r *http.Request) {
 	toJSON(w, serializeStatus(&status))
 }
 
-func serializeStatus(s *m.Status) map[string]any {
+func serializeStatus(s *models.Status) map[string]any {
 	return map[string]any{
 		"id":                     toString(s.ID),
-		"created_at":             snowflake.IDToTime(s.ID).Round(time.Second).Format("2006-01-02T15:04:05.000Z"),
+		"created_at":             snowflake.ID(s.ID).IDToTime().Round(time.Second).Format("2006-01-02T15:04:05.000Z"),
 		"edited_at":              nil,
 		"in_reply_to_id":         stringOrNull(s.InReplyToID),
 		"in_reply_to_account_id": stringOrNull(s.InReplyToActorID),
@@ -148,7 +148,7 @@ func serializeStatus(s *m.Status) map[string]any {
 		"muted":                  s.Reaction != nil && s.Reaction.Muted,
 		"bookmarked":             s.Reaction != nil && s.Reaction.Bookmarked,
 		"content":                s.Note,
-		"reblog": func(s *m.Status) any {
+		"reblog": func(s *models.Status) any {
 			if s.Reblog == nil {
 				return nil
 			}
@@ -165,7 +165,7 @@ func serializeStatus(s *m.Status) map[string]any {
 	}
 }
 
-func serializeAttachments(atts []m.StatusAttachment) []map[string]any {
+func serializeAttachments(atts []models.StatusAttachment) []map[string]any {
 	res := make([]map[string]any, 0) // ensure we return a slice, not null
 	// return res
 	for _, att := range atts {
@@ -202,7 +202,7 @@ func serializeAttachments(atts []m.StatusAttachment) []map[string]any {
 	return res
 }
 
-func attachmentType(att *m.Attachment) string {
+func attachmentType(att *models.Attachment) string {
 	switch att.MediaType {
 	case "image/jpeg":
 		return "image"

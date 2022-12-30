@@ -9,123 +9,19 @@ import (
 	"time"
 
 	"github.com/davecheney/m/internal/activitypub"
+	"github.com/davecheney/m/internal/models"
 	"github.com/davecheney/m/internal/snowflake"
 
 	"gorm.io/gorm"
 )
-
-// A Conversation is a collection of related statuses. It is a way to group
-// together statuses that are replies to each other, or that are part of the
-// same thread of conversation. Conversations are not necessarily public, and
-// may be limited to a set of participants.
-type Conversation struct {
-	ID         uint32 `gorm:"primarykey"`
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	Visibility string `gorm:"type:enum('public', 'unlisted', 'private', 'direct', 'limited');not null"`
-}
-
-// A Status is a single message posted by a user. It may be a reply to another
-// status, or a new thread of conversation.
-// A Status belongs to a single Account, and is part of a single Conversation.
-type Status struct {
-	ID               uint64 `gorm:"primaryKey;autoIncrement:false"`
-	UpdatedAt        time.Time
-	ActorID          uint64
-	Actor            *Actor
-	ConversationID   uint32 `gorm:"index"`
-	Conversation     *Conversation
-	InReplyToID      *uint64
-	InReplyToActorID *uint64
-	Sensitive        bool
-	SpoilerText      string `gorm:"size:128"`
-	Visibility       string `gorm:"type:enum('public', 'unlisted', 'private', 'direct', 'limited')"`
-	Language         string `gorm:"size:2"`
-	Note             string
-	URI              string `gorm:"uniqueIndex;size:128"`
-	RepliesCount     int    `gorm:"not null;default:0"`
-	ReblogsCount     int    `gorm:"not null;default:0"`
-	FavouritesCount  int    `gorm:"not null;default:0"`
-	ReblogID         *uint64
-	Reblog           *Status
-	PollID           *uint32
-	Reaction         *Reaction
-	Attachments      []StatusAttachment
-}
-
-func (st *Status) AfterCreate(tx *gorm.DB) error {
-	return withTX(tx, st.updateStatusCount, st.updateRepliesCount)
-}
-
-// updateRepliesCount updates the replies_count field on the status.
-func (st *Status) updateRepliesCount(tx *gorm.DB) error {
-	if st.InReplyToID == nil {
-		return nil
-	}
-
-	parent := &Status{ID: *st.InReplyToID}
-	repliesCount := tx.Select("COUNT(id)").Where("in_reply_to_id = ?", *st.InReplyToID).Table("statuses")
-	return tx.Model(parent).Update("replies_count", repliesCount).Error
-}
-
-// updateStatusCount updates the status_count and last_status_at fields on the actor.
-func (st *Status) updateStatusCount(tx *gorm.DB) error {
-	statusesCount := tx.Select("COUNT(id)").Where("actor_id = ?", st.ActorID).Table("statuses")
-	createdAt := snowflake.IDToTime(st.ID)
-	return tx.Model(st.Actor).Updates(map[string]interface{}{
-		"statuses_count": statusesCount,
-		"last_status_at": createdAt,
-	}).Error
-}
-
-type Poll struct {
-	ID         uint32 `gorm:"primarykey"`
-	CreatedAt  time.Time
-	ExpiresAt  time.Time
-	Multiple   bool
-	VotesCount int          `gorm:"not null;default:0"`
-	Options    []PollOption `gorm:"serializer:json"`
-}
-
-type PollOption struct {
-	Title string `json:"title"`
-	Count int    `json:"count"`
-}
-
-// Reaction represents an an actors reaction to a status.
-type Reaction struct {
-	StatusID   uint64 `gorm:"primarykey"`
-	ActorID    uint64 `gorm:"primarykey"`
-	Actor      *Actor
-	Favourited bool `gorm:"not null;default:false"`
-	Reblogged  bool `gorm:"not null;default:false"`
-	Muted      bool `gorm:"not null;default:false"`
-	Bookmarked bool `gorm:"not null;default:false"`
-	Pinned     bool `gorm:"not null;default:false"`
-}
-
-func (r *Reaction) AfterUpdate(tx *gorm.DB) error {
-	return withTX(tx, r.updateStatusCount)
-}
-
-// updateStatusCount updates the favourites_count and reblogs_count fields on the status.
-func (r *Reaction) updateStatusCount(tx *gorm.DB) error {
-	status := &Status{ID: r.StatusID}
-	favouritesCount := tx.Select("COUNT(*)").Where("status_id = ? and favourited = true", r.StatusID).Table("reactions")
-	reblogsCount := tx.Select("COUNT(*)").Where("status_id = ? and reblogged = true", r.StatusID).Table("reactions")
-	return tx.Model(status).Updates(map[string]interface{}{
-		"favourites_count": favouritesCount,
-		"reblogs_count":    reblogsCount,
-	}).Error
-}
 
 type statuses struct {
 	db      *gorm.DB
 	service *Service
 }
 
-func (s *statuses) FindByURI(uri string) (*Status, error) {
-	var status Status
+func (s *statuses) FindByURI(uri string) (*models.Status, error) {
+	var status models.Status
 	if err := s.db.Preload("Actor").Where("uri = ?", uri).First(&status).Error; err != nil {
 		return nil, err
 	}
@@ -142,7 +38,7 @@ type RemoteStatusFetcher struct {
 	service *Service
 }
 
-func (f *RemoteStatusFetcher) Fetch(uri string) (*Status, error) {
+func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 	obj, err := f.fetch(uri)
 	if err != nil {
 		return nil, err
@@ -182,7 +78,7 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*Status, error) {
 		return nil, fmt.Errorf("unsupported visibility %q: %s", visibility, x)
 	}
 
-	var inReplyTo *Status
+	var inReplyTo *models.Status
 	if inReplyToURI := stringFromAny(obj["inReplyTo"]); inReplyToURI != "" {
 		inReplyTo, err = f.service.Statuses().FindOrCreate(inReplyToURI, f.Fetch)
 		if err != nil {
@@ -191,11 +87,11 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*Status, error) {
 	}
 
 	f.service.Conversations()
-	conversationID := uint32(0)
+	var conversationID uint32
 	if inReplyTo != nil {
 		conversationID = inReplyTo.ConversationID
 	} else {
-		conv := Conversation{
+		conv := models.Conversation{
 			Visibility: visibility,
 		}
 		if err := f.service.db.Create(&conv).Error; err != nil {
@@ -211,31 +107,35 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*Status, error) {
 	}
 	createdAt := timeFromAny(obj["published"])
 
-	st := &Status{
-		ID:             snowflake.TimeToID(createdAt),
-		ActorID:        actor.ID,
-		Actor:          actor,
-		ConversationID: conversationID,
-		InReplyToID: func() *uint64 {
-			if inReplyTo != nil {
-				return &inReplyTo.ID
-			}
-			return nil
-		}(),
-		InReplyToActorID: func() *uint64 {
-			if inReplyTo != nil {
-				return &inReplyTo.ActorID
-			}
-			return nil
-		}(),
-		Sensitive:   boolFromAny(obj["sensitive"]),
-		SpoilerText: stringFromAny(obj["summary"]),
-		Visibility:  "public",
-		Language:    stringFromAny(obj["language"]),
-		URI:         uri,
-		Note:        stringFromAny(obj["content"]),
+	st := &models.Status{
+		ID:               uint64(snowflake.TimeToID(createdAt)),
+		ActorID:          actor.ID,
+		Actor:            actor,
+		ConversationID:   conversationID,
+		InReplyToID:      inReplyToID(inReplyTo),
+		InReplyToActorID: inReplyToActorID(inReplyTo),
+		Sensitive:        boolFromAny(obj["sensitive"]),
+		SpoilerText:      stringFromAny(obj["summary"]),
+		Visibility:       "public",
+		Language:         stringFromAny(obj["language"]),
+		URI:              uri,
+		Note:             stringFromAny(obj["content"]),
 	}
 	return st, nil
+}
+
+func inReplyToID(inReplyTo *models.Status) *uint64 {
+	if inReplyTo != nil {
+		return &inReplyTo.ID
+	}
+	return nil
+}
+
+func inReplyToActorID(inReplyTo *models.Status) *uint64 {
+	if inReplyTo != nil {
+		return &inReplyTo.ActorID
+	}
+	return nil
 }
 
 // // noteToStatus converts an ActivityPub note to a Status.
@@ -264,7 +164,7 @@ func (f *RemoteStatusFetcher) fetch(uri string) (map[string]interface{}, error) 
 // FindOrCreate searches for a status by its URI. If the status is not found, it
 // calls the given function to create a new status, stores that status in the
 // database and returns it.
-func (s *statuses) FindOrCreate(uri string, createFn func(string) (*Status, error)) (*Status, error) {
+func (s *statuses) FindOrCreate(uri string, createFn func(string) (*models.Status, error)) (*models.Status, error) {
 	status, err := s.FindByURI(uri)
 	if err == nil {
 		return status, nil

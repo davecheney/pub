@@ -18,7 +18,7 @@ type Context struct {
 
 var cli struct {
 	Debug bool   `help:"Enable debug mode."`
-	DSN   string `required:"" help:"data source name"`
+	DSN   string `help:"data source name" default:"m:m@tcp(localhost:3306)/m"`
 
 	AutoMigrate          AutoMigrateCmd          `cmd:"" help:"Automigrate the database."`
 	CreateAccount        CreateAccountCmd        `cmd:"" help:"Create a new account."`
@@ -27,7 +27,6 @@ var cli struct {
 	SynchroniseFollowers SynchroniseFollowersCmd `cmd:"" help:"Synchronise followers."`
 	Imoport              ImportCmd               `cmd:"" help:"Import data from another instance."`
 	Follow               FollowCmd               `cmd:"" help:"Follow an object."`
-	Purge                PurgeCmd                `cmd:"" help:"Purge a URI."`
 }
 
 func main() {

@@ -5,20 +5,18 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"errors"
-	"strings"
-	"time"
 
+	"github.com/davecheney/m/internal/models"
 	"github.com/davecheney/m/internal/snowflake"
-	"github.com/davecheney/m/m"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 type CreateAccountCmd struct {
+	Name     string `required:"" help:"name of the user to create"`
+	Domain   string `required:"" help:"domain of the user to create"`
 	Email    string `required:"" help:"email address of the user to create"`
 	Password string `required:"" help:"password of the user to create"`
-	Admin    bool   `help:"create an admin account"`
 }
 
 func (c *CreateAccountCmd) Run(ctx *Context) error {
@@ -27,55 +25,55 @@ func (c *CreateAccountCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	parts := strings.Split(c.Email, "@")
-	if len(parts) != 2 {
-		return errors.New("invalid email address")
-	}
-	username := parts[0]
-	domain := parts[1]
+	return withTransaction(db, func(tx *gorm.DB) error {
 
-	var instance m.Instance
-	if err := db.Where("domain = ?", domain).First(&instance).Error; err != nil {
-		return err
-	}
+		var instance models.Instance
+		if err := tx.Where("domain = ?", c.Domain).First(&instance).Error; err != nil {
+			return err
+		}
 
-	passwd, err := bcrypt.GenerateFromPassword([]byte(c.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return err
-	}
-	keypair, err := generateRSAKeypair()
-	if err != nil {
-		return err
-	}
+		keypair, err := generateRSAKeypair()
+		if err != nil {
+			return err
+		}
 
-	actor := m.Actor{
-		ID:          snowflake.TimeToID(time.Now()),
-		Name:        username,
-		Domain:      domain,
-		Type:        "LocalPerson",
-		DisplayName: username,
-		PublicKey:   keypair.publicKey,
-		Locked:      false,
-	}
-	if err := db.Create(&actor).Error; err != nil {
-		return err
-	}
+		passwd, err := bcrypt.GenerateFromPassword([]byte(c.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
 
-	account := &m.Account{
-		ActorID:           actor.ID,
-		Actor:             &actor,
-		Email:             c.Email,
-		EncryptedPassword: passwd,
-		PrivateKey:        keypair.privateKey,
-	}
-	if err := db.Model(&instance).Association("Accounts").Append(account); err != nil {
-		return err
-	}
-	if c.Admin {
-		instance.AdminID = &account.ID
-		return db.Save(&instance).Error
-	}
-	return nil
+		actor := models.Actor{
+			ID:          uint64(snowflake.Now()),
+			Name:        c.Name,
+			Domain:      c.Domain,
+			Type:        "LocalPerson",
+			DisplayName: c.Name,
+			PublicKey:   keypair.publicKey,
+		}
+		if err := tx.Create(&actor).Error; err != nil {
+			return err
+		}
+
+		var userRole models.AccountRole
+		if err := tx.Where("name = ?", "admin").FirstOrCreate(&userRole, models.AccountRole{
+			Name:        "user",
+			Position:    10,
+			Permissions: 65535,
+		}).Error; err != nil {
+			return err
+		}
+
+		account := models.Account{
+			InstanceID:        instance.ID,
+			ActorID:           actor.ID,
+			Email:             c.Email,
+			EncryptedPassword: passwd,
+			PrivateKey:        keypair.privateKey,
+			RoleID:            userRole.ID,
+		}
+		return tx.Create(&account).Error
+	})
+
 }
 
 type keypair struct {

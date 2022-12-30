@@ -3,7 +3,7 @@ package mastodon
 import (
 	"net/http"
 
-	"github.com/davecheney/m/m"
+	"github.com/davecheney/m/internal/models"
 )
 
 type Lists struct {
@@ -17,7 +17,7 @@ func (l *Lists) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var lists []m.AccountList
+	var lists []models.AccountList
 	if err := l.service.DB().Model(user).Association("Lists").Find(&lists); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

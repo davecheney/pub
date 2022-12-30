@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"net/http/httputil"
 
+	"github.com/davecheney/m/internal/models"
 	"github.com/davecheney/m/internal/snowflake"
-	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -18,7 +18,7 @@ func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 	println("users.Show", string(buf))
 
 	username := chi.URLParam(r, "username")
-	var actor m.Actor
+	var actor models.Actor
 	if err := u.service.db.First(&actor, "name = ? and domain = ?", username, r.Host).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -84,7 +84,7 @@ func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 			},
 		},
 		"id": actor.URI,
-		"type": func(a *m.Actor) string {
+		"type": func(a *models.Actor) string {
 			switch a.Type {
 			case "LocalPerson":
 				return "Person"
@@ -103,8 +103,8 @@ func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
 		"summary":                   actor.Note,
 		"url":                       actor.URL(),
 		"manuallyApprovesFollowers": actor.Locked,
-		"discoverable":              false,                                                       // mastodon sets this to false
-		"published":                 snowflake.IDToTime(actor.ID).Format("2006-01-02T00:00:00Z"), // spec says round created_at to nearest day
+		"discoverable":              false,                                                            // mastodon sets this to false
+		"published":                 snowflake.ID(actor.ID).IDToTime().Format("2006-01-02T00:00:00Z"), // spec says round created_at to nearest day
 		"devices":                   actor.URI + "/collections/devices",
 		"publicKey": map[string]any{
 			"id":           actor.PublicKeyID(),

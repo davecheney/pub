@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/davecheney/m/internal/models"
 	"github.com/davecheney/m/internal/snowflake"
 	"github.com/davecheney/m/m"
 	"github.com/go-fed/httpsig"
@@ -131,15 +132,15 @@ func (i *Inboxes) processAnnounce(obj map[string]any) error {
 		return err
 	}
 
-	conv := m.Conversation{
+	conv := models.Conversation{
 		Visibility: "public",
 	}
 	if err := i.service.db.Create(&conv).Error; err != nil {
 		return err
 	}
 
-	status := &m.Status{
-		ID:               snowflake.TimeToID(published),
+	status := &models.Status{
+		ID:               uint64(snowflake.TimeToID(published)),
 		ActorID:          actor.ID,
 		Actor:            actor,
 		ConversationID:   conv.ID,
@@ -223,7 +224,7 @@ func (i *Inboxes) processCreateNote(create map[string]any) error {
 	}
 
 	svc := m.NewService(i.service.db)
-	_, err := svc.Statuses().FindOrCreate(uri, func(string) (*m.Status, error) {
+	_, err := svc.Statuses().FindOrCreate(uri, func(string) (*models.Status, error) {
 		fetcher := svc.Actors().NewRemoteActorFetcher()
 		actor, err := svc.Actors().FindOrCreate(stringFromAny(create["attributedTo"]), fetcher.Fetch)
 		if err != nil {
@@ -235,7 +236,7 @@ func (i *Inboxes) processCreateNote(create map[string]any) error {
 			return nil, err
 		}
 
-		var inReplyTo *m.Status
+		var inReplyTo *models.Status
 		if inReplyToAtomUri, ok := create["inReplyTo"].(string); ok {
 			remoteStatusFetcher := svc.Statuses().NewRemoteStatusFetcher()
 			inReplyTo, err = svc.Statuses().FindOrCreate(inReplyToAtomUri, remoteStatusFetcher.Fetch)
@@ -245,7 +246,7 @@ func (i *Inboxes) processCreateNote(create map[string]any) error {
 		}
 
 		vis := visiblity(create)
-		conversationID := uint32(0)
+		var conversationID uint32
 		if inReplyTo != nil {
 			conversationID = inReplyTo.ConversationID
 		} else {
@@ -256,8 +257,8 @@ func (i *Inboxes) processCreateNote(create map[string]any) error {
 			conversationID = conv.ID
 		}
 
-		st := &m.Status{
-			ID:               snowflake.TimeToID(published),
+		st := &models.Status{
+			ID:               uint64(snowflake.TimeToID(published)),
 			ActorID:          actor.ID,
 			Actor:            actor,
 			ConversationID:   conversationID,
@@ -273,8 +274,8 @@ func (i *Inboxes) processCreateNote(create map[string]any) error {
 		for _, att := range anyToSlice(create["attachment"]) {
 			at := mapFromAny(att)
 			fmt.Println("attchment:", at)
-			st.Attachments = append(st.Attachments, m.StatusAttachment{
-				Attachment: m.Attachment{
+			st.Attachments = append(st.Attachments, models.StatusAttachment{
+				Attachment: models.Attachment{
 					MediaType: stringFromAny(at["mediaType"]),
 					URL:       stringFromAny(at["url"]),
 					Name:      stringFromAny(at["name"]),
@@ -294,14 +295,14 @@ func (i *Inboxes) processCreateNote(create map[string]any) error {
 	return err
 }
 
-func inReplyToID(inReplyTo *m.Status) *uint64 {
+func inReplyToID(inReplyTo *models.Status) *uint64 {
 	if inReplyTo != nil {
 		return &inReplyTo.ID
 	}
 	return nil
 }
 
-func inReplyToActorID(inReplyTo *m.Status) *uint64 {
+func inReplyToActorID(inReplyTo *models.Status) *uint64 {
 	if inReplyTo != nil {
 		return &inReplyTo.ActorID
 	}
@@ -339,7 +340,7 @@ func (i *Inboxes) processFollow(body map[string]any) error {
 
 func (i *Inboxes) processUpdate(update map[string]any) error {
 	id := stringFromAny(update["id"])
-	var status m.Status
+	var status models.Status
 	if err := i.service.db.Where("uri = ?", id).First(&status).Error; err != nil {
 		x, _ := marshalIndent(update)
 		fmt.Println("processUpdate", string(x), err)
@@ -356,7 +357,7 @@ func (i *Inboxes) processUpdate(update map[string]any) error {
 
 func (i *Inboxes) processDelete(body map[string]any) error {
 	actor := stringFromAny(body["object"])
-	err := i.service.db.Where("uri = ?", actor).Delete(&m.Actor{}).Error
+	err := i.service.db.Where("uri = ?", actor).Delete(&models.Actor{}).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// already deleted
 		return nil

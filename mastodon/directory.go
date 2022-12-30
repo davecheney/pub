@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/davecheney/m/m"
+	"github.com/davecheney/m/internal/models"
 	"gorm.io/gorm"
 )
 
@@ -13,7 +13,7 @@ type Directory struct {
 }
 
 func (d *Directory) Index(w http.ResponseWriter, r *http.Request) {
-	var actors []m.Actor
+	var actors []models.Actor
 	query := d.service.DB().Scopes(paginateActors(r), isLocal(r))
 	if err := query.Find(&actors).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

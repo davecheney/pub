@@ -5,7 +5,8 @@ import (
 	"net/http"
 
 	"github.com/davecheney/m/internal/mime"
-	"github.com/davecheney/m/m"
+	"github.com/davecheney/m/internal/models"
+	"github.com/davecheney/m/internal/snowflake"
 	"github.com/go-json-experiment/json"
 	"github.com/google/uuid"
 )
@@ -43,7 +44,8 @@ func (a *Applications) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app := &m.Application{
+	app := &models.Application{
+		ID:           uint64(snowflake.Now()),
 		Name:         params.ClientName,
 		Website:      params.Website,
 		ClientID:     uuid.New().String(),

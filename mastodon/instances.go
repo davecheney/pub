@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/davecheney/m/m"
+	"github.com/davecheney/m/internal/models"
 )
 
 type Instances struct {
@@ -41,7 +41,7 @@ func (i *Instances) IndexV2(w http.ResponseWriter, r *http.Request) {
 
 func (i *Instances) PeersShow(w http.ResponseWriter, r *http.Request) {
 	var domains []string
-	if err := i.service.DB().Model(&m.Actor{}).Group("Domain").Where("Domain != ?", r.Host).Pluck("domain", &domains).Error; err != nil {
+	if err := i.service.DB().Model(&models.Actor{}).Group("Domain").Where("Domain != ?", r.Host).Pluck("domain", &domains).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -56,7 +56,7 @@ func (i *Instances) DomainBlocksShow(w http.ResponseWriter, r *http.Request) {
 	toJSON(w, []map[string]interface{}{})
 }
 
-func serializeV1(i *m.Instance) map[string]any {
+func serializeV1(i *models.Instance) map[string]any {
 	return map[string]any{
 		"uri":               i.Domain,
 		"title":             i.Title,
@@ -132,7 +132,7 @@ func serializeV1(i *m.Instance) map[string]any {
 	}
 }
 
-func serializeV2(i *m.Instance) map[string]any {
+func serializeV2(i *models.Instance) map[string]any {
 	return map[string]any{
 		"domain":      i.Domain,
 		"title":       i.Title,
@@ -225,7 +225,7 @@ func serializeV2(i *m.Instance) map[string]any {
 	}
 }
 
-func serialiseRules(i *m.Instance) []map[string]any {
+func serialiseRules(i *models.Instance) []map[string]any {
 	rules := make([]map[string]any, len(i.Rules))
 	for i, rule := range i.Rules {
 		rules[i] = map[string]any{

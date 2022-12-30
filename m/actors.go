@@ -2,90 +2,14 @@ package m
 
 import (
 	"errors"
-	"fmt"
 	"net/url"
 	"time"
 
 	"github.com/davecheney/m/internal/activitypub"
+	"github.com/davecheney/m/internal/models"
 	"github.com/davecheney/m/internal/snowflake"
 	"gorm.io/gorm"
 )
-
-type Actor struct {
-	ID             uint64 `gorm:"primaryKey;autoIncrement:false"`
-	UpdatedAt      time.Time
-	Type           string `gorm:"type:enum('Person', 'Application', 'Service', 'Group', 'Organization', 'LocalPerson');default:'Person';not null"`
-	URI            string `gorm:"uniqueIndex;size:128"`
-	Name           string `gorm:"size:64;uniqueIndex:idx_actor_name_domain"`
-	Domain         string `gorm:"size:64;uniqueIndex:idx_actor_name_domain"`
-	DisplayName    string `gorm:"size:128"`
-	Locked         bool
-	Note           string
-	FollowersCount int32 `gorm:"default:0;not null"`
-	FollowingCount int32 `gorm:"default:0;not null"`
-	StatusesCount  int32 `gorm:"default:0;not null"`
-	LastStatusAt   time.Time
-	Avatar         string
-	Header         string
-	PublicKey      []byte `gorm:"not null"`
-	Attachments    []any  `gorm:"serializer:json"`
-}
-
-func (a *Actor) Acct() string {
-	if a.IsLocal() {
-		return a.Name
-	}
-	return fmt.Sprintf("%s@%s", a.Name, a.Domain)
-}
-
-func (a *Actor) IsBot() bool {
-	return !a.IsPerson()
-}
-
-func (a *Actor) IsPerson() bool {
-	return a.Type == "Person" || a.Type == "LocalPerson"
-}
-
-func (a *Actor) IsLocal() bool {
-	return a.Type == "LocalPerson"
-}
-
-func (a *Actor) IsGroup() bool {
-	return a.Type == "Group"
-}
-
-type Relationship struct {
-	ActorID    uint64 `gorm:"primarykey"`
-	TargetID   uint64 `gorm:"primarykey"`
-	Target     *Actor
-	Muting     bool `gorm:"not null;default:false"`
-	Blocking   bool `gorm:"not null;default:false"`
-	BlockedBy  bool `gorm:"not null;default:false"`
-	Following  bool `gorm:"not null;default:false"`
-	FollowedBy bool `gorm:"not null;default:false"`
-}
-
-func (r *Relationship) AfterUpdate(tx *gorm.DB) error {
-	return withTX(tx, r.updateFollowersCount, r.updateFollowingCount)
-}
-
-// updateFollowersCount updates the followers count for the target.
-func (r *Relationship) updateFollowersCount(tx *gorm.DB) error {
-	actor := &Actor{
-		ID: r.ActorID,
-	}
-	followers := tx.Select("COUNT(*)").Where("target_id = ? and following = true", r.ActorID).Table("relationships")
-	return tx.Model(actor).Update("followers_count", followers).Error
-}
-
-// updateFollowingCount updates the following count for the actor.
-func (r *Relationship) updateFollowingCount(tx *gorm.DB) error {
-	actor := &Actor{
-		ID: r.TargetID,
-	}
-	following := tx.Select("COUNT(*)").Where("actor_id = ? and following = true", r.TargetID).Table("relationships")
-	return tx.Model(actor).Update("following_count", following).Error
-}
 
 type Webfinger struct {
 	ID        uint `gorm:"primarykey"`
@@ -103,14 +27,6 @@ type Webfinger struct {
 	} `gorm:"serializer:json"`
 }
 
-func (a *Actor) PublicKeyID() string {
-	return fmt.Sprintf("%s#main-key", a.URI)
-}
-
-func (a *Actor) URL() string {
-	return fmt.Sprintf("https://%s/@%s", a.Domain, a.Name)
-}
-
 type Actors struct {
 	service *Service
 }
@@ -125,7 +41,7 @@ type RemoteActorFetcher struct {
 	service *Service
 }
 
-func (f *RemoteActorFetcher) Fetch(uri string) (*Actor, error) {
+func (f *RemoteActorFetcher) Fetch(uri string) (*models.Actor, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
 		return nil, err
@@ -141,8 +57,8 @@ func (f *RemoteActorFetcher) Fetch(uri string) (*Actor, error) {
 		published = time.Now()
 	}
 
-	return &Actor{
-		ID:           snowflake.TimeToID(published),
+	return &models.Actor{
+		ID:           uint64(snowflake.TimeToID(published)),
 		Type:         stringFromAny(obj["type"]),
 		Name:         stringFromAny(obj["preferredUsername"]),
 		Domain:       u.Host,
@@ -172,7 +88,7 @@ func (f *RemoteActorFetcher) fetch(uri string) (map[string]any, error) {
 }
 
 // FindByURI returns an account by its URI if it exists locally.
-func (a *Actors) FindByURI(uri string) (*Actor, error) {
+func (a *Actors) FindByURI(uri string) (*models.Actor, error) {
 	username, domain, err := splitAcct(uri)
 	if err != nil {
 		return nil, err
@@ -180,8 +96,8 @@ func (a *Actors) FindByURI(uri string) (*Actor, error) {
 	return a.Find(username, domain)
 }
 
-func (a *Actors) Find(name, domain string) (*Actor, error) {
-	var actor Actor
+func (a *Actors) Find(name, domain string) (*models.Actor, error) {
+	var actor models.Actor
 	err := a.service.db.Where("name = ? AND domain = ?", name, domain).First(&actor).Error
 	if err != nil {
 		return nil, err
@@ -190,12 +106,12 @@ func (a *Actors) Find(name, domain string) (*Actor, error) {
 }
 
 // FindOrCreate finds an account by its URI, or creates it if it doesn't exist.
-func (a *Actors) FindOrCreate(uri string, createFn func(string) (*Actor, error)) (*Actor, error) {
+func (a *Actors) FindOrCreate(uri string, createFn func(string) (*models.Actor, error)) (*models.Actor, error) {
 	name, domain, err := splitAcct(uri)
 	if err != nil {
 		return nil, err
 	}
-	var actor Actor
+	var actor models.Actor
 	err = a.service.db.Where("name = ? AND domain = ?", name, domain).First(&actor).Error
 	if err == nil {
 		// found cached key

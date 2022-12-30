@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/davecheney/m/m"
+	"github.com/davecheney/m/internal/models"
 	"gorm.io/gorm"
 )
 
@@ -20,7 +20,7 @@ func (c *Conversations) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var statuses []m.Status
+	var statuses []models.Status
 	scope := c.service.DB().Scopes(c.paginate(r)).Where("visibility = ?", "direct")
 	switch r.URL.Query().Get("local") {
 	case "":

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/davecheney/m/m"
+	"github.com/davecheney/m/internal/models"
 )
 
 type NodeInfo struct {
@@ -23,7 +23,7 @@ func (ni *NodeInfo) Index(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (ni *NodeInfo) Show(w http.ResponseWriter, r *http.Request) {
-	var instance m.Instance
+	var instance models.Instance
 	if err := ni.service.DB().Where("domain = ?", r.Host).First(&instance).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -31,7 +31,7 @@ func (ni *NodeInfo) Show(w http.ResponseWriter, r *http.Request) {
 	toJSON(w, serializeNodeInfo(&instance))
 }
 
-func serializeNodeInfo(i *m.Instance) map[string]any {
+func serializeNodeInfo(i *models.Instance) map[string]any {
 	return map[string]any{
 		"version": "2.0", // https://github.com/jhass/nodeinfo/blob/main/schemas/2.0/schema.json
 		"software": map[string]any{

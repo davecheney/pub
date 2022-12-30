@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/davecheney/m/internal/models"
 	"github.com/davecheney/m/m"
 	"github.com/go-json-experiment/json"
 )
@@ -132,9 +133,9 @@ func (s *Service) Timelines() *Timelines {
 
 // authenticate authenticates the bearer token attached to the request and, if
 // successful, returns the account associated with the token.
-func (s *Service) authenticate(r *http.Request) (*m.Account, error) {
+func (s *Service) authenticate(r *http.Request) (*models.Account, error) {
 	bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	var token m.Token
+	var token models.Token
 	if err := s.DB().Joins("Account").Preload("Account.Actor").Preload("Account.Role").First(&token, "access_token = ?", bearer).Error; err != nil {
 		return nil, err
 	}
@@ -158,7 +159,7 @@ func stringOrDefault(s string, def string) string {
 }
 
 type number interface {
-	uint | uint64 | uint32
+	~uint | ~uint64 | ~uint32
 }
 
 func stringOrNull[T number](v *T) any {
@@ -169,5 +170,5 @@ func stringOrNull[T number](v *T) any {
 }
 
 func toString[T number](n T) string {
-	return strconv.FormatInt(int64(n), 10)
+	return strconv.FormatUint(uint64(n), 10)
 }

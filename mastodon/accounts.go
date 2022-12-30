@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/davecheney/m/internal/models"
 	"github.com/davecheney/m/internal/snowflake"
-	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 )
@@ -22,7 +22,7 @@ func (a *Accounts) Show(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var actor m.Actor
+	var actor models.Actor
 	if err := a.service.DB().First(&actor, chi.URLParam(r, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -47,7 +47,7 @@ func (a *Accounts) StatusesShow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	id := chi.URLParam(r, "id")
-	var statuses []m.Status
+	var statuses []models.Status
 	tx := a.service.DB().Preload("Actor").Where("actor_id = ?", id)
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	if limit < 1 || limit > 40 {
@@ -77,7 +77,7 @@ func (a *Accounts) FollowersShow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var followers []m.Relationship
+	var followers []models.Relationship
 	if err := a.service.DB().Scopes(paginateRelationship(r)).Preload("Target").Where("actor_id = ? and followed_by = true", chi.URLParam(r, "id")).Find(&followers).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -99,7 +99,7 @@ func (a *Accounts) FollowingShow(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var following []m.Relationship
+	var following []models.Relationship
 	if err := a.service.DB().Scopes(paginateRelationship(r)).Preload("Target").Where("actor_id = ? and following = true", chi.URLParam(r, "id")).Find(&following).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -220,7 +220,7 @@ type Source struct {
 	Fields              []map[string]any `json:"fields"`
 }
 
-func serializeAccount(a *m.Actor) *Account {
+func serializeAccount(a *models.Actor) *Account {
 	return &Account{
 		ID:             toString(a.ID),
 		Username:       a.Name,
@@ -229,7 +229,7 @@ func serializeAccount(a *m.Actor) *Account {
 		Locked:         a.Locked,
 		Bot:            a.IsBot(),
 		Group:          a.IsGroup(),
-		CreatedAt:      snowflake.IDToTime(a.ID).Round(time.Hour).Format("2006-01-02T00:00:00.000Z"),
+		CreatedAt:      snowflake.ID(a.ID).IDToTime().Round(time.Hour).Format("2006-01-02T00:00:00.000Z"),
 		Note:           a.Note,
 		URL:            fmt.Sprintf("https://%s/@%s", a.Domain, a.Name),
 		Avatar:         a.Avatar,
@@ -251,7 +251,7 @@ func serializeAccount(a *m.Actor) *Account {
 	}
 }
 
-func serialiseCredentialAccount(a *m.Account) *CredentialAccount {
+func serialiseCredentialAccount(a *models.Account) *CredentialAccount {
 	ca := CredentialAccount{
 		Account: serializeAccount(a.Actor),
 		Source: Source{

@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"path"
 
+	"github.com/davecheney/m/internal/models"
 	"gorm.io/gorm"
 )
 
@@ -16,62 +17,34 @@ type Marker struct {
 	LastReadId uint
 }
 
-type Notification struct {
-	gorm.Model
-	AccountID uint32
-	Account   *Account
-	StatusID  *uint64
-	Status    *Status
-	Type      string `gorm:"size:64"`
-}
-
-func (a *Account) Name() string {
-	return a.Actor.Name
-}
-
-func (a *Account) Domain() string {
-	return a.Actor.Domain
-}
-
-func (a *Account) Acct() string {
-	if a.isLocal() {
-		return a.Name()
-	}
-	return a.Name() + "@" + a.Domain()
-}
-
-func (a *Account) isLocal() bool {
-	return a.Actor.Type == "LocalPerson"
-}
-
 type accounts struct {
 	db      *gorm.DB
 	service *Service
 }
 
 // FindByURI returns an account by its URI if it exists locally.
-func (a *accounts) FindByURI(uri string) (*Account, error) {
+func (a *accounts) FindByURI(uri string) (*models.Account, error) {
 	username, domain, err := splitAcct(uri)
 	if err != nil {
 		return nil, err
 	}
-	var account Account
+	var account models.Account
 	if err := a.db.Where("username = ? AND domain = ?", username, domain).First(&account).Error; err != nil {
 		return nil, err
 	}
 	return &account, nil
 }
 
-func (a *accounts) Find(id uint64) (*Account, error) {
-	var account Account
+func (a *accounts) Find(id uint64) (*models.Account, error) {
+	var account models.Account
 	if err := a.db.Where("actor_id = ?", id).First(&account).Error; err != nil {
 		return nil, err
 	}
 	return &account, nil
 }
 
-func (a *accounts) FindAdminAccount() (*Account, error) {
-	var instance Instance
+func (a *accounts) FindAdminAccount() (*models.Account, error) {
+	var instance models.Instance
 	if err := a.db.Preload("Admin").Preload("Admin.Actor").First(&instance).Error; err != nil {
 		return nil, err
 	}
@@ -84,13 +57,6 @@ func splitAcct(acct string) (string, string, error) {
 		return "", "", fmt.Errorf("splitAcct: %w", err)
 	}
 	return path.Base(url.Path), url.Host, nil
-}
-
-type AccountList struct {
-	gorm.Model
-	AccountID     uint32
-	Title         string `gorm:"size:64"`
-	RepliesPolicy string `gorm:"size:64"`
 }
 
 func boolFromAny(v any) bool {
