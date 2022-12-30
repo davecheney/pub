@@ -15,7 +15,7 @@ type Account struct {
 	InstanceID        snowflake.ID
 	Instance          *Instance
 	ActorID           snowflake.ID
-	Actor             *Actor
+	Actor             *Actor `gorm:"constraint:OnDelete:CASCADE;"`
 	Lists             []AccountList
 	Email             string `gorm:"size:64;not null"`
 	EncryptedPassword []byte `gorm:"size:60;not null"`

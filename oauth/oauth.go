@@ -199,6 +199,7 @@ func (o *OAuth) Revoke(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unsupported media type", http.StatusUnsupportedMediaType)
 		return
 	}
+	fmt.Println("params", params)
 	if err := o.db.Where("access_token = ?", params.Token).First(&token).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return

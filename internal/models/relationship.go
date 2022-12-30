@@ -7,13 +7,14 @@ import (
 
 type Relationship struct {
 	ActorID    snowflake.ID `gorm:"primarykey;autoIncrement:false"`
+	Actor      *Actor       `gorm:"constraint:OnDelete:CASCADE;"`
 	TargetID   snowflake.ID `gorm:"primarykey;autoIncrement:false"`
-	Target     *Actor
-	Muting     bool `gorm:"not null;default:false"`
-	Blocking   bool `gorm:"not null;default:false"`
-	BlockedBy  bool `gorm:"not null;default:false"`
-	Following  bool `gorm:"not null;default:false"`
-	FollowedBy bool `gorm:"not null;default:false"`
+	Target     *Actor       `gorm:"constraint:OnDelete:CASCADE;"`
+	Muting     bool         `gorm:"not null;default:false"`
+	Blocking   bool         `gorm:"not null;default:false"`
+	BlockedBy  bool         `gorm:"not null;default:false"`
+	Following  bool         `gorm:"not null;default:false"`
+	FollowedBy bool         `gorm:"not null;default:false"`
 }
 
 func (r *Relationship) AfterUpdate(tx *gorm.DB) error {

@@ -14,10 +14,10 @@ import (
 )
 
 type CreateAccountCmd struct {
-	Name     string `required:"" help:"name of the user to create"`
-	Domain   string `required:"" help:"domain of the user to create"`
-	Email    string `required:"" help:"email address of the user to create"`
-	Password string `required:"" help:"password of the user to create"`
+	Name     string `required:"" help:"name of the account to create"`
+	Domain   string `required:"" help:"domain of the account to create"`
+	Email    string `required:"" help:"email address of the account to create"`
+	Password string `required:"" help:"password of the account to create"`
 }
 
 func (c *CreateAccountCmd) Run(ctx *Context) error {
