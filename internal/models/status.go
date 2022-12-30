@@ -53,7 +53,9 @@ func (st *Status) updateRepliesCount(tx *gorm.DB) error {
 func (st *Status) updateStatusCount(tx *gorm.DB) error {
 	statusesCount := tx.Select("COUNT(id)").Where("actor_id = ?", st.ActorID).Table("statuses")
 	createdAt := st.ID.ToTime()
-	return tx.Model(st.Actor).Updates(map[string]interface{}{
+	return tx.Model(&Actor{
+		ID: st.ActorID,
+	}).Updates(map[string]interface{}{
 		"statuses_count": statusesCount,
 		"last_status_at": createdAt,
 	}).Error

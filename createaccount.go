@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 
 	"github.com/davecheney/m/internal/models"
 	"github.com/davecheney/m/internal/snowflake"
@@ -46,8 +47,11 @@ func (c *CreateAccountCmd) Run(ctx *Context) error {
 			ID:          snowflake.Now(),
 			Name:        c.Name,
 			Domain:      c.Domain,
+			URI:         fmt.Sprintf("https://%s/u/%s", c.Domain, c.Name),
 			Type:        "LocalPerson",
 			DisplayName: c.Name,
+			Avatar:      "https://avatars.githubusercontent.com/u/1024?v=4",
+			Header:      "https://avatars.githubusercontent.com/u/1024?v=4",
 			PublicKey:   keypair.publicKey,
 		}
 		if err := tx.Create(&actor).Error; err != nil {
@@ -64,6 +68,7 @@ func (c *CreateAccountCmd) Run(ctx *Context) error {
 		}
 
 		account := models.Account{
+			ID:                snowflake.Now(),
 			InstanceID:        instance.ID,
 			ActorID:           actor.ID,
 			Email:             c.Email,

@@ -44,11 +44,11 @@ func (a *accounts) Find(id uint64) (*models.Account, error) {
 }
 
 func (a *accounts) FindAdminAccount() (*models.Account, error) {
-	var instance models.Instance
-	if err := a.db.Preload("Admin").Preload("Admin.Actor").First(&instance).Error; err != nil {
+	i, err := a.service.Instances().FindByDomain("cheney.net")
+	if err != nil {
 		return nil, err
 	}
-	return instance.Admin, nil
+	return i.Admin, nil
 }
 
 func splitAcct(acct string) (string, string, error) {

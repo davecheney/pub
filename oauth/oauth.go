@@ -57,7 +57,7 @@ func (o *OAuth) authorizeGet(w http.ResponseWriter, r *http.Request) {
 		</head>
 		<body>
 		<form method="POST" action="/oauth/authorize">
-		<p><label>Email</label><input type="text" name="email"></p>
+		<p><label>Username</label><input type="text" name="username"></p>
 		<p><label>Password</label><input type="password" name="password"></p>
 		<input type="hidden" name="client_id" value="`+clientID+`">
 		<input type="hidden" name="redirect_uri" value="`+redirectURI+`">
@@ -70,7 +70,7 @@ func (o *OAuth) authorizeGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
-	email := r.FormValue("email")
+	username := r.FormValue("username")
 	password := r.PostFormValue("password")
 	redirectURI := r.PostFormValue("redirect_uri")
 	clientID := r.PostFormValue("client_id")
@@ -82,7 +82,7 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var account models.Account
-	if err := o.db.Where("email = ?", email).Joins("Actor").First(&account).Error; err != nil {
+	if err := o.db.Joins("Actor", "name = ? and domain = ?", username, r.Host).First(&account).Error; err != nil {
 		http.Error(w, "invalid username", http.StatusUnauthorized)
 		return
 	}
@@ -93,9 +93,10 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := &models.Token{
-		AccountID:         account.ID,
 		AccessToken:       uuid.New().String(),
-		TokenType:         "bearer",
+		AccountID:         account.ID,
+		ApplicationID:     app.ID,
+		TokenType:         "Bearer",
 		Scope:             "read write follow push",
 		AuthorizationCode: uuid.New().String(),
 	}

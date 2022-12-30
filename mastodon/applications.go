@@ -1,7 +1,6 @@
 package mastodon
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/davecheney/m/internal/mime"
@@ -46,6 +45,7 @@ func (a *Applications) Create(w http.ResponseWriter, r *http.Request) {
 
 	app := &models.Application{
 		ID:           snowflake.Now(),
+		InstanceID:   instance.ID,
 		Name:         params.ClientName,
 		Website:      params.Website,
 		ClientID:     uuid.New().String(),
@@ -53,11 +53,11 @@ func (a *Applications) Create(w http.ResponseWriter, r *http.Request) {
 		RedirectURI:  params.RedirectURIs,
 		VapidKey:     "BCk-QqERU0q-CfYZjcuB6lnyyOYfJ2AifKqfeGIm7Z-HiTU5T9eTG5GxVA0_OH5mMlI4UkkDTpaZwozy0TzdZ2M=",
 	}
-	if err := a.service.DB().Model(instance).Association("Applications").Append(app); err != nil {
-		fmt.Println("error: ", err)
+	if err := a.service.DB().Create(app).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	toJSON(w, map[string]any{
 		"id":            toString(app.ID),
 		"name":          app.Name,
