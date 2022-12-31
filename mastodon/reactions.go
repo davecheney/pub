@@ -34,7 +34,7 @@ func (f *Favourites) Create(w http.ResponseWriter, req *http.Request) {
 	}
 	status.Reaction = reaction
 	status.FavouritesCount++
-	toJSON(w, serializeStatus(&status))
+	toJSON(w, serialiseStatus(&status))
 }
 
 func (f *Favourites) Destroy(w http.ResponseWriter, req *http.Request) {
@@ -57,7 +57,7 @@ func (f *Favourites) Destroy(w http.ResponseWriter, req *http.Request) {
 	}
 	status.Reaction = reaction
 	status.FavouritesCount--
-	toJSON(w, serializeStatus(&status))
+	toJSON(w, serialiseStatus(&status))
 }
 
 func (f *Favourites) Show(w http.ResponseWriter, req *http.Request) {
@@ -76,7 +76,7 @@ func (f *Favourites) Show(w http.ResponseWriter, req *http.Request) {
 
 	var resp []interface{}
 	for _, fav := range reactions {
-		resp = append(resp, serializeAccount(fav.Actor))
+		resp = append(resp, serialiseAccount(fav.Actor))
 	}
 	toJSON(w, resp)
 }

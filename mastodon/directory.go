@@ -21,7 +21,7 @@ func (d *Directory) Index(w http.ResponseWriter, r *http.Request) {
 	}
 	var resp []any
 	for _, a := range actors {
-		resp = append(resp, serializeAccount(&a))
+		resp = append(resp, serialiseAccount(&a))
 	}
 	toJSON(w, resp)
 }

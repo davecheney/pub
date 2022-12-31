@@ -41,14 +41,14 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 		Ancestors: func() []map[string]interface{} {
 			a := make([]map[string]interface{}, 0) // make sure we return an empty array, not null
 			for _, s := range ancestors {
-				a = append(a, serializeStatus(s))
+				a = append(a, serialiseStatus(s))
 			}
 			return a
 		}(),
 		Descendants: func() []map[string]interface{} {
 			a := make([]map[string]interface{}, 0) // make sure we return an empty array, not null
 			for _, s := range decendants {
-				a = append(a, serializeStatus(s))
+				a = append(a, serialiseStatus(s))
 			}
 			return a
 		}(),

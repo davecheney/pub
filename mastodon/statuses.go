@@ -77,7 +77,7 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serializeStatus(&status))
+	toJSON(w, serialiseStatus(&status))
 }
 
 func (s *Statuses) Destroy(w http.ResponseWriter, r *http.Request) {
@@ -104,7 +104,7 @@ func (s *Statuses) Destroy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serializeStatus(&status))
+	toJSON(w, serialiseStatus(&status))
 }
 
 func (s *Statuses) Show(w http.ResponseWriter, r *http.Request) {
@@ -123,102 +123,5 @@ func (s *Statuses) Show(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serializeStatus(&status))
-}
-
-func serializeStatus(s *models.Status) map[string]any {
-	return map[string]any{
-		"id":                     toString(s.ID),
-		"created_at":             snowflake.ID(s.ID).ToTime().Round(time.Second).Format("2006-01-02T15:04:05.000Z"),
-		"edited_at":              nil,
-		"in_reply_to_id":         stringOrNull(s.InReplyToID),
-		"in_reply_to_account_id": stringOrNull(s.InReplyToActorID),
-		"sensitive":              s.Sensitive,
-		"spoiler_text":           s.SpoilerText,
-		"visibility":             s.Visibility,
-		"language":               "en", // s.Language,
-		"uri":                    s.URI,
-		"url":                    nil,
-		"text":                   nil, // not optional!!
-		"replies_count":          s.RepliesCount,
-		"reblogs_count":          s.ReblogsCount,
-		"favourites_count":       s.FavouritesCount,
-		"favourited":             s.Reaction != nil && s.Reaction.Favourited,
-		"reblogged":              s.Reaction != nil && s.Reaction.Reblogged,
-		"muted":                  s.Reaction != nil && s.Reaction.Muted,
-		"bookmarked":             s.Reaction != nil && s.Reaction.Bookmarked,
-		"content":                s.Note,
-		"reblog": func(s *models.Status) any {
-			if s.Reblog == nil {
-				return nil
-			}
-			return serializeStatus(s.Reblog)
-		}(s),
-		// "filtered":          []map[string]any{},
-		"account":           serializeAccount(s.Actor),
-		"media_attachments": serializeAttachments(s.Attachments),
-		"mentions":          []map[string]any{},
-		"tags":              []map[string]any{},
-		"emojis":            []map[string]any{},
-		"card":              nil,
-		"poll":              nil,
-	}
-}
-
-func serializeAttachments(atts []models.StatusAttachment) []map[string]any {
-	res := make([]map[string]any, 0) // ensure we return a slice, not null
-	// return res
-	for _, att := range atts {
-		res = append(res, map[string]any{
-			"id":                 toString(att.ID),
-			"type":               attachmentType(&att.Attachment),
-			"url":                att.Attachment.URL,
-			"preview_url":        att.Attachment.URL,
-			"remote_url":         nil,
-			"text_url":           nil,
-			"preview_remote_url": nil,
-			"description":        att.Attachment.Name,
-			"blurhash":           att.Attachment.Blurhash,
-			"meta": map[string]any{
-				"original": map[string]any{
-					"width":  att.Attachment.Width,
-					"height": att.Attachment.Height,
-					"size":   fmt.Sprintf("%dx%d", att.Attachment.Width, att.Attachment.Height),
-					"aspect": float64(att.Attachment.Width) / float64(att.Attachment.Height),
-				},
-				"small": map[string]any{
-					"width":  att.Attachment.Width,
-					"height": att.Attachment.Height,
-					"size":   fmt.Sprintf("%dx%d", att.Attachment.Width, att.Attachment.Height),
-					"aspect": float64(att.Attachment.Width) / float64(att.Attachment.Height),
-				},
-				// "focus": map[string]any{
-				// 	"x": 0.0,
-				// 	"y": 0.0,
-				// },
-			},
-		})
-	}
-	return res
-}
-
-func attachmentType(att *models.Attachment) string {
-	switch att.MediaType {
-	case "image/jpeg":
-		return "image"
-	case "image/png":
-		return "image"
-	case "image/gif":
-		return "image"
-	case "video/mp4":
-		return "video"
-	case "video/webm":
-		return "video"
-	case "audio/mpeg":
-		return "audio"
-	case "audio/ogg":
-		return "audio"
-	default:
-		return "unknown" // todo YOLO
-	}
+	toJSON(w, serialiseStatus(&status))
 }

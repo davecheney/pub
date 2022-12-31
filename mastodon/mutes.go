@@ -28,7 +28,7 @@ func (svc *Mutes) Index(w http.ResponseWriter, r *http.Request) {
 	}
 	var resp []any
 	for _, a := range mutes {
-		resp = append(resp, serializeAccount(a.Target))
+		resp = append(resp, serialiseAccount(a.Target))
 	}
 	toJSON(w, resp)
 }
@@ -62,7 +62,7 @@ func (svc *Mutes) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serializeRelationship(&rel))
+	toJSON(w, serialiseRelationship(&rel))
 }
 
 func (svc *Mutes) Destroy(w http.ResponseWriter, r *http.Request) {
@@ -87,5 +87,5 @@ func (svc *Mutes) Destroy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	toJSON(w, serializeRelationship(&rel))
+	toJSON(w, serialiseRelationship(&rel))
 }

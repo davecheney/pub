@@ -86,7 +86,7 @@ func (s *Search) searchAccounts(w http.ResponseWriter, r *http.Request, q string
 
 	var resp = map[string]any{
 		"accounts": []any{
-			serializeAccount(actor),
+			serialiseAccount(actor),
 		},
 		"hashtags": []any{},
 		"statuses": []any{},
@@ -112,7 +112,7 @@ func (s *Search) searchStatuses(w http.ResponseWriter, r *http.Request, q string
 		"accounts": []any{},
 		"hashtags": []any{},
 		"statuses": []any{
-			serializeStatus(status),
+			serialiseStatus(status),
 		},
 	}
 	toJSON(w, resp)

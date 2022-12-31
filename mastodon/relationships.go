@@ -37,7 +37,7 @@ func (r *Relationships) Show(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
-		resp = append(resp, serializeRelationship(&rel))
+		resp = append(resp, serialiseRelationship(&rel))
 	}
 	toJSON(w, resp)
 }
@@ -62,7 +62,7 @@ func (r *Relationships) Create(w http.ResponseWriter, req *http.Request) {
 
 	svc := m.NewService(r.service.DB())
 	rel, err := svc.Relationships().Follow(user.Actor, &target)
-	toJSON(w, serializeRelationship(rel))
+	toJSON(w, serialiseRelationship(rel))
 }
 
 func (r *Relationships) sendFollowRequest(account *models.Account, target *models.Actor) error {
@@ -97,7 +97,7 @@ func (r *Relationships) Destroy(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serializeRelationship(rel))
+	toJSON(w, serialiseRelationship(rel))
 }
 
 func (r *Relationships) sendUnfollowRequest(account *models.Account, target *models.Actor) error {
@@ -106,46 +106,4 @@ func (r *Relationships) sendUnfollowRequest(account *models.Account, target *mod
 		return err
 	}
 	return client.Unfollow(account.Actor.URI, target.URI)
-}
-
-type Relationship struct {
-	ID                  snowflake.ID `json:"id,string"`
-	Following           bool         `json:"following"`
-	ShowingReblogs      bool         `json:"showing_reblogs"`
-	Notifying           bool         `json:"notifying"`
-	FollowedBy          bool         `json:"followed_by"`
-	Blocking            bool         `json:"blocking"`
-	BlockedBy           bool         `json:"blocked_by"`
-	Muting              bool         `json:"muting"`
-	MutingNotifications bool         `json:"muting_notifications"`
-	Requested           bool         `json:"requested"`
-	DomainBlocking      bool         `json:"domain_blocking"`
-	Endorsed            bool         `json:"endorsed"`
-	Note                string       `json:"note"`
-}
-
-func serializeRelationship(rel *models.Relationship) *Relationship {
-	return &Relationship{
-		ID:                  rel.TargetID,
-		Following:           rel.Following,
-		ShowingReblogs:      true,  // todo
-		Notifying:           false, // todo
-		FollowedBy:          rel.FollowedBy,
-		Blocking:            rel.Blocking,
-		BlockedBy:           rel.BlockedBy,
-		Muting:              rel.Muting,
-		MutingNotifications: false,
-		Requested:           false,
-		DomainBlocking:      false,
-		Endorsed:            false,
-		Note: func() string {
-			// FirstOrCreate won't preload the Target
-			// so it will be zero. :(
-			if rel.Target != nil {
-				return rel.Target.Note
-			} else {
-				return ""
-			}
-		}(),
-	}
 }

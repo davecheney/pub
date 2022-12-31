@@ -28,7 +28,7 @@ func (b *Blocks) Index(w http.ResponseWriter, r *http.Request) {
 	}
 	var resp []any
 	for _, a := range blocks {
-		resp = append(resp, serializeAccount(a.Target))
+		resp = append(resp, serialiseAccount(a.Target))
 	}
 	toJSON(w, resp)
 }
@@ -50,7 +50,7 @@ func (b *Blocks) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serializeRelationship(rel))
+	toJSON(w, serialiseRelationship(rel))
 }
 
 func (b *Blocks) Destroy(w http.ResponseWriter, r *http.Request) {
@@ -70,5 +70,5 @@ func (b *Blocks) Destroy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serializeRelationship(rel))
+	toJSON(w, serialiseRelationship(rel))
 }

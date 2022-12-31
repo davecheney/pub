@@ -37,7 +37,7 @@ func (t *Timelines) Home(w http.ResponseWriter, r *http.Request) {
 
 	var resp []any
 	for _, status := range statuses {
-		resp = append(resp, serializeStatus(&status))
+		resp = append(resp, serialiseStatus(&status))
 	}
 	if len(statuses) > 0 {
 		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/home?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/home?min_id=%d>; rel=\"prev\"", r.Host, statuses[len(statuses)-1].ID, r.Host, statuses[0].ID))
@@ -67,7 +67,7 @@ func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
 	}
 	var resp []any
 	for _, status := range statuses {
-		resp = append(resp, serializeStatus(&status))
+		resp = append(resp, serialiseStatus(&status))
 	}
 	if len(statuses) > 0 {
 		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/public?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/public?min_id=%d>; rel=\"prev\"", r.Host, statuses[len(statuses)-1].ID, r.Host, statuses[0].ID))
