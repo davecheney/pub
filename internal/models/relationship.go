@@ -6,6 +6,7 @@ import (
 
 	"github.com/davecheney/m/internal/snowflake"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Relationship struct {
@@ -20,13 +21,20 @@ type Relationship struct {
 	FollowedBy bool         `gorm:"not null;default:false"`
 }
 
-// BeforeUpdate creates a relationship between the actor and target if needed.
+// BeforeUpdate creates a relationship request between the actor and target.
 func (r *Relationship) BeforeUpdate(tx *gorm.DB) error {
 	var original Relationship
 	if err := tx.First(&original, "actor_id = ? and target_id = ?", r.ActorID, r.TargetID).Error; err != nil {
 		return err
 	}
 	fmt.Printf("relationship changed from %+v to %+v\n", original, r)
+
+	// if there is a conflict; eg. a follow then an unfollow before the follow is processed
+	// update the existing row to reflect the new action.
+	tx = tx.Clauses(clause.OnConflict{
+		UpdateAll: true,
+	})
+
 	// what changed?
 	switch {
 	case original.Following && !r.Following:
@@ -93,5 +101,5 @@ type RelationshipRequest struct {
 	// LastAttempt is the time the request was last attempted.
 	LastAttempt time.Time
 	// LastResult is the result of the last attempt if it failed.
-	LastResult string `gorm:"size:255;serializer:json"`
+	LastResult string `gorm:"size:255;not null;default:''"`
 }

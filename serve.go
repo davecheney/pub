@@ -166,8 +166,8 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	defer stop()
 	g := group.New(signalCtx)
 	g.AddContext(func(ctx context.Context) error {
-		fmt.Println("Starting server on", s.Addr)
-		defer fmt.Println("Server stopped")
+		fmt.Println("http.ListenAndServe", s.Addr, "started")
+		defer fmt.Println("http.ListenAndServe", s.Addr, "stopped")
 		svr := &http.Server{
 			Addr:         s.Addr,
 			Handler:      r,
@@ -180,8 +180,11 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		}()
 		return svr.ListenAndServe()
 	})
-	rrp := activitypub.NewRelationshipRequestProcessor(db)
-	g.Add(rrp.Run)
+	relrp := activitypub.NewRelationshipRequestProcessor(db)
+	g.Add(relrp.Run)
+	reacrp := activitypub.NewReactionRequestProcessor(db)
+	g.Add(reacrp.Run)
+
 	return g.Wait()
 }
 

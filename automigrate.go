@@ -20,7 +20,7 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 		&models.Application{},
 		&models.Conversation{},
 		&models.Instance{}, &models.InstanceRule{},
-		&models.Reaction{},
+		&models.Reaction{}, &models.ReactionRequest{},
 		&models.Relationship{}, &models.RelationshipRequest{},
 		// &models.Marker{},
 		// &models.Notification{},

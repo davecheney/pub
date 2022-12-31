@@ -125,6 +125,56 @@ func (c *Client) Unfollow(follower, target string) error {
 	})
 }
 
+// Like sends a like request to the given URL.
+func (c *Client) Like(liking, target string) error {
+	actor, err := c.Get(target)
+	if err != nil {
+		return err
+	}
+	inbox := stringFromAny(actor["sharedInbox"])
+	if inbox == "" {
+		inbox = stringFromAny(actor["inbox"])
+		if inbox == "" {
+			return fmt.Errorf("no inbox found for %s", target)
+		}
+	}
+
+	return c.Post(inbox, map[string]any{
+		"@context": "https://www.w3.org/ns/activitystreams",
+		"id":       uuid.New().String(),
+		"type":     "Like",
+		"object":   target,
+		"actor":    liking,
+	})
+}
+
+// Unlike sends an undo like request to the given URL.
+func (c *Client) Unlike(liking, target string) error {
+	actor, err := c.Get(target)
+	if err != nil {
+		return err
+	}
+	inbox := stringFromAny(actor["sharedInbox"])
+	if inbox == "" {
+		inbox = stringFromAny(actor["inbox"])
+		if inbox == "" {
+			return fmt.Errorf("no inbox found for %s", target)
+		}
+	}
+
+	return c.Post(inbox, map[string]any{
+		"@context": "https://www.w3.org/ns/activitystreams",
+		"id":       uuid.New().String(),
+		"type":     "Undo",
+		"object": map[string]any{
+			"type":   "Like",
+			"object": target,
+			"actor":  liking,
+		},
+		"actor": liking,
+	})
+}
+
 // Get fetches the ActivityPub resource at the given URL.
 func (c *Client) Get(uri string) (map[string]any, error) {
 	req, err := http.NewRequest("GET", uri, nil)

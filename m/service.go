@@ -69,6 +69,7 @@ func (r *reactions) Pin(status *models.Status, actor *models.Actor) error {
 	if err != nil {
 		return err
 	}
+	reaction.Pinned = true
 	return r.db.Model(reaction).Update("pinned", true).Error
 }
 
@@ -77,6 +78,7 @@ func (r *reactions) Unpin(status *models.Status, actor *models.Actor) error {
 	if err != nil {
 		return err
 	}
+	reaction.Pinned = false
 	return r.db.Model(reaction).Update("pinned", false).Error
 }
 
@@ -85,10 +87,10 @@ func (r *reactions) Favourite(status *models.Status, actor *models.Actor) (*mode
 	if err != nil {
 		return nil, err
 	}
+	reaction.Favourited = true
 	if err := r.db.Model(reaction).Update("favourited", true).Error; err != nil {
 		return nil, err
 	}
-	reaction.Favourited = true
 	return reaction, nil
 }
 
@@ -97,10 +99,10 @@ func (r *reactions) Unfavourite(status *models.Status, actor *models.Actor) (*mo
 	if err != nil {
 		return nil, err
 	}
+	reaction.Favourited = false
 	if err := r.db.Model(reaction).Update("favourited", false).Error; err != nil {
 		return nil, err
 	}
-	reaction.Favourited = false
 	return reaction, nil
 }
 
@@ -128,13 +130,14 @@ func (r *relationships) Block(actor, target *models.Actor) (*models.Relationship
 	if err != nil {
 		return nil, err
 	}
+	forward.Blocking = true
 	if err := r.db.Model(forward).Update("blocking", true).Error; err != nil {
 		return nil, err
 	}
+	inverse.BlockedBy = true
 	if err := r.db.Model(inverse).Update("blocked_by", true).Error; err != nil {
 		return nil, err
 	}
-	forward.Blocking = true
 	return forward, nil
 }
 
@@ -144,13 +147,14 @@ func (r *relationships) Unblock(actor, target *models.Actor) (*models.Relationsh
 	if err != nil {
 		return nil, err
 	}
+	forward.Blocking = false
 	if err := r.db.Model(forward).Update("blocking", false).Error; err != nil {
 		return nil, err
 	}
+	inverse.BlockedBy = false
 	if err := r.db.Model(inverse).Update("blocked_by", false).Error; err != nil {
 		return nil, err
 	}
-	forward.Blocking = false
 	return forward, nil
 }
 
