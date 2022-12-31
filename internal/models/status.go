@@ -35,7 +35,7 @@ type Status struct {
 }
 
 func (st *Status) AfterCreate(tx *gorm.DB) error {
-	return withTX(tx, st.updateStatusCount, st.updateRepliesCount)
+	return forEach(tx, st.updateStatusCount, st.updateRepliesCount)
 }
 
 // updateRepliesCount updates the replies_count field on the status.

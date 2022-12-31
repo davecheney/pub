@@ -4,8 +4,8 @@ package models
 
 import "gorm.io/gorm"
 
-// withTX runs each function in the slice within the supplied transaction.
-func withTX(tx *gorm.DB, fns ...func(tx *gorm.DB) error) error {
+// forEach runs each function in the slice within the supplied transaction.
+func forEach(tx *gorm.DB, fns ...func(tx *gorm.DB) error) error {
 	for _, fn := range fns {
 		if err := fn(tx); err != nil {
 			return err

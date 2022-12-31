@@ -160,13 +160,17 @@ func (r *relationships) Follow(actor, target *models.Actor) (*models.Relationshi
 	if err != nil {
 		return nil, err
 	}
+	// this magic is important, updating the local copy, then passing it to db.Model makes it
+	// available to the BeforeCreate hook. Then the hook can check how the relationship has changed
+	// compared to the previous state.
+	forward.Following = true
 	if err := r.db.Model(forward).Update("following", true).Error; err != nil {
 		return nil, err
 	}
+	inverse.FollowedBy = true
 	if err := r.db.Model(inverse).Update("followed_by", true).Error; err != nil {
 		return nil, err
 	}
-	forward.Following = true
 	return forward, nil
 }
 
@@ -176,13 +180,14 @@ func (r *relationships) Unfollow(actor, target *models.Actor) (*models.Relations
 	if err != nil {
 		return nil, err
 	}
+	forward.Following = false
 	if err := r.db.Model(forward).Update("following", false).Error; err != nil {
 		return nil, err
 	}
+	inverse.FollowedBy = false
 	if err := r.db.Model(inverse).Update("followed_by", false).Error; err != nil {
 		return nil, err
 	}
-	forward.Following = false
 	return forward, nil
 }
 

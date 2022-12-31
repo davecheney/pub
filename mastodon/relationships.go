@@ -1,7 +1,6 @@
 package mastodon
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -53,13 +52,6 @@ func (r *Relationships) Create(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	err = r.sendFollowRequest(user, &target)
-	if err != nil {
-		fmt.Println("sendFollowRequest failed", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	svc := m.NewService(r.service.DB())
 	rel, err := svc.Relationships().Follow(user.Actor, &target)
 	toJSON(w, serialiseRelationship(rel))
@@ -84,13 +76,6 @@ func (r *Relationships) Destroy(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	err = r.sendUnfollowRequest(user, &target)
-	if err != nil {
-		fmt.Println("sendUnfollowRequest failed", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	svc := m.NewService(r.service.DB())
 	rel, err := svc.Relationships().Unfollow(user.Actor, &target)
 	if err != nil {

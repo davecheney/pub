@@ -19,7 +19,7 @@ type Reaction struct {
 }
 
 func (r *Reaction) AfterUpdate(tx *gorm.DB) error {
-	return withTX(tx, r.updateStatusCount)
+	return forEach(tx, r.updateStatusCount)
 }
 
 // updateStatusCount updates the favourites_count and reblogs_count fields on the status.
