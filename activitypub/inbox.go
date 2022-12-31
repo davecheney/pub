@@ -5,11 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/davecheney/m/internal/models"
 	"github.com/davecheney/m/internal/snowflake"
-	"github.com/davecheney/m/m"
 	"github.com/go-fed/httpsig"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
@@ -102,8 +100,7 @@ func (i *Inboxes) processUndo(obj map[string]any) error {
 
 func (i *Inboxes) processUndoAnnounce(obj map[string]any) error {
 	id := stringFromAny(obj["id"])
-	svc := m.NewService(i.service.db)
-	status, err := svc.Statuses().FindByURI(id)
+	status, err := models.NewStatuses(i.service.db).FindByURI(id)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// already deleted
 		return nil
@@ -115,12 +112,12 @@ func (i *Inboxes) processUndoAnnounce(obj map[string]any) error {
 }
 
 func (i *Inboxes) processUndoFollow(body map[string]any) error {
-	svc := m.NewService(i.service.db)
-	actor, err := svc.Actors().FindByURI(stringFromAny(body["actor"]))
+	actors := models.NewActors(i.service.db)
+	actor, err := actors.FindByURI(stringFromAny(body["actor"]))
 	if err != nil {
 		return err
 	}
-	target, err := svc.Actors().FindByURI(stringFromAny(body["object"]))
+	target, err := actors.FindByURI(stringFromAny(body["object"]))
 	if err != nil {
 		return err
 	}
@@ -131,13 +128,16 @@ func (i *Inboxes) processUndoFollow(body map[string]any) error {
 
 func (i *Inboxes) processAnnounce(signAs *models.Account, obj map[string]any) error {
 	target := stringFromAny(obj["object"])
-	svc := m.NewService(i.service.db)
-	original, err := svc.Statuses().FindOrCreate(target, svc.Statuses().NewRemoteStatusFetcher(signAs).Fetch)
+	statusFetcher := NewRemoteStatusFetcher(signAs, i.service.db)
+	statuses := models.NewStatuses(i.service.db)
+	original, err := statuses.FindOrCreate(target, statusFetcher.Fetch)
 	if err != nil {
 		return err
 	}
 
-	actor, err := svc.Actors().FindOrCreate(stringFromAny(obj["actor"]), svc.Actors().NewRemoteActorFetcher(signAs).Fetch)
+	actorFetcher := NewRemoteActorFetcher(signAs, i.service.db)
+	actors := models.NewActors(i.service.db)
+	actor, err := actors.FindOrCreate(stringFromAny(obj["actor"]), actorFetcher.Fetch)
 	if err != nil {
 		return err
 	}
@@ -181,12 +181,11 @@ func (i *Inboxes) processAdd(act map[string]any) error {
 	target := stringFromAny(act["target"])
 	switch target {
 	case stringFromAny(act["actor"]) + "/collections/featured":
-		svc := m.NewService(i.service.db)
-		status, err := svc.Statuses().FindByURI(stringFromAny(act["object"]))
+		status, err := models.NewStatuses(i.service.db).FindByURI(stringFromAny(act["object"]))
 		if err != nil {
 			return err
 		}
-		actor, err := svc.Actors().FindByURI(stringFromAny(act["actor"]))
+		actor, err := models.NewActors(i.service.db).FindByURI(stringFromAny(act["actor"]))
 		if err != nil {
 			return err
 		}
@@ -206,12 +205,11 @@ func (i *Inboxes) processRemove(act map[string]any) error {
 	target := stringFromAny(act["target"])
 	switch target {
 	case stringFromAny(act["actor"]) + "/collections/featured":
-		svc := m.NewService(i.service.db)
-		status, err := svc.Statuses().FindByURI(stringFromAny(act["object"]))
+		status, err := models.NewStatuses(i.service.db).FindByURI(stringFromAny(act["object"]))
 		if err != nil {
 			return err
 		}
-		actor, err := svc.Actors().FindByURI(stringFromAny(act["actor"]))
+		actor, err := models.NewActors(i.service.db).FindByURI(stringFromAny(act["actor"]))
 		if err != nil {
 			return err
 		}
@@ -243,10 +241,9 @@ func (i *Inboxes) processCreateNote(signAs *models.Account, create map[string]an
 		return errors.New("missing atomUri")
 	}
 
-	svc := m.NewService(i.service.db)
-	_, err := svc.Statuses().FindOrCreate(uri, func(string) (*models.Status, error) {
-		fetcher := svc.Actors().NewRemoteActorFetcher(signAs)
-		actor, err := svc.Actors().FindOrCreate(stringFromAny(create["attributedTo"]), fetcher.Fetch)
+	_, err := models.NewStatuses(i.service.db).FindOrCreate(uri, func(string) (*models.Status, error) {
+		fetcher := NewRemoteActorFetcher(signAs, i.service.db)
+		actor, err := models.NewActors(i.service.db).FindOrCreate(stringFromAny(create["attributedTo"]), fetcher.Fetch)
 		if err != nil {
 			return nil, err
 		}
@@ -258,8 +255,8 @@ func (i *Inboxes) processCreateNote(signAs *models.Account, create map[string]an
 
 		var inReplyTo *models.Status
 		if inReplyToAtomUri, ok := create["inReplyTo"].(string); ok {
-			remoteStatusFetcher := svc.Statuses().NewRemoteStatusFetcher(signAs)
-			inReplyTo, err = svc.Statuses().FindOrCreate(inReplyToAtomUri, remoteStatusFetcher.Fetch)
+			remoteStatusFetcher := NewRemoteStatusFetcher(signAs, i.service.db)
+			inReplyTo, err = models.NewStatuses(i.service.db).FindOrCreate(inReplyToAtomUri, remoteStatusFetcher.Fetch)
 			if err != nil {
 				fmt.Println("inReplyToAtomUri:", inReplyToAtomUri, "err:", err)
 			}
@@ -270,7 +267,7 @@ func (i *Inboxes) processCreateNote(signAs *models.Account, create map[string]an
 		if inReplyTo != nil {
 			conversationID = inReplyTo.ConversationID
 		} else {
-			conv, err := svc.Conversations().New(vis)
+			conv, err := models.NewConversations(i.service.db).New(vis)
 			if err != nil {
 				return nil, err
 			}
@@ -345,12 +342,12 @@ func (i *Inboxes) processAcceptFollow(obj map[string]any) error {
 }
 
 func (i *Inboxes) processFollow(body map[string]any) error {
-	svc := m.NewService(i.service.db)
-	actor, err := svc.Actors().FindByURI(stringFromAny(body["actor"]))
+	actors := models.NewActors(i.service.db)
+	actor, err := actors.FindByURI(stringFromAny(body["actor"]))
 	if err != nil {
 		return err
 	}
-	target, err := svc.Actors().FindByURI(stringFromAny(body["object"]))
+	target, err := actors.FindByURI(stringFromAny(body["object"]))
 	if err != nil {
 		return err
 	}
@@ -405,52 +402,6 @@ func (i *Inboxes) validateSignature(r *http.Request) error {
 
 }
 
-func stringFromAny(v any) string {
-	s, _ := v.(string)
-	return s
-}
-
-func mapFromAny(v any) map[string]any {
-	m, _ := v.(map[string]any)
-	return m
-}
-
-func timeFromAny(v any) (time.Time, error) {
-	switch v := v.(type) {
-	case string:
-		return time.Parse(time.RFC3339, v)
-	case time.Time:
-		return v, nil
-	default:
-		return time.Time{}, errors.New("timeFromAny: invalid type")
-	}
-}
-
-func intFromAny(v any) int {
-	switch v := v.(type) {
-	case int:
-		return v
-	case float64:
-		// shakes fist at json number type
-		return int(v)
-	}
-	return 0
-}
-
-func anyToSlice(v any) []any {
-	switch v := v.(type) {
-	case []any:
-		return v
-	default:
-		return nil
-	}
-}
-
-func boolFromAny(v any) bool {
-	b, _ := v.(bool)
-	return b
-}
-
 func visiblity(obj map[string]any) string {
 	actor := stringFromAny(obj["attributedTo"])
 	for _, recipient := range anyToSlice(obj["to"]) {
@@ -468,11 +419,4 @@ func visiblity(obj map[string]any) string {
 		}
 	}
 	return ""
-}
-
-func marshalIndent(v any) ([]byte, error) {
-	b, err := json.MarshalOptions{}.Marshal(json.EncodeOptions{
-		Indent: "\t", // indent for readability
-	}, v)
-	return b, err
 }

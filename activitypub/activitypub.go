@@ -2,8 +2,10 @@ package activitypub
 
 import (
 	"crypto"
+	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-json-experiment/json"
@@ -84,4 +86,69 @@ func (f *Collections) Show(w http.ResponseWriter, r *http.Request) {
 func toJSON(w http.ResponseWriter, obj interface{}) error {
 	w.Header().Set("Content-Type", "application/activity+json; charset=utf-8")
 	return json.MarshalFull(w, obj)
+}
+
+func boolFromAny(v any) bool {
+	b, _ := v.(bool)
+	return b
+}
+
+func stringFromAny(v any) string {
+	s, _ := v.(string)
+	return s
+}
+
+func mapFromAny(v any) map[string]any {
+	m, _ := v.(map[string]any)
+	return m
+}
+
+func timeFromAnyOrZero(v any) time.Time {
+	switch v := v.(type) {
+	case string:
+		t, _ := time.Parse(time.RFC3339, v)
+		return t
+	case time.Time:
+		return v
+	default:
+		return time.Time{}
+	}
+}
+
+func timeFromAny(v any) (time.Time, error) {
+	switch v := v.(type) {
+	case string:
+		return time.Parse(time.RFC3339, v)
+	case time.Time:
+		return v, nil
+	default:
+		return time.Time{}, errors.New("timeFromAny: invalid type")
+	}
+}
+
+func intFromAny(v any) int {
+	switch v := v.(type) {
+	case int:
+		return v
+	case float64:
+		// shakes fist at json number type
+		return int(v)
+	}
+	return 0
+}
+
+func anyToSlice(v any) []any {
+	switch v := v.(type) {
+	case []any:
+		return v
+	default:
+		return nil
+	}
+}
+
+func marshalIndent(v any) ([]byte, error) {
+	b, err := json.MarshalOptions{}.Marshal(json.EncodeOptions{
+		Indent: "\t", // indent for readability
+	}, v)
+	return b, err
 }

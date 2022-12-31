@@ -1,6 +1,8 @@
 package models
 
 import (
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/davecheney/m/internal/snowflake"
@@ -72,4 +74,42 @@ type StatusPoll struct {
 type StatusPollOption struct {
 	Title string `json:"title"`
 	Count int    `json:"count"`
+}
+
+type Statuses struct {
+	db *gorm.DB
+}
+
+func NewStatuses(db *gorm.DB) *Statuses {
+	return &Statuses{db: db}
+}
+
+// FindOrCreate searches for a status by its URI. If the status is not found, it
+// calls the given function to create a new status, stores that status in the
+// database and returns it.
+func (s *Statuses) FindOrCreate(uri string, createFn func(string) (*Status, error)) (*Status, error) {
+	status, err := s.FindByURI(uri)
+	if err == nil {
+		return status, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	status, err = createFn(uri)
+	if err != nil {
+		fmt.Println("findOrCreate: createFn:", err)
+		return nil, err
+	}
+	if err := s.db.Create(&status).Error; err != nil {
+		return nil, err
+	}
+	return status, nil
+}
+
+func (s *Statuses) FindByURI(uri string) (*Status, error) {
+	var status Status
+	if err := s.db.Preload("Actor").Where("uri = ?", uri).First(&status).Error; err != nil {
+		return nil, err
+	}
+	return &status, nil
 }

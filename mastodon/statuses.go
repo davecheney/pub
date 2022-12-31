@@ -45,13 +45,13 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		conv, err = s.service.Service.Conversations().FindOrCreate(parent.ConversationID, toot.Visibility)
+		conv, err = models.NewConversations(s.service.DB()).FindOrCreate(parent.ConversationID, toot.Visibility)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	} else {
-		conv, err = s.service.Service.Conversations().New(toot.Visibility)
+		conv, err = models.NewConversations(s.service.DB()).New(toot.Visibility)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

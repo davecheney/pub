@@ -122,8 +122,8 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		if err := db.Joins("Admin").Preload("Admin.Actor").First(&instance, "admin_id is not null").Error; err != nil {
 			return nil, err
 		}
-		fetcher := svc.Actors().NewRemoteActorFetcher(instance.Admin)
-		actor, err := svc.Actors().FindOrCreate(actorId, fetcher.Fetch)
+		fetcher := activitypub.NewRemoteActorFetcher(instance.Admin, db)
+		actor, err := models.NewActors(db).FindOrCreate(actorId, fetcher.Fetch)
 		if err != nil {
 			return nil, err
 		}

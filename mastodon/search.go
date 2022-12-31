@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/davecheney/m/activitypub"
 	"github.com/davecheney/m/internal/models"
 	"github.com/davecheney/m/internal/webfinger"
 	"github.com/go-json-experiment/json"
@@ -80,10 +81,10 @@ func (s *Search) searchAccounts(w http.ResponseWriter, r *http.Request, q string
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		fetcher := s.service.Service.Actors().NewRemoteActorFetcher(instance.Admin)
-		actor, err = s.service.Service.Actors().FindOrCreate(q, fetcher.Fetch)
+		fetcher := activitypub.NewRemoteActorFetcher(instance.Admin, s.service.DB())
+		actor, err = models.NewActors(s.service.DB()).FindOrCreate(q, fetcher.Fetch)
 	default:
-		actor, err = s.service.Service.Actors().FindByURI(q)
+		actor, err = models.NewActors(s.service.DB()).FindByURI(q)
 	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -111,10 +112,10 @@ func (s *Search) searchStatuses(w http.ResponseWriter, r *http.Request, q string
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		fetcher := s.service.Service.Statuses().NewRemoteStatusFetcher(instance.Admin)
-		status, err = s.service.Service.Statuses().FindOrCreate(q, fetcher.Fetch)
+		fetcher := activitypub.NewRemoteStatusFetcher(instance.Admin, s.service.DB())
+		status, err = models.NewStatuses(s.service.DB()).FindOrCreate(q, fetcher.Fetch)
 	default:
-		status, err = s.service.Service.Statuses().FindByURI(q)
+		status, err = models.NewStatuses(s.service.DB()).FindByURI(q)
 	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

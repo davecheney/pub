@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/davecheney/m/internal/models"
 	"github.com/davecheney/m/internal/webfinger"
 	"github.com/go-json-experiment/json"
 )
@@ -18,9 +19,8 @@ func (w *Webfinger) Show(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	actor, err := w.service.Actors().Find(acct.User, r.Host) // note, use the host from the request, not the acct
-	if err != nil {
+	var actor models.Actor
+	if err := w.service.DB().First(&actor, "name = ? AND domain = ?", acct.User, r.Host).Error; err != nil {
 		http.Error(rw, err.Error(), http.StatusNotFound)
 		return
 	}

@@ -20,26 +20,6 @@ func (s *Service) DB() *gorm.DB {
 	return s.db
 }
 
-func (s *Service) Statuses() *statuses {
-	return &statuses{
-		db:      s.db,
-		service: s,
-	}
-}
-
-func (s *Service) Conversations() *conversations {
-	return &conversations{
-		db:      s.db,
-		service: s,
-	}
-}
-
-func (s *Service) Actors() *Actors {
-	return &Actors{
-		service: s,
-	}
-}
-
 func (s *Service) Instances() *instances {
 	return &instances{
 		db: s.db,
