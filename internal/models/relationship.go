@@ -66,7 +66,7 @@ func (r *Relationship) updateFollowersCount(tx *gorm.DB) error {
 	actor := &Actor{
 		ID: snowflake.ID(r.ActorID),
 	}
-	followers := tx.Select("COUNT(*)").Where("target_id = ? and following = true", r.ActorID).Table("relationships")
+	followers := tx.Select("COUNT(*)").Where("target_id = ? and following = true", r.ActorID).Table("Relationships")
 	return tx.Model(actor).Update("followers_count", followers).Error
 }
 
@@ -75,7 +75,7 @@ func (r *Relationship) updateFollowingCount(tx *gorm.DB) error {
 	actor := &Actor{
 		ID: snowflake.ID(r.TargetID),
 	}
-	following := tx.Select("COUNT(*)").Where("actor_id = ? and following = true", r.TargetID).Table("relationships")
+	following := tx.Select("COUNT(*)").Where("actor_id = ? and following = true", r.TargetID).Table("Relationships")
 	return tx.Model(actor).Update("following_count", following).Error
 }
 
@@ -102,4 +102,107 @@ type RelationshipRequest struct {
 	LastAttempt time.Time
 	// LastResult is the result of the last attempt if it failed.
 	LastResult string `gorm:"size:255;not null;default:''"`
+}
+
+type Relationships struct {
+	db *gorm.DB
+}
+
+func NewRelationships(db *gorm.DB) *Relationships {
+	return &Relationships{
+		db: db,
+	}
+}
+
+// Block blocks the target from the actor.
+func (r *Relationships) Block(actor, target *Actor) (*Relationship, error) {
+	forward, inverse, err := r.pair(actor, target)
+	if err != nil {
+		return nil, err
+	}
+	forward.Blocking = true
+	if err := r.db.Model(forward).Update("blocking", true).Error; err != nil {
+		return nil, err
+	}
+	inverse.BlockedBy = true
+	if err := r.db.Model(inverse).Update("blocked_by", true).Error; err != nil {
+		return nil, err
+	}
+	return forward, nil
+}
+
+// Unblock removes a block relationship between actor and the target.
+func (r *Relationships) Unblock(actor, target *Actor) (*Relationship, error) {
+	forward, inverse, err := r.pair(actor, target)
+	if err != nil {
+		return nil, err
+	}
+	forward.Blocking = false
+	if err := r.db.Model(forward).Update("blocking", false).Error; err != nil {
+		return nil, err
+	}
+	inverse.BlockedBy = false
+	if err := r.db.Model(inverse).Update("blocked_by", false).Error; err != nil {
+		return nil, err
+	}
+	return forward, nil
+}
+
+// Follow establishes a follow relationship between actor and the target.
+func (r *Relationships) Follow(actor, target *Actor) (*Relationship, error) {
+	forward, inverse, err := r.pair(actor, target)
+	if err != nil {
+		return nil, err
+	}
+	// this magic is important, updating the local copy, then passing it to db.Model makes it
+	// available to the BeforeCreate hook. Then the hook can check how the relationship has changed
+	// compared to the previous state.
+	forward.Following = true
+	if err := r.db.Model(forward).Update("following", true).Error; err != nil {
+		return nil, err
+	}
+	inverse.FollowedBy = true
+	if err := r.db.Model(inverse).Update("followed_by", true).Error; err != nil {
+		return nil, err
+	}
+	return forward, nil
+}
+
+// Unfollow removes a follow relationship between actor and the target.
+func (r *Relationships) Unfollow(actor, target *Actor) (*Relationship, error) {
+	forward, inverse, err := r.pair(actor, target)
+	if err != nil {
+		return nil, err
+	}
+	forward.Following = false
+	if err := r.db.Model(forward).Update("following", false).Error; err != nil {
+		return nil, err
+	}
+	inverse.FollowedBy = false
+	if err := r.db.Model(inverse).Update("followed_by", false).Error; err != nil {
+		return nil, err
+	}
+	return forward, nil
+}
+
+// pair returns the pair of Relationships between actor and target.
+func (r *Relationships) pair(actor, target *Actor) (*Relationship, *Relationship, error) {
+	forward, err := r.findOrCreate(actor, target)
+	if err != nil {
+		return nil, nil, err
+	}
+	inverse, err := r.findOrCreate(target, actor)
+	if err != nil {
+		return nil, nil, err
+	}
+	return forward, inverse, nil
+}
+
+func (r *Relationships) findOrCreate(actor, target *Actor) (*Relationship, error) {
+	var rel Relationship
+	if err := r.db.FirstOrCreate(&rel, Relationship{ActorID: actor.ID, TargetID: target.ID}).Error; err != nil {
+		return nil, err
+	}
+	rel.Target = target
+	return &rel, nil
 }

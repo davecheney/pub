@@ -31,10 +31,3 @@ func (i *instances) FindByDomain(domain string) (*models.Instance, error) {
 	}
 	return &instance, nil
 }
-
-func stringOrDefault(s string, def string) string {
-	if s == "" {
-		return def
-	}
-	return s
-}

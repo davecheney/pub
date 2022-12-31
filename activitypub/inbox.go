@@ -124,7 +124,8 @@ func (i *Inboxes) processUndoFollow(body map[string]any) error {
 	if err != nil {
 		return err
 	}
-	_, err = svc.Relationships().Unfollow(actor, target)
+	relationships := models.NewRelationships(i.service.db)
+	_, err = relationships.Unfollow(actor, target)
 	return err
 }
 
@@ -192,7 +193,8 @@ func (i *Inboxes) processAdd(act map[string]any) error {
 		if status.ActorID != actor.ID {
 			return errors.New("actor is not the author of the status")
 		}
-		return svc.Reactions().Pin(status, actor)
+		reactions := models.NewReactions(i.service.db)
+		return reactions.Pin(status, actor)
 	default:
 		x, _ := marshalIndent(act)
 		fmt.Println("processAdd:", string(x))
@@ -216,7 +218,8 @@ func (i *Inboxes) processRemove(act map[string]any) error {
 		if status.ActorID != actor.ID {
 			return errors.New("actor is not the author of the status")
 		}
-		return svc.Reactions().Unpin(status, actor)
+		reactions := models.NewReactions(i.service.db)
+		return reactions.Unpin(status, actor)
 	default:
 		x, _ := marshalIndent(act)
 		fmt.Println("processRemove:", string(x))
@@ -351,7 +354,8 @@ func (i *Inboxes) processFollow(body map[string]any) error {
 	if err != nil {
 		return err
 	}
-	_, err = svc.Relationships().Follow(actor, target)
+	relationships := models.NewRelationships(i.service.db)
+	_, err = relationships.Follow(actor, target)
 	return err
 }
 

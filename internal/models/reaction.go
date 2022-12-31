@@ -64,8 +64,8 @@ func (r *Reaction) AfterUpdate(tx *gorm.DB) error {
 // updateStatusCount updates the favourites_count and reblogs_count fields on the status.
 func (r *Reaction) updateStatusCount(tx *gorm.DB) error {
 	status := &Status{ID: snowflake.ID(r.StatusID)}
-	favouritesCount := tx.Select("COUNT(*)").Where("status_id = ? and favourited = true", r.StatusID).Table("reactions")
-	reblogsCount := tx.Select("COUNT(*)").Where("status_id = ? and reblogged = true", r.StatusID).Table("reactions")
+	favouritesCount := tx.Select("COUNT(*)").Where("status_id = ? and favourited = true", r.StatusID).Table("Reactions")
+	reblogsCount := tx.Select("COUNT(*)").Where("status_id = ? and reblogged = true", r.StatusID).Table("Reactions")
 	return tx.Model(status).Updates(map[string]interface{}{
 		"favourites_count": favouritesCount,
 		"reblogs_count":    reblogsCount,
@@ -95,4 +95,62 @@ type ReactionRequest struct {
 	LastAttempt time.Time
 	// LastResult is the result of the last attempt if it failed.
 	LastResult string `gorm:"size:255;not null;default:''"`
+}
+
+type Reactions struct {
+	db *gorm.DB
+}
+
+func NewReactions(db *gorm.DB) *Reactions {
+	return &Reactions{db: db}
+}
+
+func (r *Reactions) Pin(status *Status, actor *Actor) error {
+	reaction, err := r.findOrCreate(status, actor)
+	if err != nil {
+		return err
+	}
+	reaction.Pinned = true
+	return r.db.Model(reaction).Update("pinned", true).Error
+}
+
+func (r *Reactions) Unpin(status *Status, actor *Actor) error {
+	reaction, err := r.findOrCreate(status, actor)
+	if err != nil {
+		return err
+	}
+	reaction.Pinned = false
+	return r.db.Model(reaction).Update("pinned", false).Error
+}
+
+func (r *Reactions) Favourite(status *Status, actor *Actor) (*Reaction, error) {
+	reaction, err := r.findOrCreate(status, actor)
+	if err != nil {
+		return nil, err
+	}
+	reaction.Favourited = true
+	if err := r.db.Model(reaction).Update("favourited", true).Error; err != nil {
+		return nil, err
+	}
+	return reaction, nil
+}
+
+func (r *Reactions) Unfavourite(status *Status, actor *Actor) (*Reaction, error) {
+	reaction, err := r.findOrCreate(status, actor)
+	if err != nil {
+		return nil, err
+	}
+	reaction.Favourited = false
+	if err := r.db.Model(reaction).Update("favourited", false).Error; err != nil {
+		return nil, err
+	}
+	return reaction, nil
+}
+
+func (r *Reactions) findOrCreate(status *Status, actor *Actor) (*Reaction, error) {
+	var reaction Reaction
+	if err := r.db.FirstOrCreate(&reaction, Reaction{StatusID: status.ID, ActorID: actor.ID}).Error; err != nil {
+		return nil, err
+	}
+	return &reaction, nil
 }

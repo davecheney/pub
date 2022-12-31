@@ -7,7 +7,6 @@ import (
 	"github.com/davecheney/m/internal/activitypub"
 	"github.com/davecheney/m/internal/models"
 	"github.com/davecheney/m/internal/snowflake"
-	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -52,8 +51,8 @@ func (r *Relationships) Create(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	svc := m.NewService(r.service.DB())
-	rel, err := svc.Relationships().Follow(user.Actor, &target)
+	relationships := models.NewRelationships(r.service.DB())
+	rel, err := relationships.Follow(user.Actor, &target)
 	toJSON(w, serialiseRelationship(rel))
 }
 
@@ -68,8 +67,8 @@ func (r *Relationships) Destroy(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	svc := m.NewService(r.service.DB())
-	rel, err := svc.Relationships().Unfollow(user.Actor, &target)
+	relationships := models.NewRelationships(r.service.DB())
+	rel, err := relationships.Unfollow(user.Actor, &target)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

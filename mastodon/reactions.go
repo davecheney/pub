@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/davecheney/m/internal/models"
-	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 )
@@ -25,8 +24,8 @@ func (f *Favourites) Create(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	svc := m.NewService(f.service.DB())
-	reaction, err := svc.Reactions().Favourite(&status, user.Actor)
+	reactions := models.NewReactions(f.service.DB())
+	reaction, err := reactions.Favourite(&status, user.Actor)
 	if err != nil {
 		fmt.Println("favourite failed", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -48,8 +47,8 @@ func (f *Favourites) Destroy(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	svc := m.NewService(f.service.DB())
-	reaction, err := svc.Reactions().Unfavourite(&status, user.Actor)
+	reactions := models.NewReactions(f.service.DB())
+	reaction, err := reactions.Unfavourite(&status, user.Actor)
 	if err != nil {
 		fmt.Println("unfavourite failed", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

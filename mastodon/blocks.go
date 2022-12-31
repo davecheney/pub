@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/davecheney/m/internal/models"
-	"github.com/davecheney/m/m"
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 )
@@ -44,8 +43,8 @@ func (b *Blocks) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	svc := m.NewService(b.service.DB())
-	rel, err := svc.Relationships().Block(user.Actor, &target)
+	relationships := models.NewRelationships(b.service.DB())
+	rel, err := relationships.Block(user.Actor, &target)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -64,8 +63,8 @@ func (b *Blocks) Destroy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	svc := m.NewService(b.service.DB())
-	rel, err := svc.Relationships().Unblock(user.Actor, &target)
+	relationships := models.NewRelationships(b.service.DB())
+	rel, err := relationships.Unblock(user.Actor, &target)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
