@@ -5,8 +5,7 @@ import (
 	"net/http/httputil"
 	"strconv"
 
-	"github.com/davecheney/m/m"
-	"github.com/go-json-experiment/json"
+	"github.com/davecheney/m/internal/models"
 )
 
 type Markers struct {
@@ -20,7 +19,7 @@ func (ms *Markers) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var markers []m.Marker
+	var markers []models.Marker
 	if err := ms.service.DB().Model(user).Association("Markers").Find(&markers); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -34,8 +33,7 @@ func (ms *Markers) Index(w http.ResponseWriter, r *http.Request) {
 			"updated_at":   marker.UpdatedAt.Format("2006-01-02T15:04:05.006Z"),
 		}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, resp)
+	toJSON(w, resp)
 }
 
 func (ms *Markers) Create(w http.ResponseWriter, r *http.Request) {

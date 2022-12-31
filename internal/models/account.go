@@ -52,6 +52,14 @@ type AccountList struct {
 	RepliesPolicy string `gorm:"size:64"`
 }
 
+type Marker struct {
+	gorm.Model
+	AccountID  uint32
+	Name       string `gorm:"size:32"`
+	Version    int    `gorm:"default:0"`
+	LastReadId uint
+}
+
 type Accounts struct {
 	db *gorm.DB
 }
