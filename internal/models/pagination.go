@@ -1,4 +1,4 @@
-package mastodon
+package models
 
 import (
 	"net/http"
@@ -9,7 +9,7 @@ import (
 
 // pagination support for the Mastodon API.
 
-func paginateActors(r *http.Request) func(db *gorm.DB) *gorm.DB {
+func PaginateActors(r *http.Request) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		q := r.URL.Query()
 
@@ -35,7 +35,7 @@ func paginateActors(r *http.Request) func(db *gorm.DB) *gorm.DB {
 	}
 }
 
-func paginateConversation(r *http.Request) func(db *gorm.DB) *gorm.DB {
+func PaginateConversation(r *http.Request) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		q := r.URL.Query()
 
@@ -64,7 +64,7 @@ func paginateConversation(r *http.Request) func(db *gorm.DB) *gorm.DB {
 	}
 }
 
-func paginateRelationship(r *http.Request) func(db *gorm.DB) *gorm.DB {
+func PaginateRelationship(r *http.Request) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		q := r.URL.Query()
 
@@ -93,7 +93,7 @@ func paginateRelationship(r *http.Request) func(db *gorm.DB) *gorm.DB {
 	}
 }
 
-func paginateStatuses(r *http.Request) func(db *gorm.DB) *gorm.DB {
+func PaginateStatuses(r *http.Request) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		q := r.URL.Query()
 

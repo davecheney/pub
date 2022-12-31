@@ -75,7 +75,7 @@ func (a *Accounts) FollowersShow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var followers []models.Relationship
-	if err := a.service.DB().Scopes(paginateRelationship(r)).Preload("Target").Where("actor_id = ? and followed_by = true", chi.URLParam(r, "id")).Find(&followers).Error; err != nil {
+	if err := a.service.DB().Scopes(models.PaginateRelationship(r)).Preload("Target").Where("actor_id = ? and followed_by = true", chi.URLParam(r, "id")).Find(&followers).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -97,7 +97,7 @@ func (a *Accounts) FollowingShow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var following []models.Relationship
-	if err := a.service.DB().Scopes(paginateRelationship(r)).Preload("Target").Where("actor_id = ? and following = true", chi.URLParam(r, "id")).Find(&following).Error; err != nil {
+	if err := a.service.DB().Scopes(models.PaginateRelationship(r)).Preload("Target").Where("actor_id = ? and following = true", chi.URLParam(r, "id")).Find(&following).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

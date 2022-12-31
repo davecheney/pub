@@ -19,7 +19,7 @@ func (c *Conversations) Index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var statuses []models.Status
-	scope := c.service.DB().Scopes(paginateConversation(r)).Where("visibility = ?", "direct")
+	scope := c.service.DB().Scopes(models.PaginateConversation(r)).Where("visibility = ?", "direct")
 	switch r.URL.Query().Get("local") {
 	case "":
 		scope = scope.Joins("Actor")
