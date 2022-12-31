@@ -2,7 +2,6 @@ package mastodon
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/davecheney/m/internal/models"
 	"gorm.io/gorm"
@@ -30,32 +29,6 @@ func isLocal(r *http.Request) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if r.URL.Query().Get("local") != "" {
 			return db.Where("domain = ?", r.Host)
-		}
-		return db
-	}
-}
-
-func paginateActors(r *http.Request) func(db *gorm.DB) *gorm.DB {
-	return func(db *gorm.DB) *gorm.DB {
-		q := r.URL.Query()
-
-		limit, _ := strconv.Atoi(q.Get("limit"))
-		switch {
-		case limit > 40:
-			limit = 80
-		case limit <= 0:
-			limit = 20
-		}
-		db = db.Limit(limit)
-
-		offset, _ := strconv.Atoi(q.Get("offset"))
-		db = db.Offset(offset)
-
-		switch q.Get("order") {
-		case "new":
-			db = db.Order("id desc")
-		case "active":
-			db = db.Order("last_status_at desc")
 		}
 		return db
 	}

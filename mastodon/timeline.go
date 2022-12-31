@@ -3,10 +3,8 @@ package mastodon
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/davecheney/m/internal/models"
-	"gorm.io/gorm"
 )
 
 type Timelines struct {
@@ -73,33 +71,4 @@ func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/public?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/public?min_id=%d>; rel=\"prev\"", r.Host, statuses[len(statuses)-1].ID, r.Host, statuses[0].ID))
 	}
 	toJSON(w, resp)
-}
-
-func paginateStatuses(r *http.Request) func(db *gorm.DB) *gorm.DB {
-	return func(db *gorm.DB) *gorm.DB {
-		q := r.URL.Query()
-
-		limit, _ := strconv.Atoi(q.Get("limit"))
-		switch {
-		case limit > 40:
-			limit = 40
-		case limit <= 0:
-			limit = 20
-		}
-		db = db.Limit(limit)
-
-		sinceID, _ := strconv.Atoi(r.URL.Query().Get("since_id"))
-		if sinceID > 0 {
-			db = db.Where("statuses.id > ?", sinceID)
-		}
-		minID, _ := strconv.Atoi(r.URL.Query().Get("min_id"))
-		if minID > 0 {
-			db = db.Where("statuses.id > ?", minID)
-		}
-		maxID, _ := strconv.Atoi(r.URL.Query().Get("max_id"))
-		if maxID > 0 {
-			db = db.Where("statuses.id < ?", maxID)
-		}
-		return db.Order("statuses.id desc")
-	}
 }
