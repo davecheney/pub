@@ -28,13 +28,15 @@ func (s *statuses) FindByURI(uri string) (*models.Status, error) {
 	return &status, nil
 }
 
-func (s *statuses) NewRemoteStatusFetcher() *RemoteStatusFetcher {
+func (s *statuses) NewRemoteStatusFetcher(signAs *models.Account) *RemoteStatusFetcher {
 	return &RemoteStatusFetcher{
+		signAs:  signAs,
 		service: s.service,
 	}
 }
 
 type RemoteStatusFetcher struct {
+	signAs  *models.Account
 	service *Service
 }
 
@@ -100,7 +102,7 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 		conversationID = conv.ID
 	}
 
-	fetcher := f.service.Actors().NewRemoteActorFetcher()
+	fetcher := f.service.Actors().NewRemoteActorFetcher(f.signAs)
 	actor, err := f.service.Actors().FindOrCreate(stringFromAny(obj["attributedTo"]), fetcher.Fetch)
 	if err != nil {
 		return nil, err
@@ -163,12 +165,7 @@ func inReplyToActorID(inReplyTo *models.Status) *snowflake.ID {
 // }
 
 func (f *RemoteStatusFetcher) fetch(uri string) (map[string]interface{}, error) {
-	// use admin account to sign the request
-	signAs, err := f.service.Accounts().FindAdminAccount()
-	if err != nil {
-		return nil, err
-	}
-	c, err := activitypub.NewClient(signAs.Actor.PublicKeyID(), signAs.PrivateKey)
+	c, err := activitypub.NewClient(f.signAs.Actor.PublicKeyID(), f.signAs.PrivateKey)
 	if err != nil {
 		return nil, err
 	}

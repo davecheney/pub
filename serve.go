@@ -15,6 +15,7 @@ import (
 
 	"github.com/davecheney/m/activitypub"
 	"github.com/davecheney/m/internal/group"
+	"github.com/davecheney/m/internal/models"
 	"github.com/davecheney/m/m"
 	"github.com/davecheney/m/mastodon"
 	"github.com/davecheney/m/oauth"
@@ -117,7 +118,11 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	ap := activitypub.NewService(db)
 	getKey := func(keyID string) (crypto.PublicKey, error) {
 		actorId := trimKeyId(keyID)
-		fetcher := svc.Actors().NewRemoteActorFetcher()
+		var instance models.Instance
+		if err := db.Joins("Admin").Preload("Admin.Actor").First(&instance, "admin_id is not null").Error; err != nil {
+			return nil, err
+		}
+		fetcher := svc.Actors().NewRemoteActorFetcher(instance.Admin)
 		actor, err := svc.Actors().FindOrCreate(actorId, fetcher.Fetch)
 		if err != nil {
 			return nil, err

@@ -21,6 +21,17 @@ type Inboxes struct {
 }
 
 func (i *Inboxes) Create(w http.ResponseWriter, r *http.Request) {
+	// find the instance that this request is for.
+	var instance models.Instance
+	if err := i.service.db.Joins("Admin").Preload("Admin.Actor").First(&instance, "domain = ?", r.Host).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			http.Error(w, err.Error(), http.StatusBadRequest) // TODO better error
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	if err := i.validateSignature(r); err != nil {
 		fmt.Println("validateSignature failed", err)
 	}
@@ -31,7 +42,10 @@ func (i *Inboxes) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := i.processActivity(body)
+	// if we need to make an activity pub request, we need to sign it with the
+	// instance's admin account.
+	signAs := instance.Admin
+	err := i.processActivity(signAs, body)
 	if err != nil {
 		fmt.Println("processActivity failed", stringFromAny(body["id"]), err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -43,15 +57,15 @@ func (i *Inboxes) Create(w http.ResponseWriter, r *http.Request) {
 // processActivity processes an activity. If the activity can be handled without
 // blocking, it is handled immediately. If the activity requires blocking, it is
 // queued for later processing.
-func (i *Inboxes) processActivity(body map[string]any) error {
+func (i *Inboxes) processActivity(signAs *models.Account, body map[string]any) error {
 	fmt.Println("processActivity: type:", stringFromAny(body["type"]), "id:", stringFromAny(body["id"]))
 	typ := stringFromAny(body["type"])
 	switch typ {
 	case "Create":
 		create := mapFromAny(body["object"])
-		return i.processCreate(create)
+		return i.processCreate(signAs, create)
 	case "Announce":
-		return i.processAnnounce(body)
+		return i.processAnnounce(signAs, body)
 	case "Undo":
 		undo := mapFromAny(body["object"])
 		return i.processUndo(undo)
@@ -114,15 +128,15 @@ func (i *Inboxes) processUndoFollow(body map[string]any) error {
 	return err
 }
 
-func (i *Inboxes) processAnnounce(obj map[string]any) error {
+func (i *Inboxes) processAnnounce(signAs *models.Account, obj map[string]any) error {
 	target := stringFromAny(obj["object"])
 	svc := m.NewService(i.service.db)
-	original, err := svc.Statuses().FindOrCreate(target, svc.Statuses().NewRemoteStatusFetcher().Fetch)
+	original, err := svc.Statuses().FindOrCreate(target, svc.Statuses().NewRemoteStatusFetcher(signAs).Fetch)
 	if err != nil {
 		return err
 	}
 
-	actor, err := svc.Actors().FindOrCreate(stringFromAny(obj["actor"]), svc.Actors().NewRemoteActorFetcher().Fetch)
+	actor, err := svc.Actors().FindOrCreate(stringFromAny(obj["actor"]), svc.Actors().NewRemoteActorFetcher(signAs).Fetch)
 	if err != nil {
 		return err
 	}
@@ -210,17 +224,17 @@ func (i *Inboxes) processRemove(act map[string]any) error {
 	}
 }
 
-func (i *Inboxes) processCreate(create map[string]any) error {
+func (i *Inboxes) processCreate(signAs *models.Account, create map[string]any) error {
 	typ := stringFromAny(create["type"])
 	switch typ {
 	case "Note":
-		return i.processCreateNote(create)
+		return i.processCreateNote(signAs, create)
 	default:
 		return fmt.Errorf("unknown create object type: %q", typ)
 	}
 }
 
-func (i *Inboxes) processCreateNote(create map[string]any) error {
+func (i *Inboxes) processCreateNote(signAs *models.Account, create map[string]any) error {
 	uri := stringFromAny(create["atomUri"])
 	if uri == "" {
 		return errors.New("missing atomUri")
@@ -228,7 +242,7 @@ func (i *Inboxes) processCreateNote(create map[string]any) error {
 
 	svc := m.NewService(i.service.db)
 	_, err := svc.Statuses().FindOrCreate(uri, func(string) (*models.Status, error) {
-		fetcher := svc.Actors().NewRemoteActorFetcher()
+		fetcher := svc.Actors().NewRemoteActorFetcher(signAs)
 		actor, err := svc.Actors().FindOrCreate(stringFromAny(create["attributedTo"]), fetcher.Fetch)
 		if err != nil {
 			return nil, err
@@ -241,7 +255,7 @@ func (i *Inboxes) processCreateNote(create map[string]any) error {
 
 		var inReplyTo *models.Status
 		if inReplyToAtomUri, ok := create["inReplyTo"].(string); ok {
-			remoteStatusFetcher := svc.Statuses().NewRemoteStatusFetcher()
+			remoteStatusFetcher := svc.Statuses().NewRemoteStatusFetcher(signAs)
 			inReplyTo, err = svc.Statuses().FindOrCreate(inReplyToAtomUri, remoteStatusFetcher.Fetch)
 			if err != nil {
 				fmt.Println("inReplyToAtomUri:", inReplyToAtomUri, "err:", err)

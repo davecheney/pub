@@ -1,7 +1,10 @@
 package m
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
+	"path"
 	"strconv"
 
 	"github.com/go-json-experiment/json"
@@ -41,4 +44,27 @@ func intFromAny(v any) int {
 		return int(v)
 	}
 	return 0
+}
+
+func splitAcct(acct string) (string, string, error) {
+	url, err := url.Parse(acct)
+	if err != nil {
+		return "", "", fmt.Errorf("splitAcct: %w", err)
+	}
+	return path.Base(url.Path), url.Host, nil
+}
+
+func boolFromAny(v any) bool {
+	b, _ := v.(bool)
+	return b
+}
+
+func stringFromAny(v any) string {
+	s, _ := v.(string)
+	return s
+}
+
+func mapFromAny(v any) map[string]any {
+	m, _ := v.(map[string]any)
+	return m
 }

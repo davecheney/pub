@@ -41,13 +41,6 @@ func (s *Service) Actors() *Actors {
 	}
 }
 
-func (s *Service) Accounts() *accounts {
-	return &accounts{
-		db:      s.db,
-		service: s,
-	}
-}
-
 func (s *Service) Instances() *instances {
 	return &instances{
 		db: s.db,

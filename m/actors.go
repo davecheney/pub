@@ -31,13 +31,16 @@ type Actors struct {
 	service *Service
 }
 
-func (a *Actors) NewRemoteActorFetcher() *RemoteActorFetcher {
+func (a *Actors) NewRemoteActorFetcher(signAs *models.Account) *RemoteActorFetcher {
 	return &RemoteActorFetcher{
+		signAs:  signAs,
 		service: a.service,
 	}
 }
 
 type RemoteActorFetcher struct {
+	// signAs is the account that will be used to sign the request
+	signAs  *models.Account
 	service *Service
 }
 
@@ -75,12 +78,7 @@ func (f *RemoteActorFetcher) Fetch(uri string) (*models.Actor, error) {
 }
 
 func (f *RemoteActorFetcher) fetch(uri string) (map[string]any, error) {
-	// use admin account to sign the request
-	signAs, err := f.service.Accounts().FindAdminAccount()
-	if err != nil {
-		return nil, err
-	}
-	c, err := activitypub.NewClient(signAs.Actor.PublicKeyID(), signAs.PrivateKey)
+	c, err := activitypub.NewClient(f.signAs.Actor.PublicKeyID(), f.signAs.PrivateKey)
 	if err != nil {
 		return nil, err
 	}

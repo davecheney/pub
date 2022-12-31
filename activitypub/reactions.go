@@ -24,18 +24,15 @@ func (rrp *ReactionRequestProcessor) Run(stop <-chan struct{}) error {
 	fmt.Println("ReactionRequestProcessor.Run started")
 	defer fmt.Println("ReactionRequestProcessor.Run stopped")
 
-	if err := rrp.process(); err != nil {
-		return err
-	}
-
 	for {
+		if err := rrp.process(); err != nil {
+			return err
+		}
 		select {
 		case <-stop:
 			return nil
 		case <-time.After(30 * time.Second):
-			if err := rrp.process(); err != nil {
-				return err
-			}
+			// continue
 		}
 	}
 }

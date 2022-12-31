@@ -74,7 +74,13 @@ func (s *Search) searchAccounts(w http.ResponseWriter, r *http.Request, q string
 				return
 			}
 		}
-		fetcher := s.service.Service.Actors().NewRemoteActorFetcher()
+		// find admin of this request's domain
+		var instance models.Instance
+		if err := s.service.DB().Joins("Admin").Preload("Admin.Actor").Where("domain = ?", r.Host).First(&instance).Error; err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		fetcher := s.service.Service.Actors().NewRemoteActorFetcher(instance.Admin)
 		actor, err = s.service.Service.Actors().FindOrCreate(q, fetcher.Fetch)
 	default:
 		actor, err = s.service.Service.Actors().FindByURI(q)
@@ -99,7 +105,13 @@ func (s *Search) searchStatuses(w http.ResponseWriter, r *http.Request, q string
 	var err error
 	switch r.URL.Query().Get("resolve") == "true" {
 	case true:
-		fetcher := s.service.Service.Statuses().NewRemoteStatusFetcher()
+		// find admin of this request's domain
+		var instance models.Instance
+		if err := s.service.DB().Joins("Admin").Preload("Admin.Actor").Where("domain = ?", r.Host).First(&instance).Error; err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		fetcher := s.service.Service.Statuses().NewRemoteStatusFetcher(instance.Admin)
 		status, err = s.service.Service.Statuses().FindOrCreate(q, fetcher.Fetch)
 	default:
 		status, err = s.service.Service.Statuses().FindByURI(q)
