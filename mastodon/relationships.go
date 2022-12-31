@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/davecheney/m/internal/activitypub"
 	"github.com/davecheney/m/internal/models"
 	"github.com/davecheney/m/internal/snowflake"
 	"github.com/go-chi/chi/v5"
@@ -22,7 +21,7 @@ func (r *Relationships) Show(w http.ResponseWriter, req *http.Request) {
 	}
 	targets := req.URL.Query()["id"]
 	targets = append(targets, req.URL.Query()["id[]"]...)
-	var resp []any
+	resp := []any{} // ensure we return an array
 	for _, target := range targets {
 		id, err := strconv.ParseUint(target, 10, 64)
 		if err != nil {
@@ -31,7 +30,7 @@ func (r *Relationships) Show(w http.ResponseWriter, req *http.Request) {
 		}
 		tid := snowflake.ID(id)
 		var rel models.Relationship
-		if err := r.service.DB().Preload("Target").FirstOrCreate(&rel, models.Relationship{ActorID: user.Actor.ID, TargetID: tid}).Error; err != nil {
+		if err := r.service.db.Preload("Target").FirstOrCreate(&rel, models.Relationship{ActorID: user.Actor.ID, TargetID: tid}).Error; err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
@@ -47,12 +46,15 @@ func (r *Relationships) Create(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	var target models.Actor
-	if err := r.service.DB().First(&target, chi.URLParam(req, "id")).Error; err != nil {
+	if err := r.service.db.First(&target, chi.URLParam(req, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	relationships := models.NewRelationships(r.service.DB())
-	rel, err := relationships.Follow(user.Actor, &target)
+	rel, err := models.NewRelationships(r.service.db).Follow(user.Actor, &target)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	toJSON(w, serialiseRelationship(rel))
 }
 
@@ -63,23 +65,14 @@ func (r *Relationships) Destroy(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	var target models.Actor
-	if err := r.service.DB().First(&target, chi.URLParam(req, "id")).Error; err != nil {
+	if err := r.service.db.First(&target, chi.URLParam(req, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	relationships := models.NewRelationships(r.service.DB())
-	rel, err := relationships.Unfollow(user.Actor, &target)
+	rel, err := models.NewRelationships(r.service.db).Unfollow(user.Actor, &target)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	toJSON(w, serialiseRelationship(rel))
-}
-
-func (r *Relationships) sendUnfollowRequest(account *models.Account, target *models.Actor) error {
-	client, err := activitypub.NewClient(account.Actor.PublicKeyID(), account.PrivateKey)
-	if err != nil {
-		return err
-	}
-	return client.Unfollow(account.Actor.URI, target.URI)
 }

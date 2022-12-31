@@ -19,13 +19,13 @@ func (b *Blocks) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var blocks []models.Relationship
-	if err := b.service.DB().Joins("Target").Find(&blocks, "actor_id = ? and blocking = true", user.Actor.ID).Error; err != nil {
+	if err := b.service.db.Joins("Target").Find(&blocks, "actor_id = ? and blocking = true", user.Actor.ID).Error; err != nil {
 		if err != gorm.ErrRecordNotFound {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
-	var resp []any
+	resp := []any{} // ensure we return an empty array, not null
 	for _, a := range blocks {
 		resp = append(resp, serialiseAccount(a.Target))
 	}
@@ -39,12 +39,11 @@ func (b *Blocks) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var target models.Actor
-	if err := b.service.DB().First(&target, chi.URLParam(r, "id")).Error; err != nil {
+	if err := b.service.db.First(&target, chi.URLParam(r, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	relationships := models.NewRelationships(b.service.DB())
-	rel, err := relationships.Block(user.Actor, &target)
+	rel, err := models.NewRelationships(b.service.db).Block(user.Actor, &target)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -59,12 +58,11 @@ func (b *Blocks) Destroy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var target models.Actor
-	if err := b.service.DB().First(&target, chi.URLParam(r, "id")).Error; err != nil {
+	if err := b.service.db.First(&target, chi.URLParam(r, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	relationships := models.NewRelationships(b.service.DB())
-	rel, err := relationships.Unblock(user.Actor, &target)
+	rel, err := models.NewRelationships(b.service.db).Unblock(user.Actor, &target)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

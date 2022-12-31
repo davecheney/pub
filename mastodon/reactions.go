@@ -1,7 +1,6 @@
 package mastodon
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/davecheney/m/internal/models"
@@ -20,14 +19,12 @@ func (f *Favourites) Create(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	var status models.Status
-	if err := f.service.DB().Joins("Actor").First(&status, chi.URLParam(req, "id")).Error; err != nil {
+	if err := f.service.db.Joins("Actor").First(&status, chi.URLParam(req, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	reactions := models.NewReactions(f.service.DB())
-	reaction, err := reactions.Favourite(&status, user.Actor)
+	reaction, err := models.NewReactions(f.service.db).Favourite(&status, user.Actor)
 	if err != nil {
-		fmt.Println("favourite failed", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -43,14 +40,12 @@ func (f *Favourites) Destroy(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	var status models.Status
-	if err := f.service.DB().Joins("Actor").First(&status, chi.URLParam(req, "id")).Error; err != nil {
+	if err := f.service.db.Joins("Actor").First(&status, chi.URLParam(req, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	reactions := models.NewReactions(f.service.DB())
-	reaction, err := reactions.Unfavourite(&status, user.Actor)
+	reaction, err := models.NewReactions(f.service.db).Unfavourite(&status, user.Actor)
 	if err != nil {
-		fmt.Println("unfavourite failed", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -66,14 +61,14 @@ func (f *Favourites) Show(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	var reactions []models.Reaction
-	if err := f.service.DB().Preload("Actor").Where("status_id = ?", chi.URLParam(req, "id")).Find(&reactions).Error; err != nil {
+	if err := f.service.db.Preload("Actor").Where("status_id = ?", chi.URLParam(req, "id")).Find(&reactions).Error; err != nil {
 		if err != gorm.ErrRecordNotFound {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
 
-	var resp []interface{}
+	resp := []any{} // ensure we return an empty array, not null
 	for _, fav := range reactions {
 		resp = append(resp, serialiseAccount(fav.Actor))
 	}

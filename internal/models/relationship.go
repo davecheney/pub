@@ -114,6 +114,34 @@ func NewRelationships(db *gorm.DB) *Relationships {
 	}
 }
 
+// Mute mutes the target from the actor.
+func (r *Relationships) Mute(actor, target *Actor) (*Relationship, error) {
+	forward, err := r.findOrCreate(actor, target)
+	if err != nil {
+		return nil, err
+	}
+	forward.Muting = true
+	if err := r.db.Model(forward).Update("muting", true).Error; err != nil {
+		return nil, err
+	}
+	// there is no inverse relationship for muting
+	return forward, nil
+}
+
+// Unmute removes a mute relationship between actor and the target.
+func (r *Relationships) Unmute(actor, target *Actor) (*Relationship, error) {
+	forward, err := r.findOrCreate(actor, target)
+	if err != nil {
+		return nil, err
+	}
+	forward.Muting = false
+	if err := r.db.Model(forward).Update("muting", false).Error; err != nil {
+		return nil, err
+	}
+	// there is no inverse relationship for muting
+	return forward, nil
+}
+
 // Block blocks the target from the actor.
 func (r *Relationships) Block(actor, target *Actor) (*Relationship, error) {
 	forward, inverse, err := r.pair(actor, target)

@@ -20,14 +20,14 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var status models.Status
-	if err := c.service.DB().First(&status, chi.URLParam(r, "id")).Error; err != nil {
+	if err := c.service.db.First(&status, chi.URLParam(r, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
 	// load conversation statuses
 	var statuses []models.Status
-	query := c.service.DB().Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").Preload("Attachments").Preload("Reaction", "actor_id = ?", user.Actor.ID)
+	query := c.service.db.Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").Preload("Attachments").Preload("Reaction", "actor_id = ?", user.Actor.ID)
 	if err := query.Where("conversation_id = ?", status.ConversationID).Find(&statuses).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return

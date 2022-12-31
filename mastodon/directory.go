@@ -13,7 +13,7 @@ type Directory struct {
 
 func (d *Directory) Index(w http.ResponseWriter, r *http.Request) {
 	var actors []models.Actor
-	query := d.service.DB().Scopes(models.PaginateActors(r), isLocal(r))
+	query := d.service.db.Scopes(models.PaginateActors(r), isLocal(r))
 	if err := query.Find(&actors).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

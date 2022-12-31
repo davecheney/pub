@@ -18,12 +18,12 @@ func (l *Lists) Index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var lists []models.AccountList
-	if err := l.service.DB().Model(user).Association("Lists").Find(&lists); err != nil {
+	if err := l.service.db.Model(user).Association("Lists").Find(&lists); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	var resp []any
+	resp := []any{} // ensure we return an array, not null
 	for _, list := range lists {
 		resp = append(resp, map[string]any{
 			"id":             toString(list.ID),
@@ -41,7 +41,7 @@ func (l *Lists) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var resp []any
+	resp := []any{} // ensure we return an array, not null
 
 	toJSON(w, resp)
 }

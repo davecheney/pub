@@ -20,7 +20,7 @@ func (a *Accounts) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var actor models.Actor
-	if err := a.service.DB().First(&actor, chi.URLParam(r, "id")).Error; err != nil {
+	if err := a.service.db.First(&actor, chi.URLParam(r, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -43,9 +43,9 @@ func (a *Accounts) StatusesShow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id := chi.URLParam(r, "id")
-	var statuses []models.Status
-	tx := a.service.DB().Preload("Actor").Where("actor_id = ?", id)
+	tx := a.service.db.Preload("Actor").Where("actor_id = ?", chi.URLParam(r, "id"))
+
+	// todo: use pagination
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	if limit < 1 || limit > 40 {
 		limit = 20
@@ -55,12 +55,14 @@ func (a *Accounts) StatusesShow(w http.ResponseWriter, r *http.Request) {
 	if sinceID > 0 {
 		tx = tx.Where("id > ?", sinceID)
 	}
+
+	var statuses []models.Status
 	if err := tx.Order("id desc").Find(&statuses).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	var resp []any
+	resp := []any{} // make sure this is a slice not null
 	for _, status := range statuses {
 		resp = append(resp, serialiseStatus(&status))
 	}
@@ -75,7 +77,7 @@ func (a *Accounts) FollowersShow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var followers []models.Relationship
-	if err := a.service.DB().Scopes(models.PaginateRelationship(r)).Preload("Target").Where("actor_id = ? and followed_by = true", chi.URLParam(r, "id")).Find(&followers).Error; err != nil {
+	if err := a.service.db.Scopes(models.PaginateRelationship(r)).Preload("Target").Where("actor_id = ? and followed_by = true", chi.URLParam(r, "id")).Find(&followers).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -97,7 +99,7 @@ func (a *Accounts) FollowingShow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var following []models.Relationship
-	if err := a.service.DB().Scopes(models.PaginateRelationship(r)).Preload("Target").Where("actor_id = ? and following = true", chi.URLParam(r, "id")).Find(&following).Error; err != nil {
+	if err := a.service.db.Scopes(models.PaginateRelationship(r)).Preload("Target").Where("actor_id = ? and following = true", chi.URLParam(r, "id")).Find(&following).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -131,7 +133,7 @@ func (a *Accounts) Update(w http.ResponseWriter, r *http.Request) {
 		account.Actor.Note = r.Form.Get("note")
 	}
 
-	if err := a.service.DB().Save(account).Error; err != nil {
+	if err := a.service.db.Save(account).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

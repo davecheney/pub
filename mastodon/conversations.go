@@ -19,7 +19,7 @@ func (c *Conversations) Index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var statuses []models.Status
-	scope := c.service.DB().Scopes(models.PaginateConversation(r)).Where("visibility = ?", "direct")
+	scope := c.service.db.Scopes(models.PaginateConversation(r)).Where("visibility = ?", "direct")
 	switch r.URL.Query().Get("local") {
 	case "":
 		scope = scope.Joins("Actor")
@@ -32,7 +32,7 @@ func (c *Conversations) Index(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	var resp []any
+	resp := []any{} // ensure we return an array
 	for _, status := range statuses {
 		resp = append(resp, serialiseStatus(&status))
 	}

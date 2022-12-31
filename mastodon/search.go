@@ -77,14 +77,14 @@ func (s *Search) searchAccounts(w http.ResponseWriter, r *http.Request, q string
 		}
 		// find admin of this request's domain
 		var instance models.Instance
-		if err := s.service.DB().Joins("Admin").Preload("Admin.Actor").Where("domain = ?", r.Host).First(&instance).Error; err != nil {
+		if err := s.service.db.Joins("Admin").Preload("Admin.Actor").Where("domain = ?", r.Host).First(&instance).Error; err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		fetcher := activitypub.NewRemoteActorFetcher(instance.Admin, s.service.DB())
-		actor, err = models.NewActors(s.service.DB()).FindOrCreate(q, fetcher.Fetch)
+		fetcher := activitypub.NewRemoteActorFetcher(instance.Admin, s.service.db)
+		actor, err = models.NewActors(s.service.db).FindOrCreate(q, fetcher.Fetch)
 	default:
-		actor, err = models.NewActors(s.service.DB()).FindByURI(q)
+		actor, err = models.NewActors(s.service.db).FindByURI(q)
 	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -108,14 +108,14 @@ func (s *Search) searchStatuses(w http.ResponseWriter, r *http.Request, q string
 	case true:
 		// find admin of this request's domain
 		var instance models.Instance
-		if err := s.service.DB().Joins("Admin").Preload("Admin.Actor").Where("domain = ?", r.Host).First(&instance).Error; err != nil {
+		if err := s.service.db.Joins("Admin").Preload("Admin.Actor").Where("domain = ?", r.Host).First(&instance).Error; err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		fetcher := activitypub.NewRemoteStatusFetcher(instance.Admin, s.service.DB())
-		status, err = models.NewStatuses(s.service.DB()).FindOrCreate(q, fetcher.Fetch)
+		fetcher := activitypub.NewRemoteStatusFetcher(instance.Admin, s.service.db)
+		status, err = models.NewStatuses(s.service.db).FindOrCreate(q, fetcher.Fetch)
 	default:
-		status, err = models.NewStatuses(s.service.DB()).FindByURI(q)
+		status, err = models.NewStatuses(s.service.db).FindByURI(q)
 	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

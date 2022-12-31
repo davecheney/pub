@@ -16,7 +16,6 @@ import (
 	"github.com/davecheney/m/activitypub"
 	"github.com/davecheney/m/internal/group"
 	"github.com/davecheney/m/internal/models"
-	"github.com/davecheney/m/m"
 	"github.com/davecheney/m/mastodon"
 	"github.com/davecheney/m/oauth"
 	"github.com/davecheney/m/wellknown"
@@ -42,8 +41,6 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	svc := m.NewService(db)
-
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -52,7 +49,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	}
 
 	r.Route("/api", func(r chi.Router) {
-		mastodon := mastodon.NewService(svc)
+		mastodon := mastodon.NewService(db)
 		instance := mastodon.Instances()
 		r.Route("/v1", func(r chi.Router) {
 			r.Post("/apps", mastodon.Applications().Create)
@@ -111,7 +108,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Get("/search", mastodon.Search().Index)
 		})
 		r.Route("/nodeinfo", func(r chi.Router) {
-			r.Get("/2.0", wellknown.NewService(svc).NodeInfo().Show)
+			r.Get("/2.0", wellknown.NewService(db).NodeInfo().Show)
 		})
 	})
 
@@ -149,7 +146,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	})
 
 	r.Route("/.well-known", func(r chi.Router) {
-		wellknown := wellknown.NewService(svc)
+		wellknown := wellknown.NewService(db)
 		r.Get("/webfinger", wellknown.Webfinger().Show)
 		r.Get("/host-meta", wellknown.HostMeta)
 		r.Get("/nodeinfo", wellknown.NodeInfo().Index)

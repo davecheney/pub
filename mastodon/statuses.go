@@ -41,17 +41,17 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 	var conv *models.Conversation
 	if toot.InReplyToID != nil {
 		var parent models.Status
-		if err := s.service.DB().First(&parent, *toot.InReplyToID).Error; err != nil {
+		if err := s.service.db.First(&parent, *toot.InReplyToID).Error; err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		conv, err = models.NewConversations(s.service.DB()).FindOrCreate(parent.ConversationID, toot.Visibility)
+		conv, err = models.NewConversations(s.service.db).FindOrCreate(parent.ConversationID, toot.Visibility)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	} else {
-		conv, err = models.NewConversations(s.service.DB()).New(toot.Visibility)
+		conv, err = models.NewConversations(s.service.db).New(toot.Visibility)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -73,7 +73,7 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 		Language:       toot.Language,
 		Note:           toot.Status,
 	}
-	if err := s.service.DB().Create(&status).Error; err != nil {
+	if err := s.service.db.Create(&status).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -88,7 +88,7 @@ func (s *Statuses) Destroy(w http.ResponseWriter, r *http.Request) {
 	}
 	actor := account.Actor
 	var status models.Status
-	if err := s.service.DB().Joins("Actor").First(&status, chi.URLParam(r, "id")).Error; err != nil {
+	if err := s.service.db.Joins("Actor").First(&status, chi.URLParam(r, "id")).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -100,7 +100,7 @@ func (s *Statuses) Destroy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
-	if err := s.service.DB().Delete(&status).Error; err != nil {
+	if err := s.service.db.Delete(&status).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -114,7 +114,7 @@ func (s *Statuses) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var status models.Status
-	query := s.service.DB().Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").Preload("Attachments").Preload("Reaction", "actor_id = ?", user.Actor.ID)
+	query := s.service.db.Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").Preload("Attachments").Preload("Reaction", "actor_id = ?", user.Actor.ID)
 	if err := query.First(&status, chi.URLParam(r, "id")).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			http.Error(w, err.Error(), http.StatusNotFound)

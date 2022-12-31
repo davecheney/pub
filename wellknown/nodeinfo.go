@@ -24,7 +24,7 @@ func (ni *NodeInfo) Index(rw http.ResponseWriter, r *http.Request) {
 
 func (ni *NodeInfo) Show(w http.ResponseWriter, r *http.Request) {
 	var instance models.Instance
-	if err := ni.service.DB().Where("domain = ?", r.Host).First(&instance).Error; err != nil {
+	if err := ni.service.db.Where("domain = ?", r.Host).First(&instance).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}

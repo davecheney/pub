@@ -7,19 +7,19 @@ import (
 	"strings"
 
 	"github.com/davecheney/m/internal/models"
-	"github.com/davecheney/m/m"
 	"github.com/go-json-experiment/json"
+	"gorm.io/gorm"
 )
 
 // Service represents a Mastodon API service.
 type Service struct {
-	*m.Service
+	db *gorm.DB
 }
 
 // NewService returns a new Mastodon API service.
-func NewService(s *m.Service) *Service {
+func NewService(db *gorm.DB) *Service {
 	return &Service{
-		Service: s,
+		db: db,
 	}
 }
 
@@ -136,7 +136,7 @@ func (s *Service) Timelines() *Timelines {
 func (s *Service) authenticate(r *http.Request) (*models.Account, error) {
 	bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	var token models.Token
-	if err := s.DB().Joins("Account").Preload("Account.Actor").Preload("Account.Role").First(&token, "access_token = ?", bearer).Error; err != nil {
+	if err := s.db.Joins("Account").Preload("Account.Actor").Preload("Account.Role").First(&token, "access_token = ?", bearer).Error; err != nil {
 		return nil, err
 	}
 	return token.Account, nil
@@ -158,15 +158,15 @@ func stringOrDefault(s string, def string) string {
 	return s
 }
 
-type number interface {
-	~uint | ~uint64 | ~uint32
-}
-
 func stringOrNull[T number](v *T) any {
 	if v == nil {
 		return nil
 	}
 	return strconv.Itoa(int(*v))
+}
+
+type number interface {
+	~uint | ~uint64 | ~uint32
 }
 
 func toString[T number](n T) string {

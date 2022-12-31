@@ -20,7 +20,7 @@ func (ms *Markers) Index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var markers []models.Marker
-	if err := ms.service.DB().Model(user).Association("Markers").Find(&markers); err != nil {
+	if err := ms.service.db.Model(user).Association("Markers").Find(&markers); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

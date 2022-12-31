@@ -4,17 +4,17 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/davecheney/m/m"
 	"github.com/go-json-experiment/json"
+	"gorm.io/gorm"
 )
 
 type Service struct {
-	*m.Service
+	db *gorm.DB
 }
 
-func NewService(service *m.Service) *Service {
+func NewService(db *gorm.DB) *Service {
 	return &Service{
-		Service: service,
+		db: db,
 	}
 }
 

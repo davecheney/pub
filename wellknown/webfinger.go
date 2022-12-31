@@ -20,7 +20,7 @@ func (w *Webfinger) Show(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var actor models.Actor
-	if err := w.service.DB().First(&actor, "name = ? AND domain = ?", acct.User, r.Host).Error; err != nil {
+	if err := w.service.db.First(&actor, "name = ? AND domain = ?", acct.User, r.Host).Error; err != nil {
 		http.Error(rw, err.Error(), http.StatusNotFound)
 		return
 	}

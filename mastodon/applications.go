@@ -37,9 +37,9 @@ func (a *Applications) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	instance, err := a.service.Service.Instances().FindByDomain(r.Host)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	var instance models.Instance
+	if err := a.service.db.First(&instance, "domain = ?", r.Host).Error; err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
@@ -53,7 +53,7 @@ func (a *Applications) Create(w http.ResponseWriter, r *http.Request) {
 		RedirectURI:  params.RedirectURIs,
 		VapidKey:     "BCk-QqERU0q-CfYZjcuB6lnyyOYfJ2AifKqfeGIm7Z-HiTU5T9eTG5GxVA0_OH5mMlI4UkkDTpaZwozy0TzdZ2M=",
 	}
-	if err := a.service.DB().Create(app).Error; err != nil {
+	if err := a.service.db.Create(app).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
