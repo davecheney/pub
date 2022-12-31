@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/davecheney/m/internal/snowflake"
+	"gorm.io/gorm"
 )
 
 // An Account is a user account on an Instance.
@@ -49,4 +50,20 @@ type AccountList struct {
 	AccountID     uint64
 	Title         string `gorm:"size:64"`
 	RepliesPolicy string `gorm:"size:64"`
+}
+
+type Accounts struct {
+	db *gorm.DB
+}
+
+func NewAccounts(db *gorm.DB) *Accounts {
+	return &Accounts{db: db}
+}
+
+func (a *Accounts) AccountForActor(actor *Actor) (*Account, error) {
+	var account Account
+	if err := a.db.Joins("Actor").First(&account, "actor_id = ?", actor.ID).Error; err != nil {
+		return nil, err
+	}
+	return &account, nil
 }

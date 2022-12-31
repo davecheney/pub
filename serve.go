@@ -1,15 +1,20 @@
 package main
 
 import (
+	"context"
 	"crypto"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/davecheney/m/activitypub"
+	"github.com/davecheney/m/internal/group"
 	"github.com/davecheney/m/m"
 	"github.com/davecheney/m/mastodon"
 	"github.com/davecheney/m/oauth"
@@ -21,7 +26,9 @@ import (
 )
 
 type ServeCmd struct {
-	Addr string `help:"address to listen" default:"127.0.0.1:9999"`
+	Addr             string `help:"address to listen" default:"127.0.0.1:9999"`
+	DebugPrintRoutes bool   `help:"print routes to stdout on startup"`
+	LogHTTP          bool   `help:"log HTTP requests"`
 }
 
 func (s *ServeCmd) Run(ctx *Context) error {
@@ -39,7 +46,9 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
+	if s.LogHTTP {
+		r.Use(middleware.Logger)
+	}
 
 	r.Route("/api", func(r chi.Router) {
 		mastodon := mastodon.NewService(svc)
@@ -105,7 +114,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		})
 	})
 
-	activitypub := activitypub.NewService(db)
+	ap := activitypub.NewService(db)
 	getKey := func(keyID string) (crypto.PublicKey, error) {
 		actorId := trimKeyId(keyID)
 		fetcher := svc.Actors().NewRemoteActorFetcher()
@@ -115,7 +124,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		}
 		return pemToPublicKey(actor.PublicKey)
 	}
-	r.Post("/inbox", activitypub.Inboxes(getKey).Create)
+	r.Post("/inbox", ap.Inboxes(getKey).Create)
 
 	r.Route("/oauth", func(r chi.Router) {
 		oauth := oauth.New(db)
@@ -126,12 +135,12 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	})
 
 	r.Route("/u/{username}", func(r chi.Router) {
-		r.Get("/", activitypub.Users().Show)
-		r.Post("/inbox", activitypub.Inboxes(getKey).Create)
-		r.Get("/outbox", activitypub.Outboxes().Index)
-		r.Get("/followers", activitypub.Followers().Index)
-		r.Get("/following", activitypub.Following().Index)
-		r.Get("/collections/{collection}", activitypub.Collections().Show)
+		r.Get("/", ap.Users().Show)
+		r.Post("/inbox", ap.Inboxes(getKey).Create)
+		r.Get("/outbox", ap.Outboxes().Index)
+		r.Get("/followers", ap.Followers().Index)
+		r.Get("/following", ap.Following().Index)
+		r.Get("/collections/{collection}", ap.Collections().Show)
 	})
 
 	r.Route("/.well-known", func(r chi.Router) {
@@ -141,23 +150,39 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		r.Get("/nodeinfo", wellknown.NodeInfo().Index)
 	})
 
-	walkFunc := func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
-		route = strings.Replace(route, "/*/", "/", -1)
-		fmt.Printf("%s %s\n", method, route)
-		return nil
+	if s.DebugPrintRoutes {
+		walkFunc := func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+			route = strings.Replace(route, "/*/", "/", -1)
+			fmt.Printf("%s %s\n", method, route)
+			return nil
+		}
+
+		if err := chi.Walk(r, walkFunc); err != nil {
+			fmt.Printf("Logging err: %s\n", err.Error())
+		}
 	}
 
-	if err := chi.Walk(r, walkFunc); err != nil {
-		fmt.Printf("Logging err: %s\n", err.Error())
-	}
-
-	svr := &http.Server{
-		Addr:         s.Addr,
-		Handler:      r,
-		WriteTimeout: 15 * time.Second,
-		ReadTimeout:  15 * time.Second,
-	}
-	return svr.ListenAndServe()
+	signalCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	g := group.New(signalCtx)
+	g.AddContext(func(ctx context.Context) error {
+		fmt.Println("Starting server on", s.Addr)
+		defer fmt.Println("Server stopped")
+		svr := &http.Server{
+			Addr:         s.Addr,
+			Handler:      r,
+			WriteTimeout: 15 * time.Second,
+			ReadTimeout:  15 * time.Second,
+		}
+		go func() {
+			<-ctx.Done()
+			svr.Shutdown(ctx)
+		}()
+		return svr.ListenAndServe()
+	})
+	rrp := activitypub.NewRelationshipRequestProcessor(db)
+	g.Add(rrp.Run)
+	return g.Wait()
 }
 
 func pemToPublicKey(key []byte) (crypto.PublicKey, error) {

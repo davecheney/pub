@@ -57,14 +57,6 @@ func (r *Relationships) Create(w http.ResponseWriter, req *http.Request) {
 	toJSON(w, serialiseRelationship(rel))
 }
 
-func (r *Relationships) sendFollowRequest(account *models.Account, target *models.Actor) error {
-	client, err := activitypub.NewClient(account.Actor.PublicKeyID(), account.PrivateKey)
-	if err != nil {
-		return err
-	}
-	return client.Follow(account.Actor.URI, target.URI)
-}
-
 func (r *Relationships) Destroy(w http.ResponseWriter, req *http.Request) {
 	user, err := r.service.authenticate(req)
 	if err != nil {

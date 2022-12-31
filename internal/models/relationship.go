@@ -26,7 +26,7 @@ func (r *Relationship) BeforeUpdate(tx *gorm.DB) error {
 	if err := tx.First(&original, "actor_id = ? and target_id = ?", r.ActorID, r.TargetID).Error; err != nil {
 		return err
 	}
-	fmt.Printf("relationship changed from %+v to %+v", original, r)
+	fmt.Printf("relationship changed from %+v to %+v\n", original, r)
 	// what changed?
 	switch {
 	case original.Following && !r.Following:

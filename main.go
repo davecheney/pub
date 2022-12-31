@@ -17,8 +17,8 @@ type Context struct {
 }
 
 var cli struct {
-	Debug bool   `help:"Enable debug mode."`
-	DSN   string `help:"data source name" default:"m:m@tcp(localhost:3306)/m"`
+	LogSQL bool   `help:"Log SQL queries."`
+	DSN    string `help:"data source name" default:"m:m@tcp(localhost:3306)/m"`
 
 	AutoMigrate          AutoMigrateCmd          `cmd:"" help:"Automigrate the database."`
 	CreateAccount        CreateAccountCmd        `cmd:"" help:"Create a new account."`
@@ -33,10 +33,10 @@ var cli struct {
 func main() {
 	ctx := kong.Parse(&cli)
 	err := ctx.Run(&Context{
-		Debug: cli.Debug,
+		Debug: cli.LogSQL,
 		Config: gorm.Config{
 			Logger: logger.Default.LogMode(func() logger.LogLevel {
-				if cli.Debug {
+				if cli.LogSQL {
 					return logger.Info
 				}
 				return logger.Warn
