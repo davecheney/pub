@@ -120,6 +120,21 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 		URI:              uri,
 		Note:             stringFromAny(obj["content"]),
 	}
+	for _, att := range anyToSlice(obj["attachment"]) {
+		at := mapFromAny(att)
+		fmt.Println("attachment:", at)
+		st.Attachments = append(st.Attachments, models.StatusAttachment{
+			Attachment: models.Attachment{
+				ID:        snowflake.Now(),
+				MediaType: stringFromAny(at["mediaType"]),
+				URL:       stringFromAny(at["url"]),
+				Name:      stringFromAny(at["name"]),
+				Width:     intFromAny(at["width"]),
+				Height:    intFromAny(at["height"]),
+				Blurhash:  stringFromAny(at["blurhash"]),
+			},
+		})
+	}
 	return st, nil
 }
 

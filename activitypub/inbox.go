@@ -263,7 +263,6 @@ func (i *Inboxes) processCreateNote(create map[string]any) error {
 		st := &models.Status{
 			ID:               snowflake.TimeToID(published),
 			ActorID:          actor.ID,
-			Actor:            actor,
 			ConversationID:   conversationID,
 			URI:              uri,
 			InReplyToID:      inReplyToID(inReplyTo),
@@ -276,9 +275,10 @@ func (i *Inboxes) processCreateNote(create map[string]any) error {
 		}
 		for _, att := range anyToSlice(create["attachment"]) {
 			at := mapFromAny(att)
-			fmt.Println("attchment:", at)
+			fmt.Println("attachment:", at)
 			st.Attachments = append(st.Attachments, models.StatusAttachment{
 				Attachment: models.Attachment{
+					ID:        snowflake.Now(),
 					MediaType: stringFromAny(at["mediaType"]),
 					URL:       stringFromAny(at["url"]),
 					Name:      stringFromAny(at["name"]),
@@ -360,6 +360,9 @@ func (i *Inboxes) processUpdate(update map[string]any) error {
 
 func (i *Inboxes) processDelete(body map[string]any) error {
 	actor := stringFromAny(body["object"])
+	if actor == "" {
+		return fmt.Errorf("delete object has no object")
+	}
 	err := i.service.db.Where("uri = ?", actor).Delete(&models.Actor{}).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// already deleted

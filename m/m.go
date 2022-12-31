@@ -31,3 +31,14 @@ func toJSON(w http.ResponseWriter, obj interface{}) error {
 func ptr[T any](v T) *T {
 	return &v
 }
+
+func intFromAny(v any) int {
+	switch v := v.(type) {
+	case int:
+		return v
+	case float64:
+		// shakes fist at json number type
+		return int(v)
+	}
+	return 0
+}

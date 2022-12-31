@@ -11,18 +11,18 @@ type Actor struct {
 	snowflake.ID   `gorm:"primarykey;autoIncrement:false"`
 	UpdatedAt      time.Time
 	Type           string `gorm:"type:enum('Person', 'Application', 'Service', 'Group', 'Organization', 'LocalPerson');default:'Person';not null"`
-	URI            string `gorm:"uniqueIndex;size:128"`
-	Name           string `gorm:"size:64;uniqueIndex:idx_actor_name_domain"`
-	Domain         string `gorm:"size:64;uniqueIndex:idx_actor_name_domain"`
-	DisplayName    string `gorm:"size:128"`
-	Locked         bool
-	Note           string
-	FollowersCount int32 `gorm:"default:0;not null"`
-	FollowingCount int32 `gorm:"default:0;not null"`
-	StatusesCount  int32 `gorm:"default:0;not null"`
+	URI            string `gorm:"uniqueIndex;size:128;not null"`
+	Name           string `gorm:"size:64;uniqueIndex:idx_actor_name_domain;not null"`
+	Domain         string `gorm:"size:64;uniqueIndex:idx_actor_name_domain;not null"`
+	DisplayName    string `gorm:"size:128;not null"`
+	Locked         bool   `gorm:"default:false;not null"`
+	Note           string `gorm:"not null"`
+	FollowersCount int32  `gorm:"default:0;not null"`
+	FollowingCount int32  `gorm:"default:0;not null"`
+	StatusesCount  int32  `gorm:"default:0;not null"`
 	LastStatusAt   time.Time
-	Avatar         string
-	Header         string
+	Avatar         string `gorm:"size:255;not null"`
+	Header         string `gorm:"size:255;not null"`
 	PublicKey      []byte `gorm:"not null"`
 	Attachments    []any  `gorm:"serializer:json"`
 }

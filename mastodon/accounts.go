@@ -171,7 +171,7 @@ func (a *Accounts) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 type Account struct {
-	ID             string           `json:"id"` // snowflake.ID `json:"id"`
+	ID             snowflake.ID     `json:"id,string"`
 	Username       string           `json:"username"`
 	Acct           string           `json:"acct"`
 	DisplayName    string           `json:"display_name"`
@@ -223,7 +223,7 @@ type Source struct {
 
 func serializeAccount(a *models.Actor) *Account {
 	return &Account{
-		ID:             toString(a.ID),
+		ID:             a.ID,
 		Username:       a.Name,
 		Acct:           a.Acct(),
 		DisplayName:    a.DisplayName,
