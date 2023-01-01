@@ -71,7 +71,8 @@ func (i *Inboxes) processActivity(signAs *models.Account, body map[string]any) e
 		update := mapFromAny(body["object"])
 		return i.processUpdate(update)
 	case "Delete":
-		return i.processDelete(body)
+		obj := mapFromAny(body["object"])
+		return i.processDelete(obj)
 	case "Follow":
 		return i.processFollow(body)
 	case "Accept":
@@ -374,16 +375,42 @@ func (i *Inboxes) processUpdate(update map[string]any) error {
 }
 
 func (i *Inboxes) processDelete(body map[string]any) error {
-	actor := stringFromAny(body["object"])
-	if actor == "" {
-		return fmt.Errorf("delete object has no object")
+	typ := stringFromAny(body["type"])
+	switch typ {
+	case "Tombstone":
+		return i.processDeleteStatus(body)
+	default:
+		x, _ := marshalIndent(body)
+		return fmt.Errorf("unknown delete object type: %q: %s", typ, string(x))
 	}
-	err := i.service.db.Where("uri = ?", actor).Delete(&models.Actor{}).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		// already deleted
-		return nil
+
+	// actor := stringFromAny(body["object"])
+	// if actor == "" {
+
+	// 	return fmt.Errorf("delete object has no object: %s", string(x))
+	// }
+	// err := i.service.db.Where("uri = ?", actor).Delete(&models.Actor{}).Error
+	// if errors.Is(err, gorm.ErrRecordNotFound) {
+	// 	// already deleted
+	// 	return nil
+	// }
+	// return err
+}
+
+func (i *Inboxes) processDeleteStatus(body map[string]any) error {
+	// load status to delete it so we can fire the delete hooks.
+	id := stringFromAny(body["id"])
+	var status models.Status
+	if err := i.service.db.Where("uri = ?", id).First(&status).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// already deleted
+			return nil
+		}
+		x, _ := marshalIndent(body)
+		fmt.Println("processDeleteStatus", string(x), err)
+		return err
 	}
-	return err
+	return i.service.db.Delete(&status).Error
 }
 
 func (i *Inboxes) validateSignature(r *http.Request) error {
@@ -399,7 +426,6 @@ func (i *Inboxes) validateSignature(r *http.Request) error {
 		return err
 	}
 	return nil
-
 }
 
 func visiblity(obj map[string]any) string {

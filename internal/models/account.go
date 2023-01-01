@@ -18,9 +18,10 @@ type Account struct {
 	ActorID           snowflake.ID
 	Actor             *Actor `gorm:"constraint:OnDelete:CASCADE;"`
 	Lists             []AccountList
-	Email             string `gorm:"size:64;not null"`
-	EncryptedPassword []byte `gorm:"size:60;not null"`
-	PrivateKey        []byte `gorm:"not null"`
+	Markers           []AccountMarker `gorm:"constraint:OnDelete:CASCADE;"`
+	Email             string          `gorm:"size:64;not null"`
+	EncryptedPassword []byte          `gorm:"size:60;not null"`
+	PrivateKey        []byte          `gorm:"not null"`
 	RoleID            uint32
 	Role              *AccountRole
 }
@@ -47,17 +48,19 @@ type AccountRole struct {
 type AccountList struct {
 	ID            uint32 `gorm:"primarykey"`
 	CreatedAt     time.Time
-	AccountID     uint64
+	AccountID     snowflake.ID
 	Title         string `gorm:"size:64"`
 	RepliesPolicy string `gorm:"size:64"`
 }
 
-type Marker struct {
-	gorm.Model
-	AccountID  uint32
-	Name       string `gorm:"size:32"`
-	Version    int    `gorm:"default:0"`
-	LastReadId uint
+type AccountMarker struct {
+	ID         uint32 `gorm:"primarykey"`
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	AccountID  snowflake.ID `gorm:"not null;"`
+	Name       string       `gorm:"enum('home','notifications');not null;"`
+	Version    int32        `gorm:"not null;"`
+	LastReadID snowflake.ID `gorm:"not null;"`
 }
 
 type Accounts struct {

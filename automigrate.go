@@ -16,13 +16,12 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 
 	return db.AutoMigrate(
 		&models.Actor{},
-		&models.Account{}, &models.AccountList{}, &models.AccountRole{},
+		&models.Account{}, &models.AccountList{}, &models.AccountRole{}, &models.AccountMarker{},
 		&models.Application{},
 		&models.Conversation{},
 		&models.Instance{}, &models.InstanceRule{},
 		&models.Reaction{}, &models.ReactionRequest{},
 		&models.Relationship{}, &models.RelationshipRequest{},
-		// &models.Marker{},
 		// &models.Notification{},
 		&models.Status{}, &models.StatusPoll{}, &models.StatusAttachment{},
 		&models.Token{},

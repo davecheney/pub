@@ -19,19 +19,16 @@ func (ms *Markers) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var markers []models.Marker
-	if err := ms.service.db.Model(user).Association("Markers").Find(&markers); err != nil {
+	names := r.URL.Query()["timeline[]"]
+	var markers []models.AccountMarker
+	if err := ms.service.db.Model(user).Association("Markers").Find(&markers, "name in (?)", names); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	resp := map[string]any{}
 	for _, marker := range markers {
-		resp[marker.Name] = map[string]any{
-			"last_read_id": utoa(marker.LastReadId),
-			"version":      marker.Version,
-			"updated_at":   marker.UpdatedAt.Format("2006-01-02T15:04:05.006Z"),
-		}
+		resp[marker.Name] = seraliseMarker(&marker)
 	}
 	toJSON(w, resp)
 }
@@ -44,7 +41,7 @@ func (ms *Markers) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	buf, _ := httputil.DumpRequest(r, true)
 	println(string(buf))
-	w.WriteHeader(http.StatusNotImplemented)
+	w.WriteHeader(http.StatusInternalServerError)
 }
 
 func utoa(u uint) string {

@@ -198,38 +198,46 @@ func serialiseStatus(s *models.Status) map[string]any {
 	}
 }
 
-func serialiseAttachments(atts []models.StatusAttachment) []map[string]any {
-	res := make([]map[string]any, 0) // ensure we return a slice, not null
-	// return res
+type MediaAttachment struct {
+	ID          snowflake.ID   `json:"id,string"`
+	Type        string         `json:"type"`
+	URL         string         `json:"url"`
+	PreviewURL  string         `json:"preview_url"`
+	RemoteURL   any            `json:"remote_url"`
+	Meta        map[string]any `json:"meta"`
+	Description string         `json:"description"`
+	Blurhash    string         `json:"blurhash"`
+}
+
+func serialiseAttachments(atts []models.StatusAttachment) []MediaAttachment {
+	res := []MediaAttachment{} // ensure we return a slice, not null
 	for _, att := range atts {
-		res = append(res, map[string]any{
-			"id":                 toString(att.ID),
-			"type":               attachmentType(&att.Attachment),
-			"url":                att.Attachment.URL,
-			"preview_url":        att.Attachment.URL,
-			"remote_url":         nil,
-			"text_url":           nil,
-			"preview_remote_url": nil,
-			"description":        att.Attachment.Name,
-			"blurhash":           att.Attachment.Blurhash,
-			"meta": map[string]any{
+		res = append(res, MediaAttachment{
+			ID:         att.ID,
+			Type:       attachmentType(&att.Attachment),
+			URL:        att.URL,
+			PreviewURL: att.URL,
+			RemoteURL:  nil,
+			Meta: map[string]any{
 				"original": map[string]any{
-					"width":  att.Attachment.Width,
-					"height": att.Attachment.Height,
-					"size":   fmt.Sprintf("%dx%d", att.Attachment.Width, att.Attachment.Height),
-					"aspect": float64(att.Attachment.Width) / float64(att.Attachment.Height),
+					"width":  att.Width,
+					"height": att.Height,
+					"size":   fmt.Sprintf("%dx%d", att.Width, att.Height),
+					"aspect": float64(att.Width) / float64(att.Height),
 				},
-				"small": map[string]any{
-					"width":  att.Attachment.Width,
-					"height": att.Attachment.Height,
-					"size":   fmt.Sprintf("%dx%d", att.Attachment.Width, att.Attachment.Height),
-					"aspect": float64(att.Attachment.Width) / float64(att.Attachment.Height),
-				},
+				// "small": map[string]any{
+				// 	"width":  att.Width,
+				// 	"height": att.Height,
+				// 	"size":   fmt.Sprintf("%dx%d", att.Attachment.Width, att.Attachment.Height),
+				// 	"aspect": float64(att.Attachment.Width) / float64(att.Attachment.Height),
+				// },
 				// "focus": map[string]any{
 				// 	"x": 0.0,
 				// 	"y": 0.0,
 				// },
 			},
+			Description: att.Name,
+			Blurhash:    att.Blurhash,
 		})
 	}
 	return res
@@ -416,13 +424,32 @@ func serialiseInstanceV2(i *models.Instance) map[string]any {
 	}
 }
 
-func serialiseRules(i *models.Instance) []map[string]any {
-	rules := make([]map[string]any, len(i.Rules))
-	for i, rule := range i.Rules {
-		rules[i] = map[string]any{
-			"id":   toString(rule.ID),
-			"text": rule.Text,
-		}
+type Rule struct {
+	ID   uint32 `json:"id,string"`
+	Text string `json:"text"`
+}
+
+func serialiseRules(i *models.Instance) []Rule {
+	rules := []Rule{}
+	for _, rule := range i.Rules {
+		rules = append(rules, Rule{
+			ID:   rule.ID,
+			Text: rule.Text,
+		})
 	}
 	return rules
+}
+
+type Marker struct {
+	LastReadID snowflake.ID `json:"last_read_id,string"`
+	Version    int32        `json:"version"`
+	UpdatedAt  string
+}
+
+func seraliseMarker(m *models.AccountMarker) *Marker {
+	return &Marker{
+		LastReadID: m.LastReadID,
+		Version:    m.Version,
+		UpdatedAt:  m.UpdatedAt.Format("2006-01-02T15:04:05.006Z"),
+	}
 }
