@@ -21,11 +21,11 @@ jobs:
         run: go install -v ./...
       - name: Init database
         run: |
-          m --debug --dsn runner@/test auto-migrate
+          m --log-sql --dsn runner@/test auto-migrate
       - name: Create instance
         run: |
-          m --debug --dsn runner@/test create-instance --domain example.com --title "Example" --description "An example domain"
-      - name: Create admin account
+          m --log-sql --dsn runner@/test create-instance --domain example.com --title "Example" --description "An example domain" --admin-email admin@example.com
+      - name: Create test account
         run: |
-          m --debug --dsn runner@/test create-account --email admin@example.com --password admin --admin
+          m --log-sql --dsn runner@/test create-account --name test --domain example.com --email test@example.com --password password
         
