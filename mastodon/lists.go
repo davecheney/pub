@@ -43,7 +43,7 @@ func (l *Lists) Show(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var lists []models.AccountList
-	if err := l.service.db.Model(&models.AccountList{}).Joins("Members").Where("member_id = ?", chi.URLParam(r, "id")).Find(&lists, "account_id = ?", user.ID).Error; err != nil {
+	if err := l.service.db.Joins("Members").Where("member_id = ?", chi.URLParam(r, "id")).Find(&lists, "account_id = ?", user.ID).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
