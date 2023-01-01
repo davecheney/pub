@@ -2,6 +2,7 @@
 package snowflake
 
 import (
+	"strconv"
 	"time"
 )
 
@@ -28,4 +29,9 @@ func (id ID) ToTime() time.Time {
 // Now returns the current time as a Snowflake ID.
 func Now() ID {
 	return TimeToID(time.Now())
+}
+
+func Parse(s string) (ID, error) {
+	id, err := strconv.ParseUint(s, 10, 64)
+	return ID(id), err
 }

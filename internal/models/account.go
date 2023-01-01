@@ -16,8 +16,8 @@ type Account struct {
 	InstanceID        snowflake.ID
 	Instance          *Instance
 	ActorID           snowflake.ID
-	Actor             *Actor `gorm:"constraint:OnDelete:CASCADE;"`
-	Lists             []AccountList
+	Actor             *Actor          `gorm:"constraint:OnDelete:CASCADE;"`
+	Lists             []AccountList   `gorm:"constraint:OnDelete:CASCADE;"`
 	Markers           []AccountMarker `gorm:"constraint:OnDelete:CASCADE;"`
 	Email             string          `gorm:"size:64;not null"`
 	EncryptedPassword []byte          `gorm:"size:60;not null"`
@@ -46,11 +46,17 @@ type AccountRole struct {
 }
 
 type AccountList struct {
-	ID            uint32 `gorm:"primarykey"`
-	CreatedAt     time.Time
-	AccountID     snowflake.ID
-	Title         string `gorm:"size:64"`
-	RepliesPolicy string `gorm:"size:64"`
+	snowflake.ID  `gorm:"primarykey;autoIncrement:false"`
+	AccountID     snowflake.ID        `gorm:"not null;"`
+	Title         string              `gorm:"size:64"`
+	RepliesPolicy string              `gorm:"enum('public','followers','none');not null;default:'public'"`
+	Members       []AccountListMember `gorm:"constraint:OnDelete:CASCADE;"`
+}
+
+type AccountListMember struct {
+	AccountListID snowflake.ID `gorm:"primarykey;autoIncrement:false"`
+	MemberID      snowflake.ID `gorm:"primarykey;autoIncrement:false"`
+	Member        *Actor       `gorm:"constraint:OnDelete:CASCADE;"`
 }
 
 type AccountMarker struct {

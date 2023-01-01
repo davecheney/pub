@@ -79,6 +79,10 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Get("/directory", mastodon.Directory().Index)
 			r.Get("/filters", mastodon.Filters().Index)
 			r.Get("/lists", mastodon.Lists().Index)
+			r.Post("/lists", mastodon.Lists().Create)
+			r.Get("/lists/{id}/accounts", mastodon.Lists().ViewMembers)
+			r.Post("/lists/{id}/accounts", mastodon.Lists().AddMembers)
+			r.Delete("/lists/{id}/accounts", mastodon.Lists().RemoveMembers)
 			r.Get("/instance", instance.IndexV1)
 			r.Get("/instance/", instance.IndexV1) // sigh
 			r.Get("/instance/peers", instance.PeersShow)

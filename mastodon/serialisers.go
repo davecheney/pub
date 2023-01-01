@@ -453,3 +453,17 @@ func seraliseMarker(m *models.AccountMarker) *Marker {
 		UpdatedAt:  m.UpdatedAt.Format("2006-01-02T15:04:05.006Z"),
 	}
 }
+
+type List struct {
+	ID            snowflake.ID `json:"id,string"`
+	Title         string       `json:"title"`
+	RepliesPolicy string       `json:"replies_policy"`
+}
+
+func serialiseList(l *models.AccountList) *List {
+	return &List{
+		ID:            l.ID,
+		Title:         l.Title,
+		RepliesPolicy: l.RepliesPolicy,
+	}
+}

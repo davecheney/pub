@@ -379,22 +379,12 @@ func (i *Inboxes) processDelete(body map[string]any) error {
 	switch typ {
 	case "Tombstone":
 		return i.processDeleteStatus(body)
+	case "": // empty !?!?
+		return i.processDeleteActor(body)
 	default:
 		x, _ := marshalIndent(body)
 		return fmt.Errorf("unknown delete object type: %q: %s", typ, string(x))
 	}
-
-	// actor := stringFromAny(body["object"])
-	// if actor == "" {
-
-	// 	return fmt.Errorf("delete object has no object: %s", string(x))
-	// }
-	// err := i.service.db.Where("uri = ?", actor).Delete(&models.Actor{}).Error
-	// if errors.Is(err, gorm.ErrRecordNotFound) {
-	// 	// already deleted
-	// 	return nil
-	// }
-	// return err
 }
 
 func (i *Inboxes) processDeleteStatus(body map[string]any) error {
@@ -411,6 +401,22 @@ func (i *Inboxes) processDeleteStatus(body map[string]any) error {
 		return err
 	}
 	return i.service.db.Delete(&status).Error
+}
+
+func (i *Inboxes) processDeleteActor(body map[string]any) error {
+	// load actor to delete it so we can fire the delete hooks.
+	id := stringFromAny(body["object"])
+	var actor models.Actor
+	if err := i.service.db.Where("uri = ?", id).First(&actor).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// already deleted
+			return nil
+		}
+		x, _ := marshalIndent(body)
+		fmt.Println("processDeleteActor", string(x), err)
+		return err
+	}
+	return i.service.db.Delete(&actor).Error
 }
 
 func (i *Inboxes) validateSignature(r *http.Request) error {
