@@ -7,6 +7,7 @@ import (
 	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/to"
+	"gorm.io/gorm"
 )
 
 type Timelines struct {
@@ -41,22 +42,17 @@ func (t *Timelines) Home(w http.ResponseWriter, r *http.Request) {
 	to.JSON(w, algorithms.Map(statuses, serialiseStatus))
 }
 
-func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
-	user, err := t.service.authenticate(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
+func TimelinesPublic(w http.ResponseWriter, r *http.Request) {
+	db, _ := r.Context().Value("DB").(*gorm.DB)
 	var statuses []*models.Status
-	scope := t.service.db.Scopes(models.PaginateStatuses(r)).Where("visibility = ? and reblog_id is null and in_reply_to_id is null", "public")
+	scope := db.Scopes(models.PaginateStatuses(r)).Where("visibility = ? and reblog_id is null and in_reply_to_id is null", "public")
 	switch r.URL.Query().Get("local") {
 	case "true":
 		scope = scope.Joins("Actor").Where("Actor.domain = ?", r.Host)
 	default:
 		scope = scope.Joins("Actor")
 	}
-	scope = scope.Preload("Attachments").Preload("Reaction", "actor_id = ?", user.Actor.ID)
+	scope = scope.Preload("Attachments")
 	if err := scope.Find(&statuses).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

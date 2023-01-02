@@ -15,28 +15,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type OAuth struct {
-	db *gorm.DB
-}
-
-func New(db *gorm.DB) *OAuth {
-	return &OAuth{
-		db: db,
-	}
-}
-
-func (o *OAuth) Authorize(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case "GET":
-		o.authorizeGet(w, r)
-	case "POST":
-		o.authorizePost(w, r)
-	default:
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func (o *OAuth) authorizeGet(w http.ResponseWriter, r *http.Request) {
+func AuthorizeNew(w http.ResponseWriter, r *http.Request) {
 	clientID := r.FormValue("client_id")
 	redirectURI := r.FormValue("redirect_uri")
 	if clientID == "" {
@@ -69,21 +48,22 @@ func (o *OAuth) authorizeGet(w http.ResponseWriter, r *http.Request) {
 	`)
 }
 
-func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
+func AuthorizeCreate(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.PostFormValue("password")
 	redirectURI := r.PostFormValue("redirect_uri")
 	clientID := r.PostFormValue("client_id")
+	db, _ := r.Context().Value("DB").(*gorm.DB)
 
 	var app models.Application
-	if err := o.db.Where("client_id = ?", clientID).First(&app).Error; err != nil {
+	if err := db.Where("client_id = ?", clientID).First(&app).Error; err != nil {
 		fmt.Println("failed to find application", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	var account models.Account
-	if err := o.db.Joins("Actor").First(&account, "name = ? and domain = ?", username, r.Host).Error; err != nil {
+	if err := db.Joins("Actor").First(&account, "name = ? and domain = ?", username, r.Host).Error; err != nil {
 		fmt.Println("failed to find account", err)
 		http.Error(w, "invalid username", http.StatusUnauthorized)
 		return
@@ -102,7 +82,7 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 		Scope:             "read write follow push",
 		AuthorizationCode: uuid.New().String(),
 	}
-	if err := o.db.Create(token).Error; err != nil {
+	if err := db.Create(token).Error; err != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -115,7 +95,7 @@ func (o *OAuth) authorizePost(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(302)
 }
 
-func (o *OAuth) Token(w http.ResponseWriter, r *http.Request) {
+func TokenCreate(w http.ResponseWriter, r *http.Request) {
 	var params struct {
 		ClientID     string `json:"client_id"`
 		ClientSecret string `json:"client_secret"`
@@ -153,13 +133,14 @@ func (o *OAuth) Token(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unsupported media type", http.StatusUnsupportedMediaType)
 		return
 	}
+	db, _ := r.Context().Value("DB").(*gorm.DB)
 	var token models.Token
-	if err := o.db.Where("authorization_code = ?", params.Code).First(&token).Error; err != nil {
+	if err := db.Where("authorization_code = ?", params.Code).First(&token).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 	var app models.Application
-	if err := o.db.Where("client_id = ?", params.ClientID).First(&app).Error; err != nil {
+	if err := db.Where("client_id = ?", params.ClientID).First(&app).Error; err != nil {
 		http.Error(w, "invalid client_id", http.StatusBadRequest)
 		return
 	}
@@ -178,13 +159,12 @@ func (o *OAuth) Token(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (o *OAuth) Revoke(w http.ResponseWriter, r *http.Request) {
+func TokenDestroy(w http.ResponseWriter, r *http.Request) {
 	var params struct {
 		ClientID     string `json:"client_id"`
 		ClientSecret string `json:"client_secret"`
 		Token        string `json:"token"`
 	}
-	var token models.Token
 	switch strings.Split(r.Header.Get("Content-Type"), ";")[0] {
 	case "application/x-www-form-urlencoded":
 		params.ClientID = r.FormValue("client_id")
@@ -200,11 +180,13 @@ func (o *OAuth) Revoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Println("params", params)
-	if err := o.db.Where("access_token = ?", params.Token).First(&token).Error; err != nil {
+	db, _ := r.Context().Value("DB").(*gorm.DB)
+	var token models.Token
+	if err := db.Where("access_token = ?", params.Token).First(&token).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	if err := o.db.Delete(&token).Error; err != nil {
+	if err := db.Delete(&token).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

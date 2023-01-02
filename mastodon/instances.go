@@ -5,6 +5,7 @@ import (
 
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/to"
+	"gorm.io/gorm"
 )
 
 type Instances struct {
@@ -39,9 +40,10 @@ func (i *Instances) IndexV2(w http.ResponseWriter, r *http.Request) {
 	to.JSON(w, serialiseInstanceV2(instance))
 }
 
-func (i *Instances) PeersShow(w http.ResponseWriter, r *http.Request) {
+func InstancesPeersShow(w http.ResponseWriter, r *http.Request) {
+	db, _ := r.Context().Value("DB").(*gorm.DB)
 	var domains []string
-	if err := i.service.db.Model(&models.Actor{}).Group("Domain").Where("Domain != ?", r.Host).Pluck("domain", &domains).Error; err != nil {
+	if err := db.Model(&models.Actor{}).Group("Domain").Where("Domain != ?", r.Host).Pluck("domain", &domains).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
