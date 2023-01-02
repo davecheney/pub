@@ -6,6 +6,8 @@ import (
 	"errors"
 	"log"
 	"net/http"
+
+	"github.com/go-json-experiment/json"
 )
 
 // Error is a convenience function for returning an error with an associated HTTP status code.
@@ -40,12 +42,19 @@ func HandlerFunc[E any](envFn func(r *http.Request) *E, fn func(*E, http.Respons
 		if err != nil {
 			if se := new(StatusError); errors.As(err, &se) {
 				log.Printf("HTTP: path: %s, status: %d, error: %s", r.URL.Path, se.Status(), se.Error())
-				http.Error(w, se.Error(), se.Status())
-			} else {
-				log.Printf("HTTP: path: %s, status: %d, error: %s", r.URL.Path, http.StatusInternalServerError, err)
-				http.Error(w, http.StatusText(http.StatusInternalServerError),
-					http.StatusInternalServerError)
+				w.Header().Set("Content-Type", "application/json; charset=utf-8")
+				w.WriteHeader(se.Status())
+				json.MarshalFull(w, map[string]any{
+					"error": se.Error(),
+				})
+				return
 			}
+			log.Printf("HTTP: path: %s, status: %d, error: %s", r.URL.Path, http.StatusInternalServerError, err)
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.MarshalFull(w, map[string]any{
+				"error": http.StatusInternalServerError,
+			})
 		}
 	}
 }
