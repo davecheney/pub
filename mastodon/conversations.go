@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/models"
 )
 
@@ -18,7 +19,7 @@ func (c *Conversations) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var statuses []models.Status
+	var statuses []*models.Status
 	scope := c.service.db.Scopes(models.PaginateConversation(r)).Where("visibility = ?", "direct")
 	switch r.URL.Query().Get("local") {
 	case "":
@@ -32,12 +33,9 @@ func (c *Conversations) Index(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	resp := []any{} // ensure we return an array
-	for _, status := range statuses {
-		resp = append(resp, serialiseStatus(&status))
-	}
+
 	if len(statuses) > 0 {
 		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/public?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/public?min_id=%d>; rel=\"prev\"", r.Host, statuses[len(statuses)-1].ID, r.Host, statuses[0].ID))
 	}
-	toJSON(w, resp)
+	toJSON(w, algorithms.Map(statuses, serialiseStatus))
 }

@@ -29,9 +29,9 @@ _Warning: `pub` is still in development, if it breaks, you can keep the pieces._
 Create a database and user for `pub`:
 
 ```sql
-CREATE DATABASE puv;
+CREATE DATABASE pub;
 CREATE USER 'pub'@'localhost' IDENTIFIED BY 'pub';
-GRANT ALL PRIVILEGES ON m.* TO 'pub'@'localhost';
+GRANT ALL PRIVILEGES ON pub.* TO 'pub'@'localhost';
 ```
 Install `pub`:
 
@@ -41,7 +41,7 @@ go install github.com/davecheney/pub@latest
 Create/migrate the database:
 
 ```bash
-pub --dsn 'm:m@/m' auto-migrate
+pub --dsn 'pub:pub@/pub' auto-migrate
 ```
 
 ### Setup
@@ -49,7 +49,7 @@ pub --dsn 'm:m@/m' auto-migrate
 Create an instance for `pub`:
 
 ```bash
-pub --dsn 'm:m@/m' create-instance --domain domain.com --title "Something cool" --description "Something witty" --admin-email admin@domain.com
+pub --dsn 'pub:pub@/pub' create-instance --domain domain.com --title "Something cool" --description "Something witty" --admin-email admin@domain.com
 ```
 
 This will create an instance, and an admin account for that instance.
@@ -57,7 +57,7 @@ This will create an instance, and an admin account for that instance.
 Create your first user
 
 ```bash
-pub --dsn 'm:m@/m' create-account --email you@domain.com --name you --domain domain.com --password sssh
+pub --dsn 'pub:pub@/pub' create-account --email you@domain.com --name you --domain domain.com --password sssh
 ```
 
 This will create an account for you to act as `acct:you@domain.com`
@@ -67,7 +67,7 @@ This will create an account for you to act as `acct:you@domain.com`
 Start m:
 
 ```bash
-pub --log-http --dsn 'm:m@/m' serve 
+pub --log-http --dsn 'pub:pub@/pub' serve 
 ```    
 
 ### Getting online
@@ -90,6 +90,6 @@ TLS is also required, so you'll need to configure TLS for your reverse proxy, pr
 That may change in the future, but at the moment please do not send pull requests.
 
 In the meantime, if you have a feature request, or a bug report, please open an issue.
-If you're _really_ aventurous, you can contact me via [`@dfc@cheney.net`](acct:dfc@cheney.net).
+If you're _really_ adventurous, you can contact me via [`@dfc@cheney.net`](acct:dfc@cheney.net).
 
 Thank you in advance for your understanding.

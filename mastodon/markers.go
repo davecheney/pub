@@ -3,7 +3,6 @@ package mastodon
 import (
 	"net/http"
 	"net/http/httputil"
-	"strconv"
 
 	"github.com/davecheney/pub/internal/models"
 )
@@ -42,8 +41,4 @@ func (ms *Markers) Create(w http.ResponseWriter, r *http.Request) {
 	buf, _ := httputil.DumpRequest(r, true)
 	println(string(buf))
 	w.WriteHeader(http.StatusInternalServerError)
-}
-
-func utoa(u uint) string {
-	return strconv.FormatUint(uint64(u), 10)
 }

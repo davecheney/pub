@@ -3,6 +3,7 @@ package mastodon
 import (
 	"net/http"
 
+	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
@@ -18,18 +19,15 @@ func (b *Blocks) Index(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var blocks []models.Relationship
+	var blocks []*models.Relationship
 	if err := b.service.db.Joins("Target").Find(&blocks, "actor_id = ? and blocking = true", user.Actor.ID).Error; err != nil {
 		if err != gorm.ErrRecordNotFound {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
-	resp := []any{} // ensure we return an empty array, not null
-	for _, a := range blocks {
-		resp = append(resp, serialiseAccount(a.Target))
-	}
-	toJSON(w, resp)
+
+	toJSON(w, algorithms.Map(algorithms.Map(blocks, relationshipTarget), serialiseAccount))
 }
 
 func (b *Blocks) Create(w http.ResponseWriter, r *http.Request) {

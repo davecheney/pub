@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/go-chi/chi/v5"
 )
@@ -56,17 +57,13 @@ func (a *Accounts) StatusesShow(w http.ResponseWriter, r *http.Request) {
 		tx = tx.Where("id > ?", sinceID)
 	}
 
-	var statuses []models.Status
+	var statuses []*models.Status
 	if err := tx.Order("id desc").Find(&statuses).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	resp := []any{} // make sure this is a slice not null
-	for _, status := range statuses {
-		resp = append(resp, serialiseStatus(&status))
-	}
-	toJSON(w, resp)
+	toJSON(w, algorithms.Map(statuses, serialiseStatus))
 }
 
 func (a *Accounts) FollowersShow(w http.ResponseWriter, r *http.Request) {
@@ -76,20 +73,20 @@ func (a *Accounts) FollowersShow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var followers []models.Relationship
+	var followers []*models.Relationship
 	if err := a.service.db.Scopes(models.PaginateRelationship(r)).Preload("Target").Where("actor_id = ? and followed_by = true", chi.URLParam(r, "id")).Find(&followers).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	resp := []any{} // make sure this is a slice not null
-	for _, follower := range followers {
-		resp = append(resp, serialiseAccount(follower.Target))
-	}
 	if len(followers) > 0 {
 		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/accounts/%s/followers?max_id=%d>; rel=\"next\", <https://%s/api/v1/accounts/%s/followers?min_id=%d>; rel=\"prev\"", r.Host, chi.URLParam(r, "id"), followers[len(followers)-1].TargetID, r.Host, chi.URLParam(r, "id"), followers[0].TargetID))
 	}
-	toJSON(w, resp)
+	toJSON(w, algorithms.Map(algorithms.Map(followers, relationshipTarget), serialiseAccount))
+}
+
+func relationshipTarget(rel *models.Relationship) *models.Actor {
+	return rel.Target
 }
 
 func (a *Accounts) FollowingShow(w http.ResponseWriter, r *http.Request) {
@@ -98,20 +95,17 @@ func (a *Accounts) FollowingShow(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var following []models.Relationship
+	var following []*models.Relationship
 	if err := a.service.db.Scopes(models.PaginateRelationship(r)).Preload("Target").Where("actor_id = ? and following = true", chi.URLParam(r, "id")).Find(&following).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	resp := []any{} // make sure this is a slice not null
-	for _, f := range following {
-		resp = append(resp, serialiseAccount(f.Target))
-	}
+
 	if len(following) > 0 {
 		// TODO don't send if we're at the end of the list
 		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/accounts/%s/following?max_id=%d>; rel=\"next\", <https://%s/api/v1/accounts/%s/following?min_id=%d>; rel=\"prev\"", r.Host, chi.URLParam(r, "id"), following[len(following)-1].TargetID, r.Host, chi.URLParam(r, "id"), following[0].TargetID))
 	}
-	toJSON(w, resp)
+	toJSON(w, algorithms.Map(algorithms.Map(following, relationshipTarget), serialiseAccount))
 }
 
 func (a *Accounts) Update(w http.ResponseWriter, r *http.Request) {

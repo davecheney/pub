@@ -3,6 +3,7 @@ package mastodon
 import (
 	"net/http"
 
+	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
@@ -18,7 +19,7 @@ func (svc *Mutes) Index(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var mutes []models.Relationship
+	var mutes []*models.Relationship
 	if err := svc.service.db.Joins("Target").Find(&mutes, "actor_id = ? and muting = true", user.Actor.ID).Error; err != nil {
 		if err != gorm.ErrRecordNotFound {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -29,7 +30,7 @@ func (svc *Mutes) Index(w http.ResponseWriter, r *http.Request) {
 	for _, a := range mutes {
 		resp = append(resp, serialiseAccount(a.Target))
 	}
-	toJSON(w, resp)
+	toJSON(w, algorithms.Map(algorithms.Map(mutes, relationshipTarget), serialiseAccount))
 }
 
 func (svc *Mutes) Create(w http.ResponseWriter, r *http.Request) {

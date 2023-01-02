@@ -3,6 +3,7 @@ package mastodon
 import (
 	"net/http"
 
+	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
@@ -60,7 +61,7 @@ func (f *Favourites) Show(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	var reactions []models.Reaction
+	var reactions []*models.Reaction
 	if err := f.service.db.Preload("Actor").Where("status_id = ?", chi.URLParam(req, "id")).Find(&reactions).Error; err != nil {
 		if err != gorm.ErrRecordNotFound {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -68,9 +69,7 @@ func (f *Favourites) Show(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	resp := []any{} // ensure we return an empty array, not null
-	for _, fav := range reactions {
-		resp = append(resp, serialiseAccount(fav.Actor))
-	}
-	toJSON(w, resp)
+	toJSON(w, algorithms.Map(algorithms.Map(reactions, reactionActor), serialiseAccount))
 }
+
+func reactionActor(r *models.Reaction) *models.Actor { return r.Actor }

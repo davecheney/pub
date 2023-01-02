@@ -47,6 +47,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	if s.LogHTTP {
 		r.Use(middleware.Logger)
 	}
+	r.Use(setDBMiddleware(db))
 
 	r.Route("/api", func(r chi.Router) {
 		mastodon := mastodon.NewService(db)
@@ -232,4 +233,13 @@ func configureDB(db *gorm.DB) error {
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	return nil
+}
+
+func setDBMiddleware(db *gorm.DB) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := context.WithValue(r.Context(), "DB", db.WithContext(r.Context()))
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }

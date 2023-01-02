@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/davecheney/pub/internal/gen"
+	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/go-chi/chi/v5"
@@ -23,17 +23,13 @@ func (l *Lists) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var lists []models.AccountList
+	var lists []*models.AccountList
 	if err := l.service.db.Model(user).Association("Lists").Find(&lists); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	resp := []any{} // ensure we return an array, not null
-	for _, list := range lists {
-		resp = append(resp, serialiseList(&list))
-	}
-	toJSON(w, resp)
+	toJSON(w, algorithms.Map(lists, serialiseList))
 }
 
 func (l *Lists) Show(w http.ResponseWriter, r *http.Request) {
@@ -71,7 +67,7 @@ func (l *Lists) ShowListMembership(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	toJSON(w, gen.Map(lists, serialiseList))
+	toJSON(w, algorithms.Map(lists, serialiseList))
 }
 
 func (l *Lists) Create(w http.ResponseWriter, r *http.Request) {
@@ -225,15 +221,15 @@ func (l *Lists) ViewMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var members []models.AccountListMember
+	var members []*models.AccountListMember
 	if err := l.service.db.Joins("Member").Find(&members, "account_list_id", chi.URLParam(r, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	resp := []any{} // ensure we return an array, not null
-	for _, member := range members {
-		resp = append(resp, serialiseAccount(member.Member))
-	}
-	toJSON(w, resp)
+	toJSON(w, algorithms.Map(algorithms.Map(members, listMember), serialiseAccount))
+}
+
+func listMember(list *models.AccountListMember) *models.Actor {
+	return list.Member
 }
