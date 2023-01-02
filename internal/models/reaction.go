@@ -63,7 +63,7 @@ func (r *Reaction) AfterUpdate(tx *gorm.DB) error {
 
 // updateStatusCount updates the favourites_count and reblogs_count fields on the status.
 func (r *Reaction) updateStatusCount(tx *gorm.DB) error {
-	status := &Status{ID: snowflake.ID(r.StatusID)}
+	status := &Status{ID: r.StatusID}
 	favouritesCount := tx.Select("COUNT(*)").Where("status_id = ? and favourited = true", r.StatusID).Table("reactions")
 	reblogsCount := tx.Select("COUNT(*)").Where("status_id = ? and reblogged = true", r.StatusID).Table("reactions")
 	return tx.Model(status).Updates(map[string]interface{}{

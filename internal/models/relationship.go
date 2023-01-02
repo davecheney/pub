@@ -64,7 +64,7 @@ func (r *Relationship) AfterUpdate(tx *gorm.DB) error {
 // updateFollowersCount updates the followers count for the target.
 func (r *Relationship) updateFollowersCount(tx *gorm.DB) error {
 	actor := &Actor{
-		ID: snowflake.ID(r.ActorID),
+		ID: r.ActorID,
 	}
 	followers := tx.Select("COUNT(*)").Where("target_id = ? and following = true", r.ActorID).Table("relationships")
 	return tx.Model(actor).Update("followers_count", followers).Error
@@ -73,7 +73,7 @@ func (r *Relationship) updateFollowersCount(tx *gorm.DB) error {
 // updateFollowingCount updates the following count for the actor.
 func (r *Relationship) updateFollowingCount(tx *gorm.DB) error {
 	actor := &Actor{
-		ID: snowflake.ID(r.TargetID),
+		ID: r.TargetID,
 	}
 	following := tx.Select("COUNT(*)").Where("actor_id = ? and following = true", r.TargetID).Table("relationships")
 	return tx.Model(actor).Update("following_count", following).Error

@@ -46,7 +46,7 @@ func (st *Status) updateRepliesCount(tx *gorm.DB) error {
 		return nil
 	}
 
-	parent := &Status{ID: snowflake.ID(*st.InReplyToID)}
+	parent := &Status{ID: *st.InReplyToID}
 	repliesCount := tx.Select("COUNT(id)").Where("in_reply_to_id = ?", *st.InReplyToID).Table("statuses")
 	return tx.Model(parent).Update("replies_count", repliesCount).Error
 }
@@ -55,9 +55,8 @@ func (st *Status) updateRepliesCount(tx *gorm.DB) error {
 func (st *Status) updateStatusCount(tx *gorm.DB) error {
 	statusesCount := tx.Select("COUNT(id)").Where("actor_id = ?", st.ActorID).Table("statuses")
 	createdAt := st.ID.ToTime()
-	return tx.Model(&Actor{
-		ID: st.ActorID,
-	}).Updates(map[string]interface{}{
+	actor := &Actor{ID: st.ActorID}
+	return tx.Model(actor).Updates(map[string]interface{}{
 		"statuses_count": statusesCount,
 		"last_status_at": createdAt,
 	}).Error
