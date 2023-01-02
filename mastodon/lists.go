@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/davecheney/m/internal/gen"
 	"github.com/davecheney/m/internal/models"
 	"github.com/davecheney/m/internal/snowflake"
 	"github.com/go-chi/chi/v5"
@@ -42,17 +43,35 @@ func (l *Lists) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var lists []models.AccountList
-	if err := l.service.db.Joins("Members").Where("member_id = ?", chi.URLParam(r, "id")).Find(&lists, "account_id = ?", user.ID).Error; err != nil {
+	var list models.AccountList
+	if err := l.service.db.Model(user).Association("Lists").Find(&list, chi.URLParam(r, "id")); err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	toJSON(w, serialiseList(&list))
+}
+
+func (l *Lists) ShowListMembership(w http.ResponseWriter, r *http.Request) {
+	_, err := l.service.authenticate(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	memberID, err := snowflake.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	accountLists := l.service.db.Select("account_list_id").Where(&models.AccountListMember{MemberID: memberID}).Table("account_list_members")
+	var lists []*models.AccountList
+	if err := l.service.db.Where("id IN (?)", accountLists).Find(&lists).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	resp := []any{} // ensure we return an array, not null
-	for _, list := range lists {
-		resp = append(resp, serialiseList(&list))
-	}
-	toJSON(w, resp)
+	toJSON(w, gen.Map(lists, serialiseList))
 }
 
 func (l *Lists) Create(w http.ResponseWriter, r *http.Request) {
@@ -207,7 +226,7 @@ func (l *Lists) ViewMembers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var members []models.AccountListMember
-	if err := l.service.db.Model(&models.AccountList{}).Joins("Members").Preload("Member").Where("id = ?", chi.URLParam(r, "id")).Find(&members).Error; err != nil {
+	if err := l.service.db.Joins("Member").Find(&members, "account_list_id", chi.URLParam(r, "id")).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

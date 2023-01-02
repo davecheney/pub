@@ -1,0 +1,41 @@
+package mastodon
+
+import (
+	"bytes"
+	"net/http"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+// mockResponseWriter is an io.Writer that satisfies the http.ResponseWriter
+// interface.
+type mockResponseWriter struct {
+	bytes.Buffer
+}
+
+func (w *mockResponseWriter) Header() http.Header {
+	return http.Header{}
+}
+
+func (w *mockResponseWriter) WriteHeader(int) {}
+
+func TestToJSONReturnsEmptyArrayForNilSlice(t *testing.T) {
+	require := require.New(t)
+
+	var s []string = nil
+	var out mockResponseWriter
+	err := toJSON(&out, s)
+	require.NoError(err)
+	require.Equal("[]", out.String())
+}
+
+func TestToJSONReturnsEmptyObjectForNilMap(t *testing.T) {
+	require := require.New(t)
+
+	var m map[string]string = nil
+	var out mockResponseWriter
+	err := toJSON(&out, m)
+	require.NoError(err)
+	require.Equal("{}", out.String())
+}

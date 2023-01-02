@@ -71,8 +71,7 @@ func (i *Inboxes) processActivity(signAs *models.Account, body map[string]any) e
 		update := mapFromAny(body["object"])
 		return i.processUpdate(update)
 	case "Delete":
-		obj := mapFromAny(body["object"])
-		return i.processDelete(obj)
+		return i.processDelete(body)
 	case "Follow":
 		return i.processFollow(body)
 	case "Accept":
@@ -375,45 +374,40 @@ func (i *Inboxes) processUpdate(update map[string]any) error {
 }
 
 func (i *Inboxes) processDelete(body map[string]any) error {
-	typ := stringFromAny(body["type"])
-	switch typ {
-	case "Tombstone":
-		return i.processDeleteStatus(body)
-	case "": // empty !?!?
-		return i.processDeleteActor(body)
+	obj := body["object"]
+	switch obj := obj.(type) {
+	case map[string]any:
+		return i.processDeleteStatus(stringFromAny(obj["id"]))
+	case string:
+		return i.processDeleteActor(obj)
 	default:
+		typ := stringFromAny(body["type"])
 		x, _ := marshalIndent(body)
 		return fmt.Errorf("unknown delete object type: %q: %s", typ, string(x))
 	}
 }
 
-func (i *Inboxes) processDeleteStatus(body map[string]any) error {
+func (i *Inboxes) processDeleteStatus(uri string) error {
 	// load status to delete it so we can fire the delete hooks.
-	id := stringFromAny(body["id"])
 	var status models.Status
-	if err := i.service.db.Where("uri = ?", id).First(&status).Error; err != nil {
+	if err := i.service.db.Where("uri = ?", uri).First(&status).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// already deleted
 			return nil
 		}
-		x, _ := marshalIndent(body)
-		fmt.Println("processDeleteStatus", string(x), err)
 		return err
 	}
 	return i.service.db.Delete(&status).Error
 }
 
-func (i *Inboxes) processDeleteActor(body map[string]any) error {
+func (i *Inboxes) processDeleteActor(uri string) error {
 	// load actor to delete it so we can fire the delete hooks.
-	id := stringFromAny(body["object"])
 	var actor models.Actor
-	if err := i.service.db.Where("uri = ?", id).First(&actor).Error; err != nil {
+	if err := i.service.db.Where("uri = ?", uri).First(&actor).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// already deleted
 			return nil
 		}
-		x, _ := marshalIndent(body)
-		fmt.Println("processDeleteActor", string(x), err)
 		return err
 	}
 	return i.service.db.Delete(&actor).Error
