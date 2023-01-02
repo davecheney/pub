@@ -45,26 +45,29 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	if s.LogHTTP {
 		r.Use(middleware.Logger)
 	}
-	r.Use(setDBMiddleware(db))
 
 	r.Route("/api", func(r chi.Router) {
 		m := mastodon.NewService(db)
-		instance := m.Instances()
+		envFn := func(r *http.Request) *mastodon.Env {
+			return &mastodon.Env{
+				DB: db.WithContext(r.Context()),
+			}
+		}
 		r.Route("/v1", func(r chi.Router) {
 			r.Post("/apps", m.Applications().Create)
 			r.Route("/accounts", func(r chi.Router) {
 				accounts := m.Accounts()
-				r.Get("/verify_credentials", accounts.VerifyCredentials)
+				r.Get("/verify_credentials", httpx.HandlerFunc(envFn, mastodon.AccountsVerifyCredentials))
 				r.Patch("/update_credentials", accounts.Update)
-				r.Get("/relationships", m.Relationships().Show)
+				r.Get("/relationships", httpx.HandlerFunc(envFn, mastodon.RelationshipsShow))
 				r.Get("/filters", m.Filters().Index)
-				r.Get("/{id}", accounts.Show)
+				r.Get("/{id}", httpx.HandlerFunc(envFn, mastodon.AccountsShow))
 				r.Get("/{id}/lists", m.Lists().ShowListMembership)
 				r.Get("/{id}/statuses", accounts.StatusesShow)
-				r.Post("/{id}/follow", m.Relationships().Create)
+				r.Post("/{id}/follow", httpx.HandlerFunc(envFn, mastodon.RelationshipsCreate))
 				r.Get("/{id}/followers", accounts.FollowersShow)
 				r.Get("/{id}/following", accounts.FollowingShow)
-				r.Post("/{id}/unfollow", m.Relationships().Destroy)
+				r.Post("/{id}/unfollow", httpx.HandlerFunc(envFn, mastodon.RelationshipsDestroy))
 				r.Post("/{id}/mute", m.Mutes().Create)
 				r.Post("/{id}/unmute", m.Mutes().Destroy)
 				r.Post("/{id}/block", m.Blocks().Create)
@@ -81,16 +84,16 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Get("/lists/{id}/accounts", m.Lists().ViewMembers)
 			r.Post("/lists/{id}/accounts", m.Lists().AddMembers)
 			r.Delete("/lists/{id}/accounts", m.Lists().RemoveMembers)
-			r.Get("/instance", instance.IndexV1)
+			r.Get("/instance", httpx.HandlerFunc(envFn, mastodon.InstancesIndexV1))
 			r.Options("/instance", func(w http.ResponseWriter, r *http.Request) {
 				x, _ := httputil.DumpRequest(r, true)
 				fmt.Println(string(x))
 				w.WriteHeader(http.StatusOK)
 			})
-			r.Get("/instance/", instance.IndexV1) // sigh
-			r.Get("/instance/peers", mastodon.InstancesPeersShow)
-			r.Get("/instance/activity", instance.ActivityShow)
-			r.Get("/instance/domain_blocks", instance.DomainBlocksShow)
+			r.Get("/instance/", httpx.HandlerFunc(envFn, mastodon.InstancesIndexV1)) // sigh
+			r.Get("/instance/peers", httpx.HandlerFunc(envFn, mastodon.InstancesPeersShow))
+			r.Get("/instance/activity", httpx.HandlerFunc(envFn, mastodon.InstancesActivityShow))
+			r.Get("/instance/domain_blocks", httpx.HandlerFunc(envFn, mastodon.InstancesDomainBlocksShow))
 			r.Get("/markers", m.Markers().Index)
 			r.Post("/markers", m.Markers().Create)
 			r.Get("/mutes", m.Mutes().Index)
@@ -104,37 +107,35 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Get("/statuses/{id}", m.Statuses().Show)
 			r.Delete("/statuses/{id}", m.Statuses().Destroy)
 			r.Route("/timelines", func(r chi.Router) {
-				timelines := m.Timelines()
-				r.Get("/home", timelines.Home)
-				r.Get("/public", mastodon.TimelinesPublic)
-				r.Get("/list/{id}", timelines.ListShow)
+				r.Get("/home", httpx.HandlerFunc(envFn, mastodon.TimelinesHome))
+				r.Get("/public", httpx.HandlerFunc(envFn, mastodon.TimelinesPublic))
+				r.Get("/list/{id}", httpx.HandlerFunc(envFn, mastodon.TimelinesListShow))
 			})
 
 		})
 		r.Route("/v2", func(r chi.Router) {
-			r.Get("/instance", instance.IndexV2)
-			r.Get("/search", mastodon.SearchIndex)
-		})
-		r.Route("/nodeinfo", func(r chi.Router) {
-			r.Get("/2.0", wellknown.NodeInfoShow)
+			r.Get("/instance", httpx.HandlerFunc(envFn, mastodon.InstancesIndexV2))
+			r.Get("/search", httpx.HandlerFunc(envFn, mastodon.SearchIndex))
 		})
 	})
 
-	env := &activitypub.Env{
-		DB: db,
+	envFn := func(r *http.Request) *activitypub.Env {
+		return &activitypub.Env{
+			DB: db.WithContext(r.Context()),
+		}
 	}
-	r.Post("/inbox", httpx.HandlerFunc(env, activitypub.InboxCreate))
+	r.Post("/inbox", httpx.HandlerFunc(envFn, activitypub.InboxCreate))
 
 	r.Route("/oauth", func(r chi.Router) {
-		r.Get("/authorize", oauth.AuthorizeNew)
-		r.Post("/authorize", oauth.AuthorizeCreate)
-		r.Post("/token", oauth.TokenCreate)
-		r.Post("/revoke", oauth.TokenDestroy)
+		r.Get("/authorize", httpx.HandlerFunc(envFn, oauth.AuthorizeNew))
+		r.Post("/authorize", httpx.HandlerFunc(envFn, oauth.AuthorizeCreate))
+		r.Post("/token", httpx.HandlerFunc(envFn, oauth.TokenCreate))
+		r.Post("/revoke", httpx.HandlerFunc(envFn, oauth.TokenDestroy))
 	})
 
 	r.Route("/u/{username}", func(r chi.Router) {
-		r.Get("/", activitypub.UsersShow)
-		r.Post("/inbox", httpx.HandlerFunc(env, activitypub.InboxCreate))
+		r.Get("/", httpx.HandlerFunc(envFn, activitypub.UsersShow))
+		r.Post("/inbox", httpx.HandlerFunc(envFn, activitypub.InboxCreate))
 		r.Get("/outbox", activitypub.OutboxIndex)
 		r.Get("/followers", activitypub.FollowersIndex)
 		r.Get("/following", activitypub.FollowingIndex)
@@ -142,10 +143,11 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	})
 
 	r.Route("/.well-known", func(r chi.Router) {
-		r.Get("/webfinger", wellknown.WebfingerShow)
-		r.Get("/host-meta", wellknown.HostMetaIndex)
-		r.Get("/nodeinfo", wellknown.NodeInfoIndex)
+		r.Get("/webfinger", httpx.HandlerFunc(envFn, wellknown.WebfingerShow))
+		r.Get("/host-meta", httpx.HandlerFunc(envFn, wellknown.HostMetaIndex))
+		r.Get("/nodeinfo", httpx.HandlerFunc(envFn, wellknown.NodeInfoShow))
 	})
+	r.Get("/nodeinfo/2.0", httpx.HandlerFunc(envFn, wellknown.NodeInfoShow))
 
 	if s.DebugPrintRoutes {
 		walkFunc := func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
@@ -199,13 +201,4 @@ func configureDB(db *gorm.DB) error {
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	return nil
-}
-
-func setDBMiddleware(db *gorm.DB) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := context.WithValue(r.Context(), "DB", db.WithContext(r.Context()))
-			next.ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
 }

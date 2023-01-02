@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/davecheney/pub/internal/algorithms"
+	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/to"
 	"github.com/go-chi/chi/v5"
@@ -15,27 +16,24 @@ type Accounts struct {
 	service *Service
 }
 
-func (a *Accounts) Show(w http.ResponseWriter, r *http.Request) {
-	_, err := a.service.authenticate(r)
+func AccountsShow(env *Env, w http.ResponseWriter, r *http.Request) error {
+	_, err := env.authenticate(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
 	var actor models.Actor
-	if err := a.service.db.First(&actor, chi.URLParam(r, "id")).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
+	if err := env.DB.First(&actor, chi.URLParam(r, "id")).Error; err != nil {
+		return httpx.Error(http.StatusNotFound, err)
 	}
-	to.JSON(w, serialiseAccount(&actor))
+	return to.JSON(w, serialiseAccount(&actor))
 }
 
-func (a *Accounts) VerifyCredentials(w http.ResponseWriter, r *http.Request) {
-	user, err := a.service.authenticate(r)
+func AccountsVerifyCredentials(env *Env, w http.ResponseWriter, r *http.Request) error {
+	user, err := env.authenticate(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
-	to.JSON(w, serialiseCredentialAccount(user))
+	return to.JSON(w, serialiseCredentialAccount(user))
 }
 
 func (a *Accounts) StatusesShow(w http.ResponseWriter, r *http.Request) {

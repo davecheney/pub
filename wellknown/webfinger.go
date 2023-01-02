@@ -4,26 +4,28 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/davecheney/pub/activitypub"
+	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/to"
 	"github.com/davecheney/pub/internal/webfinger"
 	"gorm.io/gorm"
 )
 
-func WebfingerShow(rw http.ResponseWriter, r *http.Request) {
+func WebfingerShow(env *activitypub.Env, w http.ResponseWriter, r *http.Request) error {
 	acct, err := webfinger.Parse(r.URL.Query().Get("resource"))
 	if err != nil {
-		http.Error(rw, err.Error(), http.StatusBadRequest)
-		return
+		return httpx.Error(http.StatusBadRequest, err)
 	}
-	db, _ := r.Context().Value("DB").(*gorm.DB)
 	var actor models.Actor
-	if err := db.First(&actor, "name = ? AND domain = ?", acct.User, r.Host).Error; err != nil {
-		http.Error(rw, err.Error(), http.StatusNotFound)
-		return
+	if err := env.DB.First(&actor, "name = ? AND domain = ?", acct.User, r.Host).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return httpx.Error(http.StatusNotFound, err)
+		}
+		return err
 	}
 	self := acct.ID()
-	to.JSON(rw, map[string]any{
+	return to.JSON(w, map[string]any{
 		"subject": acct.String(),
 		"aliases": []string{
 			fmt.Sprintf("https://%s/@%s", actor.Domain, actor.Name),

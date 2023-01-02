@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/davecheney/pub/activitypub"
+	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/to"
 	"gorm.io/gorm"
 )
 
-func NodeInfoIndex(rw http.ResponseWriter, r *http.Request) {
-	to.JSON(rw, map[string]any{
+func NodeInfoIndex(env *activitypub.Env, w http.ResponseWriter, r *http.Request) error {
+	return to.JSON(w, map[string]any{
 		"links": []map[string]any{
 			{
 				"rel":  "http://nodeinfo.diaspora.software/ns/schema/2.0",
@@ -20,14 +22,15 @@ func NodeInfoIndex(rw http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func NodeInfoShow(w http.ResponseWriter, r *http.Request) {
-	db, _ := r.Context().Value("DB").(*gorm.DB)
+func NodeInfoShow(env *activitypub.Env, w http.ResponseWriter, r *http.Request) error {
 	var instance models.Instance
-	if err := db.Where("domain = ?", r.Host).First(&instance).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
+	if err := env.DB.Where("domain = ?", r.Host).First(&instance).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return httpx.Error(http.StatusNotFound, err)
+		}
+		return err
 	}
-	to.JSON(w, serializeNodeInfo(&instance))
+	return to.JSON(w, serializeNodeInfo(&instance))
 }
 
 func serializeNodeInfo(i *models.Instance) map[string]any {

@@ -3,6 +3,7 @@ package activitypub
 import (
 	"net/http"
 
+	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/davecheney/pub/internal/to"
@@ -10,15 +11,15 @@ import (
 	"gorm.io/gorm"
 )
 
-func UsersShow(w http.ResponseWriter, r *http.Request) {
-	db, _ := r.Context().Value("DB").(*gorm.DB)
-	username := chi.URLParam(r, "username")
+func UsersShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var actor models.Actor
-	if err := db.First(&actor, "name = ? and domain = ?", username, r.Host).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
+	if err := env.DB.First(&actor, "name = ? and domain = ?", chi.URLParam(r, "username"), r.Host).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return httpx.Error(http.StatusNotFound, err)
+		}
+		return err
 	}
-	to.JSON(w, map[string]any{
+	return to.JSON(w, map[string]any{
 		"@context": []any{
 			"https://www.w3.org/ns/activitystreams",
 			"https://w3id.org/security/v1",

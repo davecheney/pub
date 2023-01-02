@@ -24,7 +24,7 @@ type Instance struct {
 	AccountsCount    int    `gorm:"default:0;not null"`
 	StatusesCount    int    `gorm:"default:0;not null"`
 
-	DomainsCount int `gorm:"-"`
+	DomainsCount int64 `gorm:"-"`
 
 	Rules []InstanceRule
 }

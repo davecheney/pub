@@ -8,26 +8,26 @@ import (
 	"net/http/httputil"
 	"strings"
 
+	"github.com/davecheney/pub/activitypub"
+	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/to"
 	"github.com/go-json-experiment/json"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 )
 
-func AuthorizeNew(w http.ResponseWriter, r *http.Request) {
+func AuthorizeNew(env *activitypub.Env, w http.ResponseWriter, r *http.Request) error {
 	clientID := r.FormValue("client_id")
 	redirectURI := r.FormValue("redirect_uri")
 	if clientID == "" {
-		http.Error(w, "client_id is required", http.StatusBadRequest)
-		return
+		return httpx.Error(http.StatusBadRequest, fmt.Errorf("client_id is required"))
 	}
 	if redirectURI == "" {
-		http.Error(w, "redirect_uri is required", http.StatusBadRequest)
-		return
+		return httpx.Error(http.StatusBadRequest, fmt.Errorf("redirect_uri is required"))
 	}
 	w.Header().Set("Content-Type", "text/html")
-	io.WriteString(w, `
+	_, err := io.WriteString(w, `
 		<!DOCTYPE html>
 		<html>
 		<head>
@@ -46,32 +46,27 @@ func AuthorizeNew(w http.ResponseWriter, r *http.Request) {
 		</body>
 		</html>
 	`)
+	return err
 }
 
-func AuthorizeCreate(w http.ResponseWriter, r *http.Request) {
+func AuthorizeCreate(env *activitypub.Env, w http.ResponseWriter, r *http.Request) error {
 	username := r.FormValue("username")
 	password := r.PostFormValue("password")
 	redirectURI := r.PostFormValue("redirect_uri")
 	clientID := r.PostFormValue("client_id")
-	db, _ := r.Context().Value("DB").(*gorm.DB)
 
 	var app models.Application
-	if err := db.Where("client_id = ?", clientID).First(&app).Error; err != nil {
-		fmt.Println("failed to find application", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	if err := env.DB.Where("client_id = ?", clientID).First(&app).Error; err != nil {
+		return httpx.Error(http.StatusBadRequest, fmt.Errorf("failed to find application: %v", err))
 	}
 
 	var account models.Account
-	if err := db.Joins("Actor").First(&account, "name = ? and domain = ?", username, r.Host).Error; err != nil {
-		fmt.Println("failed to find account", err)
-		http.Error(w, "invalid username", http.StatusUnauthorized)
-		return
+	if err := env.DB.Joins("Actor").First(&account, "name = ? and domain = ?", username, r.Host).Error; err != nil {
+		return httpx.Error(http.StatusUnauthorized, fmt.Errorf("invalid username"))
 	}
 
 	if err := bcrypt.CompareHashAndPassword(account.EncryptedPassword, []byte(password)); err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return httpx.Error(http.StatusUnauthorized, fmt.Errorf("invalid password"))
 	}
 
 	token := &models.Token{
@@ -82,20 +77,18 @@ func AuthorizeCreate(w http.ResponseWriter, r *http.Request) {
 		Scope:             "read write follow push",
 		AuthorizationCode: uuid.New().String(),
 	}
-	if err := db.Create(token).Error; err != nil {
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
+	if err := env.DB.Create(token).Error; err != nil {
+		return err
 	}
 
 	if redirectURI == "" {
 		redirectURI = app.RedirectURI
 	}
 
-	w.Header().Set("Location", redirectURI+"?code="+token.AuthorizationCode)
-	w.WriteHeader(302)
+	return httpx.Redirect(w, redirectURI+"?code="+token.AuthorizationCode)
 }
 
-func TokenCreate(w http.ResponseWriter, r *http.Request) {
+func TokenCreate(env *activitypub.Env, w http.ResponseWriter, r *http.Request) error {
 	var params struct {
 		ClientID     string `json:"client_id"`
 		ClientSecret string `json:"client_secret"`
@@ -123,36 +116,28 @@ func TokenCreate(w http.ResponseWriter, r *http.Request) {
 			if err := json.UnmarshalFull(r.Body, &params); err != nil {
 				buf, _ := httputil.DumpRequest(r, false)
 				fmt.Println(string(buf))
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
+				return httpx.Error(http.StatusBadRequest, fmt.Errorf("failed to parse request body: %w", err))
 			}
 		}
 	default:
 		buf, _ := httputil.DumpRequest(r, true)
 		fmt.Println(string(buf))
-		http.Error(w, "unsupported media type", http.StatusUnsupportedMediaType)
-		return
+		return httpx.Error(http.StatusUnsupportedMediaType, fmt.Errorf("unsupported media type"))
 	}
-	db, _ := r.Context().Value("DB").(*gorm.DB)
 	var token models.Token
-	if err := db.Where("authorization_code = ?", params.Code).First(&token).Error; err != nil {
-		http.Error(w, fmt.Sprintf("token with code %s not found", params.Code), http.StatusUnauthorized)
-		return
+	if err := env.DB.Where("authorization_code = ?", params.Code).First(&token).Error; err != nil {
+		return httpx.Error(http.StatusUnauthorized, fmt.Errorf("token with code %s not found", params.Code))
 	}
 	var app models.Application
-	if err := db.Where("client_id = ?", params.ClientID).First(&app).Error; err != nil {
-		fmt.Println("failed to find application", err)
-		http.Error(w, "invalid client_id", http.StatusBadRequest)
-		return
+	if err := env.DB.Where("client_id = ?", params.ClientID).First(&app).Error; err != nil {
+		return httpx.Error(http.StatusBadRequest, fmt.Errorf("failed to find application: %w", err))
 	}
 
 	if token.ApplicationID != app.ID {
 		log.Println("client_id mismatch", token.ApplicationID, app.ID)
-		http.Error(w, "invalid client_id", http.StatusUnauthorized)
-		return
+		return httpx.Error(http.StatusUnauthorized, fmt.Errorf("client_id mismatch"))
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.MarshalFull(w, map[string]any{
+	return to.JSON(w, map[string]any{
 		"access_token": token.AccessToken,
 		"token_type":   token.TokenType,
 		"scope":        token.Scope,
@@ -160,7 +145,7 @@ func TokenCreate(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func TokenDestroy(w http.ResponseWriter, r *http.Request) {
+func TokenDestroy(env *activitypub.Env, w http.ResponseWriter, r *http.Request) error {
 	var params struct {
 		ClientID     string `json:"client_id"`
 		ClientSecret string `json:"client_secret"`
@@ -173,23 +158,19 @@ func TokenDestroy(w http.ResponseWriter, r *http.Request) {
 		params.Token = r.FormValue("token")
 	case "application/json":
 		if err := json.UnmarshalFull(r.Body, &params); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+			return httpx.Error(http.StatusBadRequest, fmt.Errorf("failed to parse request body: %w", err))
 		}
 	default:
-		http.Error(w, "unsupported media type", http.StatusUnsupportedMediaType)
-		return
+		return httpx.Error(http.StatusUnsupportedMediaType, fmt.Errorf("unsupported media type"))
 	}
 	fmt.Println("params", params)
-	db, _ := r.Context().Value("DB").(*gorm.DB)
 	var token models.Token
-	if err := db.Where("access_token = ?", params.Token).First(&token).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
+	if err := env.DB.Where("access_token = ?", params.Token).First(&token).Error; err != nil {
+		return httpx.Error(http.StatusUnauthorized, fmt.Errorf("token not found"))
 	}
-	if err := db.Delete(&token).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if err := env.DB.Delete(&token).Error; err != nil {
+		return httpx.Error(http.StatusInternalServerError, fmt.Errorf("failed to delete token: %w", err))
 	}
 	w.WriteHeader(200)
+	return nil
 }

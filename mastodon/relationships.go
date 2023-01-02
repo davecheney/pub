@@ -4,76 +4,75 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/davecheney/pub/internal/to"
 	"github.com/go-chi/chi/v5"
+	"gorm.io/gorm"
 )
 
-type Relationships struct {
-	service *Service
-}
-
-func (r *Relationships) Show(w http.ResponseWriter, req *http.Request) {
-	user, err := r.service.authenticate(req)
+func RelationshipsShow(env *Env, w http.ResponseWriter, req *http.Request) error {
+	user, err := env.authenticate(req)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
 	targets := req.URL.Query()["id"]
 	targets = append(targets, req.URL.Query()["id[]"]...)
-	resp := []any{} // ensure we return an array
+	var resp []any
 	for _, target := range targets {
 		id, err := strconv.ParseUint(target, 10, 64)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+			return httpx.Error(http.StatusBadRequest, err)
 		}
 		tid := snowflake.ID(id)
 		var rel models.Relationship
-		if err := r.service.db.Preload("Target").FirstOrCreate(&rel, models.Relationship{ActorID: user.Actor.ID, TargetID: tid}).Error; err != nil {
-			http.Error(w, err.Error(), http.StatusNotFound)
-			return
+		if err := env.DB.Preload("Target").FirstOrCreate(&rel, models.Relationship{ActorID: user.Actor.ID, TargetID: tid}).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return httpx.Error(http.StatusNotFound, err)
+			}
+			return err
 		}
 		resp = append(resp, serialiseRelationship(&rel))
 	}
-	to.JSON(w, resp)
+	return to.JSON(w, resp)
 }
 
-func (r *Relationships) Create(w http.ResponseWriter, req *http.Request) {
-	user, err := r.service.authenticate(req)
+func RelationshipsCreate(env *Env, w http.ResponseWriter, req *http.Request) error {
+	user, err := env.authenticate(req)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
 	var target models.Actor
-	if err := r.service.db.First(&target, chi.URLParam(req, "id")).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
+	if err := env.DB.First(&target, chi.URLParam(req, "id")).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return httpx.Error(http.StatusNotFound, err)
+		}
+		return err
 	}
-	rel, err := models.NewRelationships(r.service.db).Follow(user.Actor, &target)
+	rel, err := models.NewRelationships(env.DB).Follow(user.Actor, &target)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
+
 	}
-	to.JSON(w, serialiseRelationship(rel))
+	return to.JSON(w, serialiseRelationship(rel))
 }
 
-func (r *Relationships) Destroy(w http.ResponseWriter, req *http.Request) {
-	user, err := r.service.authenticate(req)
+func RelationshipsDestroy(env *Env, w http.ResponseWriter, req *http.Request) error {
+	user, err := env.authenticate(req)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
 	var target models.Actor
-	if err := r.service.db.First(&target, chi.URLParam(req, "id")).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
+	if err := env.DB.First(&target, chi.URLParam(req, "id")).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return httpx.Error(http.StatusNotFound, err)
+		}
+		return err
 	}
-	rel, err := models.NewRelationships(r.service.db).Unfollow(user.Actor, &target)
+	rel, err := models.NewRelationships(env.DB).Unfollow(user.Actor, &target)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
-	to.JSON(w, serialiseRelationship(rel))
+	return to.JSON(w, serialiseRelationship(rel))
 }

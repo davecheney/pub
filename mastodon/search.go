@@ -7,14 +7,13 @@ import (
 	"strings"
 
 	"github.com/davecheney/pub/activitypub"
+	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/to"
 	"github.com/davecheney/pub/internal/webfinger"
-	"github.com/go-json-experiment/json"
-	"gorm.io/gorm"
 )
 
-func SearchIndex(w http.ResponseWriter, r *http.Request) {
+func SearchIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	q := r.URL.Query().Get("q")
 	typ := r.URL.Query().Get("type")
 	if strings.Contains(q, "@") {
@@ -22,18 +21,17 @@ func SearchIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	switch typ {
 	case "accounts":
-		searchAccounts(w, r, q)
+		return searchAccounts(env, w, r, q)
 	// case "hashtags":
 	// 	s.searchHashtags(w, r, q)
 	default:
-		searchStatuses(w, r, q)
+		return searchStatuses(env, w, r, q)
 	}
 }
 
-func searchAccounts(w http.ResponseWriter, r *http.Request, q string) {
+func searchAccounts(env *Env, w http.ResponseWriter, r *http.Request, q string) error {
 	var actor *models.Actor
 	var err error
-	db, _ := r.Context().Value("DB").(*gorm.DB)
 	switch r.URL.Query().Get("resolve") == "true" {
 	case true:
 		// true to fix up search query
@@ -41,8 +39,7 @@ func searchAccounts(w http.ResponseWriter, r *http.Request, q string) {
 		case strings.HasPrefix(q, "https://"):
 			u, err := url.Parse(q)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
+				return httpx.Error(http.StatusBadRequest, err)
 			}
 			user := strings.TrimPrefix(u.Path[1:], "@")
 			q = "acct:" + user + "@" + u.Host
@@ -52,36 +49,31 @@ func searchAccounts(w http.ResponseWriter, r *http.Request, q string) {
 			acct, err := webfinger.Parse(q)
 			if err != nil {
 				fmt.Println("webfinger.Parse", err)
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
+				return httpx.Error(http.StatusBadRequest, err)
 			}
 			wf, err := acct.Fetch(r.Context())
 			if err != nil {
 				fmt.Println("acct.Fetch", acct, wf, err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
+				return httpx.Error(http.StatusBadRequest, err)
 			}
 			q, err = wf.ActivityPub()
 			if err != nil {
 				fmt.Println("wf.ActivityPub", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
+				return httpx.Error(http.StatusBadRequest, err)
 			}
 		}
 		// find admin of this request's domain
 		var instance models.Instance
-		if err := db.Joins("Admin").Preload("Admin.Actor").Where("domain = ?", r.Host).First(&instance).Error; err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+		if err := env.DB.Joins("Admin").Preload("Admin.Actor").Where("domain = ?", r.Host).First(&instance).Error; err != nil {
+			return httpx.Error(http.StatusInternalServerError, err)
 		}
-		fetcher := activitypub.NewRemoteActorFetcher(instance.Admin, db)
-		actor, err = models.NewActors(db).FindOrCreate(q, fetcher.Fetch)
+		fetcher := activitypub.NewRemoteActorFetcher(instance.Admin, env.DB)
+		actor, err = models.NewActors(env.DB).FindOrCreate(q, fetcher.Fetch)
 	default:
-		actor, err = models.NewActors(db).FindByURI(q)
+		actor, err = models.NewActors(env.DB).FindByURI(q)
 	}
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return httpx.Error(http.StatusInternalServerError, err)
 	}
 
 	var resp = map[string]any{
@@ -91,29 +83,26 @@ func searchAccounts(w http.ResponseWriter, r *http.Request, q string) {
 		"hashtags": []any{},
 		"statuses": []any{},
 	}
-	to.JSON(w, resp)
+	return to.JSON(w, resp)
 }
 
-func searchStatuses(w http.ResponseWriter, r *http.Request, q string) {
+func searchStatuses(env *Env, w http.ResponseWriter, r *http.Request, q string) error {
 	var status *models.Status
 	var err error
-	db, _ := r.Context().Value("DB").(*gorm.DB)
 	switch r.URL.Query().Get("resolve") == "true" {
 	case true:
 		// find admin of this request's domain
 		var instance models.Instance
-		if err := db.Joins("Admin").Preload("Admin.Actor").Where("domain = ?", r.Host).First(&instance).Error; err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+		if err := env.DB.Joins("Admin").Preload("Admin.Actor").Where("domain = ?", r.Host).First(&instance).Error; err != nil {
+			return httpx.Error(http.StatusInternalServerError, err)
 		}
-		fetcher := activitypub.NewRemoteStatusFetcher(instance.Admin, db)
-		status, err = models.NewStatuses(db).FindOrCreate(q, fetcher.Fetch)
+		fetcher := activitypub.NewRemoteStatusFetcher(instance.Admin, env.DB)
+		status, err = models.NewStatuses(env.DB).FindOrCreate(q, fetcher.Fetch)
 	default:
-		status, err = models.NewStatuses(db).FindByURI(q)
+		status, err = models.NewStatuses(env.DB).FindByURI(q)
 	}
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return httpx.Error(http.StatusInternalServerError, err)
 	}
 	var resp = map[string]any{
 		"accounts": []any{},
@@ -122,12 +111,5 @@ func searchStatuses(w http.ResponseWriter, r *http.Request, q string) {
 			serialiseStatus(status),
 		},
 	}
-	to.JSON(w, resp)
-}
-
-func marshalIndent(v any) ([]byte, error) {
-	b, err := json.MarshalOptions{}.Marshal(json.EncodeOptions{
-		Indent: "\t", // indent for readability
-	}, v)
-	return b, err
+	return to.JSON(w, resp)
 }

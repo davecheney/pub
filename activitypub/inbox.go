@@ -18,18 +18,18 @@ func InboxCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var instance models.Instance
 	if err := env.DB.Joins("Admin").Preload("Admin.Actor").First(&instance, "domain = ?", r.Host).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return httpx.StatusError{Code: 404, Err: err}
+			return httpx.Error(http.StatusNotFound, err)
 		}
 		return err
 	}
 
 	if err := validateSignature(env, r); err != nil {
-		fmt.Println("validateSignature failed", err)
+		return httpx.Error(http.StatusUnauthorized, err)
 	}
 
 	var body map[string]any
 	if err := json.UnmarshalFull(r.Body, &body); err != nil {
-		return httpx.StatusError{Code: 400, Err: err}
+		return httpx.Error(http.StatusBadRequest, err)
 	}
 
 	// if we need to make an activity pub request, we need to sign it with the
