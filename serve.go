@@ -13,12 +13,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/davecheney/m/activitypub"
-	"github.com/davecheney/m/internal/group"
-	"github.com/davecheney/m/internal/models"
-	"github.com/davecheney/m/mastodon"
-	"github.com/davecheney/m/oauth"
-	"github.com/davecheney/m/wellknown"
+	"github.com/davecheney/pub/activitypub"
+	"github.com/davecheney/pub/internal/group"
+	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/mastodon"
+	"github.com/davecheney/pub/oauth"
+	"github.com/davecheney/pub/wellknown"
 	"gorm.io/gorm"
 
 	"github.com/go-chi/chi/v5"

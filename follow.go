@@ -7,8 +7,8 @@ import (
 	"path"
 
 	"github.com/carlmjohnson/requests"
-	"github.com/davecheney/m/internal/activitypub"
-	"github.com/davecheney/m/internal/models"
+	"github.com/davecheney/pub/internal/activitypub"
+	"github.com/davecheney/pub/internal/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )

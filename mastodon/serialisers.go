@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/davecheney/m/internal/models"
-	"github.com/davecheney/m/internal/snowflake"
+	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/snowflake"
 )
 
 // serialisers for various mastodon API responses.

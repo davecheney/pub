@@ -5,9 +5,9 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/davecheney/m/internal/activitypub"
-	"github.com/davecheney/m/internal/models"
-	"github.com/davecheney/m/internal/snowflake"
+	"github.com/davecheney/pub/internal/activitypub"
+	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/snowflake"
 	"gorm.io/gorm"
 )
 

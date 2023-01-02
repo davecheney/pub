@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/davecheney/m/internal/models"
-	"github.com/davecheney/m/internal/webfinger"
+	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/webfinger"
 	"github.com/go-json-experiment/json"
 )
 

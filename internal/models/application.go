@@ -1,6 +1,6 @@
 package models
 
-import "github.com/davecheney/m/internal/snowflake"
+import "github.com/davecheney/pub/internal/snowflake"
 
 // An Application is a registered client application.
 // An Application belongs to an Instance.

@@ -6,9 +6,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/davecheney/m/activitypub"
-	"github.com/davecheney/m/internal/models"
-	"github.com/davecheney/m/internal/webfinger"
+	"github.com/davecheney/pub/activitypub"
+	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/webfinger"
 	"github.com/go-json-experiment/json"
 )
 

@@ -3,9 +3,9 @@ package mastodon
 import (
 	"net/http"
 
-	"github.com/davecheney/m/internal/mime"
-	"github.com/davecheney/m/internal/models"
-	"github.com/davecheney/m/internal/snowflake"
+	"github.com/davecheney/pub/internal/mime"
+	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/go-json-experiment/json"
 	"github.com/google/uuid"
 )

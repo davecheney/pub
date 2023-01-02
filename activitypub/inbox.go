@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/davecheney/m/internal/models"
-	"github.com/davecheney/m/internal/snowflake"
+	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/go-fed/httpsig"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"

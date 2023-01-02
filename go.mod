@@ -1,4 +1,4 @@
-module github.com/davecheney/m
+module github.com/davecheney/pub
 
 go 1.20
 

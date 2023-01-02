@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davecheney/m/internal/models"
+	"github.com/davecheney/pub/internal/models"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 )

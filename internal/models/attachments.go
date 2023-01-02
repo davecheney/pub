@@ -1,6 +1,6 @@
 package models
 
-import "github.com/davecheney/m/internal/snowflake"
+import "github.com/davecheney/pub/internal/snowflake"
 
 type Attachment struct {
 	snowflake.ID `gorm:"primarykey;autoIncrement:false"`

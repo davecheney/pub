@@ -3,7 +3,7 @@ package mastodon
 import (
 	"net/http"
 
-	"github.com/davecheney/m/internal/models"
+	"github.com/davecheney/pub/internal/models"
 	"gorm.io/gorm"
 )
 

@@ -60,7 +60,7 @@ linters:
 
 linters-settings:
   gofumpt:
-    module-path: github.com/davecheney/m
+    module-path: github.com/davecheney/pub
   gosec:
     excludes:
     - G112 # Potential slowloris attack

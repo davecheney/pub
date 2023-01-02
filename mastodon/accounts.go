@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/davecheney/m/internal/models"
+	"github.com/davecheney/pub/internal/models"
 	"github.com/go-chi/chi/v5"
 )
 

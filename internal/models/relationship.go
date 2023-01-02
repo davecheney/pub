@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/davecheney/m/internal/snowflake"
+	"github.com/davecheney/pub/internal/snowflake"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

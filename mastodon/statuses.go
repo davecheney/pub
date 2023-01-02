@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/davecheney/m/internal/models"
-	"github.com/davecheney/m/internal/snowflake"
+	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"

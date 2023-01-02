@@ -3,7 +3,7 @@ package models
 import (
 	"time"
 
-	"github.com/davecheney/m/internal/snowflake"
+	"github.com/davecheney/pub/internal/snowflake"
 )
 
 // A Token is an access token for an Application.

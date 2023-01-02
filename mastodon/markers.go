@@ -5,7 +5,7 @@ import (
 	"net/http/httputil"
 	"strconv"
 
-	"github.com/davecheney/m/internal/models"
+	"github.com/davecheney/pub/internal/models"
 )
 
 type Markers struct {

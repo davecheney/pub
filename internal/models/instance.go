@@ -3,7 +3,7 @@ package models
 import (
 	"time"
 
-	"github.com/davecheney/m/internal/snowflake"
+	"github.com/davecheney/pub/internal/snowflake"
 	"gorm.io/gorm"
 )
 

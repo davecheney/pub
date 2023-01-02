@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/davecheney/m/internal/activitypub"
-	"github.com/davecheney/m/internal/models"
+	"github.com/davecheney/pub/internal/activitypub"
+	"github.com/davecheney/pub/internal/models"
 	"gorm.io/gorm"
 )
 
