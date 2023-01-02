@@ -11,19 +11,10 @@ import (
 	"github.com/davecheney/pub/internal/to"
 	"github.com/davecheney/pub/internal/webfinger"
 	"github.com/go-json-experiment/json"
+	"gorm.io/gorm"
 )
 
-type Search struct {
-	service *Service
-}
-
-func (s *Search) Index(w http.ResponseWriter, r *http.Request) {
-	_, err := s.service.authenticate(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
+func SearchIndex(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	typ := r.URL.Query().Get("type")
 	if strings.Contains(q, "@") {
@@ -31,17 +22,18 @@ func (s *Search) Index(w http.ResponseWriter, r *http.Request) {
 	}
 	switch typ {
 	case "accounts":
-		s.searchAccounts(w, r, q)
+		searchAccounts(w, r, q)
 	// case "hashtags":
 	// 	s.searchHashtags(w, r, q)
 	default:
-		s.searchStatuses(w, r, q)
+		searchStatuses(w, r, q)
 	}
 }
 
-func (s *Search) searchAccounts(w http.ResponseWriter, r *http.Request, q string) {
+func searchAccounts(w http.ResponseWriter, r *http.Request, q string) {
 	var actor *models.Actor
 	var err error
+	db, _ := r.Context().Value("DB").(*gorm.DB)
 	switch r.URL.Query().Get("resolve") == "true" {
 	case true:
 		// true to fix up search query
@@ -78,14 +70,14 @@ func (s *Search) searchAccounts(w http.ResponseWriter, r *http.Request, q string
 		}
 		// find admin of this request's domain
 		var instance models.Instance
-		if err := s.service.db.Joins("Admin").Preload("Admin.Actor").Where("domain = ?", r.Host).First(&instance).Error; err != nil {
+		if err := db.Joins("Admin").Preload("Admin.Actor").Where("domain = ?", r.Host).First(&instance).Error; err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		fetcher := activitypub.NewRemoteActorFetcher(instance.Admin, s.service.db)
-		actor, err = models.NewActors(s.service.db).FindOrCreate(q, fetcher.Fetch)
+		fetcher := activitypub.NewRemoteActorFetcher(instance.Admin, db)
+		actor, err = models.NewActors(db).FindOrCreate(q, fetcher.Fetch)
 	default:
-		actor, err = models.NewActors(s.service.db).FindByURI(q)
+		actor, err = models.NewActors(db).FindByURI(q)
 	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -102,21 +94,22 @@ func (s *Search) searchAccounts(w http.ResponseWriter, r *http.Request, q string
 	to.JSON(w, resp)
 }
 
-func (s *Search) searchStatuses(w http.ResponseWriter, r *http.Request, q string) {
+func searchStatuses(w http.ResponseWriter, r *http.Request, q string) {
 	var status *models.Status
 	var err error
+	db, _ := r.Context().Value("DB").(*gorm.DB)
 	switch r.URL.Query().Get("resolve") == "true" {
 	case true:
 		// find admin of this request's domain
 		var instance models.Instance
-		if err := s.service.db.Joins("Admin").Preload("Admin.Actor").Where("domain = ?", r.Host).First(&instance).Error; err != nil {
+		if err := db.Joins("Admin").Preload("Admin.Actor").Where("domain = ?", r.Host).First(&instance).Error; err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		fetcher := activitypub.NewRemoteStatusFetcher(instance.Admin, s.service.db)
-		status, err = models.NewStatuses(s.service.db).FindOrCreate(q, fetcher.Fetch)
+		fetcher := activitypub.NewRemoteStatusFetcher(instance.Admin, db)
+		status, err = models.NewStatuses(db).FindOrCreate(q, fetcher.Fetch)
 	default:
-		status, err = models.NewStatuses(s.service.db).FindByURI(q)
+		status, err = models.NewStatuses(db).FindByURI(q)
 	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

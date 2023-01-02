@@ -50,8 +50,12 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	r.Use(setDBMiddleware(db))
 
 	r.Route("/api", func(r chi.Router) {
+		instance := mastodon.NewService(db).Instances()
+		r.Route("/v2", func(r chi.Router) {
+			r.Get("/instance", instance.IndexV2)
+			r.Get("/search", mastodon.SearchIndex)
+		})
 		mastodon := mastodon.NewService(db)
-		instance := mastodon.Instances()
 		r.Route("/v1", func(r chi.Router) {
 			r.Post("/apps", mastodon.Applications().Create)
 			r.Route("/accounts", func(r chi.Router) {
@@ -109,12 +113,9 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			})
 
 		})
-		r.Route("/v2", func(r chi.Router) {
-			r.Get("/instance", instance.IndexV2)
-			r.Get("/search", mastodon.Search().Index)
-		})
+
 		r.Route("/nodeinfo", func(r chi.Router) {
-			r.Get("/2.0", wellknown.NewService(db).NodeInfo().Show)
+			r.Get("/2.0", wellknown.NodeInfoShow)
 		})
 	})
 
@@ -152,10 +153,9 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	})
 
 	r.Route("/.well-known", func(r chi.Router) {
-		wellknown := wellknown.NewService(db)
-		r.Get("/webfinger", wellknown.Webfinger().Show)
-		r.Get("/host-meta", wellknown.HostMeta)
-		r.Get("/nodeinfo", wellknown.NodeInfo().Index)
+		r.Get("/webfinger", wellknown.WebfingerShow)
+		r.Get("/host-meta", wellknown.HostMetaIndex)
+		r.Get("/nodeinfo", wellknown.NodeInfoIndex)
 	})
 
 	if s.DebugPrintRoutes {

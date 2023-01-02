@@ -150,11 +150,10 @@ func serialiseRelationship(rel *models.Relationship) *Relationship {
 		Note: func() string {
 			// FirstOrCreate won't preload the Target
 			// so it will be zero. :(
-			if rel.Target != nil {
-				return rel.Target.Note
-			} else {
+			if rel.Target == nil {
 				return ""
 			}
+			return rel.Target.Note
 		}(),
 	}
 }

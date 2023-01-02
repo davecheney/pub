@@ -112,12 +112,6 @@ func (s *Service) Relationships() *Relationships {
 	}
 }
 
-func (s *Service) Search() *Search {
-	return &Search{
-		service: s,
-	}
-}
-
 func (s *Service) Statuses() *Statuses {
 	return &Statuses{
 		service: s,

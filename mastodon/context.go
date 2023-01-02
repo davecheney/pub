@@ -3,6 +3,7 @@ package mastodon
 import (
 	"net/http"
 
+	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/davecheney/pub/internal/to"
@@ -39,20 +40,8 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 		Ancestors   []map[string]any `json:"ancestors"`
 		Descendants []map[string]any `json:"descendants"`
 	}{
-		Ancestors: func() []map[string]interface{} {
-			a := make([]map[string]interface{}, 0) // make sure we return an empty array, not null
-			for _, s := range ancestors {
-				a = append(a, serialiseStatus(s))
-			}
-			return a
-		}(),
-		Descendants: func() []map[string]interface{} {
-			a := make([]map[string]interface{}, 0) // make sure we return an empty array, not null
-			for _, s := range decendants {
-				a = append(a, serialiseStatus(s))
-			}
-			return a
-		}(),
+		Ancestors:   algorithms.Map(ancestors, serialiseStatus),
+		Descendants: algorithms.Map(decendants, serialiseStatus),
 	})
 }
 

@@ -40,3 +40,15 @@ func TestToJSONReturnsEmptyObjectForNilMap(t *testing.T) {
 	require.NoError(err)
 	require.Equal("{}", out.String())
 }
+
+func TestToJOSNReturnsAnEmptyArrayForKeyWithNilSlice(t *testing.T) {
+	require := require.New(t)
+
+	m := map[string]interface{}{
+		"foo": []string(nil),
+	}
+	var out mockResponseWriter
+	err := to.JSON(&out, m)
+	require.NoError(err)
+	require.Equal("{\n  \"foo\": []\n}", out.String())
+}

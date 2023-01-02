@@ -5,28 +5,25 @@ import (
 	"net/http"
 
 	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/to"
 	"github.com/davecheney/pub/internal/webfinger"
-	"github.com/go-json-experiment/json"
+	"gorm.io/gorm"
 )
 
-type Webfinger struct {
-	service *Service
-}
-
-func (w *Webfinger) Show(rw http.ResponseWriter, r *http.Request) {
+func WebfingerShow(rw http.ResponseWriter, r *http.Request) {
 	acct, err := webfinger.Parse(r.URL.Query().Get("resource"))
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
+	db, _ := r.Context().Value("DB").(*gorm.DB)
 	var actor models.Actor
-	if err := w.service.db.First(&actor, "name = ? AND domain = ?", acct.User, r.Host).Error; err != nil {
+	if err := db.First(&actor, "name = ? AND domain = ?", acct.User, r.Host).Error; err != nil {
 		http.Error(rw, err.Error(), http.StatusNotFound)
 		return
 	}
 	self := acct.ID()
-	rw.Header().Set("Content-Type", "application/jrd+json")
-	json.MarshalFull(rw, map[string]any{
+	to.JSON(rw, map[string]any{
 		"subject": acct.String(),
 		"aliases": []string{
 			fmt.Sprintf("https://%s/@%s", actor.Domain, actor.Name),

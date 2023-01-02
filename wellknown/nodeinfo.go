@@ -6,13 +6,10 @@ import (
 
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/to"
+	"gorm.io/gorm"
 )
 
-type NodeInfo struct {
-	service *Service
-}
-
-func (ni *NodeInfo) Index(rw http.ResponseWriter, r *http.Request) {
+func NodeInfoIndex(rw http.ResponseWriter, r *http.Request) {
 	to.JSON(rw, map[string]any{
 		"links": []map[string]any{
 			{
@@ -23,9 +20,10 @@ func (ni *NodeInfo) Index(rw http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (ni *NodeInfo) Show(w http.ResponseWriter, r *http.Request) {
+func NodeInfoShow(w http.ResponseWriter, r *http.Request) {
+	db, _ := r.Context().Value("DB").(*gorm.DB)
 	var instance models.Instance
-	if err := ni.service.db.Where("domain = ?", r.Host).First(&instance).Error; err != nil {
+	if err := db.Where("domain = ?", r.Host).First(&instance).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
