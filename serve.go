@@ -2,11 +2,9 @@ package main
 
 import (
 	"context"
-	"crypto"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"os/signal"
 	"strings"
@@ -15,7 +13,7 @@ import (
 
 	"github.com/davecheney/pub/activitypub"
 	"github.com/davecheney/pub/internal/group"
-	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/mastodon"
 	"github.com/davecheney/pub/oauth"
 	"github.com/davecheney/pub/wellknown"
@@ -84,6 +82,11 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Post("/lists/{id}/accounts", m.Lists().AddMembers)
 			r.Delete("/lists/{id}/accounts", m.Lists().RemoveMembers)
 			r.Get("/instance", instance.IndexV1)
+			r.Options("/instance", func(w http.ResponseWriter, r *http.Request) {
+				x, _ := httputil.DumpRequest(r, true)
+				fmt.Println(string(x))
+				w.WriteHeader(http.StatusOK)
+			})
 			r.Get("/instance/", instance.IndexV1) // sigh
 			r.Get("/instance/peers", mastodon.InstancesPeersShow)
 			r.Get("/instance/activity", instance.ActivityShow)
@@ -117,21 +120,10 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		})
 	})
 
-	ap := activitypub.NewService(db)
-	getKey := func(keyID string) (crypto.PublicKey, error) {
-		actorId := trimKeyId(keyID)
-		var instance models.Instance
-		if err := db.Joins("Admin").Preload("Admin.Actor").First(&instance, "admin_id is not null").Error; err != nil {
-			return nil, err
-		}
-		fetcher := activitypub.NewRemoteActorFetcher(instance.Admin, db)
-		actor, err := models.NewActors(db).FindOrCreate(actorId, fetcher.Fetch)
-		if err != nil {
-			return nil, err
-		}
-		return pemToPublicKey(actor.PublicKey)
+	env := &activitypub.Env{
+		DB: db,
 	}
-	r.Post("/inbox", ap.Inboxes(getKey).Create)
+	r.Post("/inbox", httpx.HandlerFunc(env, activitypub.InboxCreate))
 
 	r.Route("/oauth", func(r chi.Router) {
 		r.Get("/authorize", oauth.AuthorizeNew)
@@ -142,11 +134,11 @@ func (s *ServeCmd) Run(ctx *Context) error {
 
 	r.Route("/u/{username}", func(r chi.Router) {
 		r.Get("/", activitypub.UsersShow)
-		r.Post("/inbox", ap.Inboxes(getKey).Create)
+		r.Post("/inbox", httpx.HandlerFunc(env, activitypub.InboxCreate))
 		r.Get("/outbox", activitypub.OutboxIndex)
 		r.Get("/followers", activitypub.FollowersIndex)
 		r.Get("/following", activitypub.FollowingIndex)
-		r.Get("/collections/{collection}", ap.Collections().Show)
+		r.Get("/collections/{collection}", activitypub.CollectionsShow)
 	})
 
 	r.Route("/.well-known", func(r chi.Router) {
@@ -185,33 +177,10 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		}()
 		return svr.ListenAndServe()
 	})
-	relrp := activitypub.NewRelationshipRequestProcessor(db)
-	g.Add(relrp.Run)
-	reacrp := activitypub.NewReactionRequestProcessor(db)
-	g.Add(reacrp.Run)
+	g.Add(activitypub.NewRelationshipRequestProcessor(db).Run)
+	g.Add(activitypub.NewReactionRequestProcessor(db).Run)
 
 	return g.Wait()
-}
-
-func pemToPublicKey(key []byte) (crypto.PublicKey, error) {
-	block, _ := pem.Decode(key)
-	if block.Type != "PUBLIC KEY" {
-		return nil, fmt.Errorf("pemToPublicKey: invalid pem type: %s", block.Type)
-	}
-	var publicKey interface{}
-	var err error
-	if publicKey, err = x509.ParsePKIXPublicKey(block.Bytes); err != nil {
-		return nil, fmt.Errorf("pemToPublicKey: parsepkixpublickey: %w", err)
-	}
-	return publicKey, nil
-}
-
-// trimKeyId removes the #main-key suffix from the key id.
-func trimKeyId(id string) string {
-	if i := strings.Index(id, "#"); i != -1 {
-		return id[:i]
-	}
-	return id
 }
 
 func configureDB(db *gorm.DB) error {

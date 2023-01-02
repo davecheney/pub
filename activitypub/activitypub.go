@@ -2,34 +2,59 @@ package activitypub
 
 import (
 	"crypto"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/to"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 )
 
-// Service represents the Service REST resource.
-type Service struct {
-	db *gorm.DB
+type Env struct {
+	// DB is the database connection.
+	DB *gorm.DB
 }
 
-func NewService(db *gorm.DB) *Service {
-	return &Service{
-		db: db,
+func (e *Env) GetKey(keyID string) (crypto.PublicKey, error) {
+	actorId := trimKeyId(keyID)
+	var instance models.Instance
+	if err := e.DB.Joins("Admin").Preload("Admin.Actor").First(&instance, "admin_id is not null").Error; err != nil {
+		return nil, err
 	}
+	fetcher := NewRemoteActorFetcher(instance.Admin, e.DB)
+	actor, err := models.NewActors(e.DB).FindOrCreate(actorId, fetcher.Fetch)
+	if err != nil {
+		return nil, err
+	}
+	return pemToPublicKey(actor.PublicKey)
 }
 
-func (s *Service) Collections() *Collections { return &Collections{service: s} }
-func (s *Service) Inboxes(getKey func(keyId string) (crypto.PublicKey, error)) *Inboxes {
-	return &Inboxes{
-		service: s,
-		getKey:  getKey,
+func pemToPublicKey(key []byte) (crypto.PublicKey, error) {
+	block, _ := pem.Decode(key)
+	if block.Type != "PUBLIC KEY" {
+		return nil, fmt.Errorf("pemToPublicKey: invalid pem type: %s", block.Type)
 	}
+	var publicKey interface{}
+	var err error
+	if publicKey, err = x509.ParsePKIXPublicKey(block.Bytes); err != nil {
+		return nil, fmt.Errorf("pemToPublicKey: parsepkixpublickey: %w", err)
+	}
+	return publicKey, nil
+}
+
+// trimKeyId removes the #main-key suffix from the key id.
+func trimKeyId(id string) string {
+	if i := strings.Index(id, "#"); i != -1 {
+		return id[:i]
+	}
+	return id
 }
 
 func FollowersIndex(w http.ResponseWriter, r *http.Request) {
@@ -52,11 +77,7 @@ func FollowingIndex(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-type Collections struct {
-	service *Service
-}
-
-func (f *Collections) Show(w http.ResponseWriter, r *http.Request) {
+func CollectionsShow(w http.ResponseWriter, r *http.Request) {
 	to.JSON(w, map[string]any{
 		"@context":     "https://www.w3.org/ns/activitystreams",
 		"id":           fmt.Sprintf("https://%s/users/%s/collections/%s", r.Host, chi.URLParam(r, "username"), chi.URLParam(r, "collection")),

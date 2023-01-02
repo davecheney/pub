@@ -136,11 +136,12 @@ func TokenCreate(w http.ResponseWriter, r *http.Request) {
 	db, _ := r.Context().Value("DB").(*gorm.DB)
 	var token models.Token
 	if err := db.Where("authorization_code = ?", params.Code).First(&token).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		http.Error(w, fmt.Sprintf("token with code %s not found", params.Code), http.StatusUnauthorized)
 		return
 	}
 	var app models.Application
 	if err := db.Where("client_id = ?", params.ClientID).First(&app).Error; err != nil {
+		fmt.Println("failed to find application", err)
 		http.Error(w, "invalid client_id", http.StatusBadRequest)
 		return
 	}
