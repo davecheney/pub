@@ -5,6 +5,7 @@ import (
 	"net/http/httputil"
 
 	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/to"
 )
 
 type Markers struct {
@@ -29,7 +30,7 @@ func (ms *Markers) Index(w http.ResponseWriter, r *http.Request) {
 	for _, marker := range markers {
 		resp[marker.Name] = seraliseMarker(&marker)
 	}
-	toJSON(w, resp)
+	to.JSON(w, resp)
 }
 
 func (ms *Markers) Create(w http.ResponseWriter, r *http.Request) {

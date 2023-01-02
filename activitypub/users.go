@@ -5,21 +5,20 @@ import (
 
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
+	"github.com/davecheney/pub/internal/to"
 	"github.com/go-chi/chi/v5"
+	"gorm.io/gorm"
 )
 
-type Users struct {
-	service *Service
-}
-
-func (u *Users) Show(w http.ResponseWriter, r *http.Request) {
+func UsersShow(w http.ResponseWriter, r *http.Request) {
+	db, _ := r.Context().Value("DB").(*gorm.DB)
 	username := chi.URLParam(r, "username")
 	var actor models.Actor
-	if err := u.service.db.First(&actor, "name = ? and domain = ?", username, r.Host).Error; err != nil {
+	if err := db.First(&actor, "name = ? and domain = ?", username, r.Host).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	toJSON(w, map[string]any{
+	to.JSON(w, map[string]any{
 		"@context": []any{
 			"https://www.w3.org/ns/activitystreams",
 			"https://w3id.org/security/v1",

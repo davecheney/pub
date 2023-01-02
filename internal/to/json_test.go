@@ -1,10 +1,11 @@
-package mastodon
+package to_test
 
 import (
 	"bytes"
 	"net/http"
 	"testing"
 
+	"github.com/davecheney/pub/internal/to"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,7 +26,7 @@ func TestToJSONReturnsEmptyArrayForNilSlice(t *testing.T) {
 
 	var s []string = nil
 	var out mockResponseWriter
-	err := toJSON(&out, s)
+	err := to.JSON(&out, s)
 	require.NoError(err)
 	require.Equal("[]", out.String())
 }
@@ -35,7 +36,7 @@ func TestToJSONReturnsEmptyObjectForNilMap(t *testing.T) {
 
 	var m map[string]string = nil
 	var out mockResponseWriter
-	err := toJSON(&out, m)
+	err := to.JSON(&out, m)
 	require.NoError(err)
 	require.Equal("{}", out.String())
 }

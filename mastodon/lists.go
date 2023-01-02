@@ -8,6 +8,7 @@ import (
 	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
+	"github.com/davecheney/pub/internal/to"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-json-experiment/json"
 )
@@ -29,7 +30,7 @@ func (l *Lists) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	toJSON(w, algorithms.Map(lists, serialiseList))
+	to.JSON(w, algorithms.Map(lists, serialiseList))
 }
 
 func (l *Lists) Show(w http.ResponseWriter, r *http.Request) {
@@ -44,7 +45,7 @@ func (l *Lists) Show(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	toJSON(w, serialiseList(&list))
+	to.JSON(w, serialiseList(&list))
 }
 
 func (l *Lists) ShowListMembership(w http.ResponseWriter, r *http.Request) {
@@ -67,7 +68,7 @@ func (l *Lists) ShowListMembership(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	toJSON(w, algorithms.Map(lists, serialiseList))
+	to.JSON(w, algorithms.Map(lists, serialiseList))
 }
 
 func (l *Lists) Create(w http.ResponseWriter, r *http.Request) {
@@ -104,7 +105,7 @@ func (l *Lists) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	toJSON(w, serialiseList(&list))
+	to.JSON(w, serialiseList(&list))
 }
 
 func (l *Lists) AddMembers(w http.ResponseWriter, r *http.Request) {
@@ -158,7 +159,7 @@ func (l *Lists) AddMembers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	toJSON(w, map[string]any{})
+	to.JSON(w, map[string]any{})
 }
 
 func (l *Lists) RemoveMembers(w http.ResponseWriter, r *http.Request) {
@@ -211,7 +212,7 @@ func (l *Lists) RemoveMembers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	toJSON(w, map[string]any{})
+	to.JSON(w, map[string]any{})
 }
 
 func (l *Lists) ViewMembers(w http.ResponseWriter, r *http.Request) {
@@ -227,7 +228,7 @@ func (l *Lists) ViewMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	toJSON(w, algorithms.Map(algorithms.Map(members, listMember), serialiseAccount))
+	to.JSON(w, algorithms.Map(algorithms.Map(members, listMember), serialiseAccount))
 }
 
 func listMember(list *models.AccountListMember) *models.Actor {

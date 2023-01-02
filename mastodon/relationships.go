@@ -6,6 +6,7 @@ import (
 
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
+	"github.com/davecheney/pub/internal/to"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -36,7 +37,7 @@ func (r *Relationships) Show(w http.ResponseWriter, req *http.Request) {
 		}
 		resp = append(resp, serialiseRelationship(&rel))
 	}
-	toJSON(w, resp)
+	to.JSON(w, resp)
 }
 
 func (r *Relationships) Create(w http.ResponseWriter, req *http.Request) {
@@ -55,7 +56,7 @@ func (r *Relationships) Create(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serialiseRelationship(rel))
+	to.JSON(w, serialiseRelationship(rel))
 }
 
 func (r *Relationships) Destroy(w http.ResponseWriter, req *http.Request) {
@@ -74,5 +75,5 @@ func (r *Relationships) Destroy(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serialiseRelationship(rel))
+	to.JSON(w, serialiseRelationship(rel))
 }

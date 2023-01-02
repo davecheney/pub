@@ -19,9 +19,10 @@ type Inboxes struct {
 }
 
 func (i *Inboxes) Create(w http.ResponseWriter, r *http.Request) {
+	db, _ := r.Context().Value("DB").(*gorm.DB)
 	// find the instance that this request is for.
 	var instance models.Instance
-	if err := i.service.db.Joins("Admin").Preload("Admin.Actor").First(&instance, "domain = ?", r.Host).Error; err != nil {
+	if err := db.Joins("Admin").Preload("Admin.Actor").First(&instance, "domain = ?", r.Host).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			http.Error(w, err.Error(), http.StatusBadRequest) // TODO better error
 			return

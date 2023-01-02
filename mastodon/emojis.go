@@ -2,6 +2,8 @@ package mastodon
 
 import (
 	"net/http"
+
+	"github.com/davecheney/pub/internal/to"
 )
 
 type Emojis struct {
@@ -9,5 +11,5 @@ type Emojis struct {
 }
 
 func (e *Emojis) Index(w http.ResponseWriter, r *http.Request) {
-	toJSON(w, []any{})
+	to.JSON(w, []any{})
 }

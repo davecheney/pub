@@ -7,6 +7,7 @@ import (
 
 	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/to"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -25,7 +26,7 @@ func (a *Accounts) Show(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	toJSON(w, serialiseAccount(&actor))
+	to.JSON(w, serialiseAccount(&actor))
 }
 
 func (a *Accounts) VerifyCredentials(w http.ResponseWriter, r *http.Request) {
@@ -34,7 +35,7 @@ func (a *Accounts) VerifyCredentials(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	toJSON(w, serialiseCredentialAccount(user))
+	to.JSON(w, serialiseCredentialAccount(user))
 }
 
 func (a *Accounts) StatusesShow(w http.ResponseWriter, r *http.Request) {
@@ -63,7 +64,7 @@ func (a *Accounts) StatusesShow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	toJSON(w, algorithms.Map(statuses, serialiseStatus))
+	to.JSON(w, algorithms.Map(statuses, serialiseStatus))
 }
 
 func (a *Accounts) FollowersShow(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +83,7 @@ func (a *Accounts) FollowersShow(w http.ResponseWriter, r *http.Request) {
 	if len(followers) > 0 {
 		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/accounts/%s/followers?max_id=%d>; rel=\"next\", <https://%s/api/v1/accounts/%s/followers?min_id=%d>; rel=\"prev\"", r.Host, chi.URLParam(r, "id"), followers[len(followers)-1].TargetID, r.Host, chi.URLParam(r, "id"), followers[0].TargetID))
 	}
-	toJSON(w, algorithms.Map(algorithms.Map(followers, relationshipTarget), serialiseAccount))
+	to.JSON(w, algorithms.Map(algorithms.Map(followers, relationshipTarget), serialiseAccount))
 }
 
 func relationshipTarget(rel *models.Relationship) *models.Actor {
@@ -105,7 +106,7 @@ func (a *Accounts) FollowingShow(w http.ResponseWriter, r *http.Request) {
 		// TODO don't send if we're at the end of the list
 		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/accounts/%s/following?max_id=%d>; rel=\"next\", <https://%s/api/v1/accounts/%s/following?min_id=%d>; rel=\"prev\"", r.Host, chi.URLParam(r, "id"), following[len(following)-1].TargetID, r.Host, chi.URLParam(r, "id"), following[0].TargetID))
 	}
-	toJSON(w, algorithms.Map(algorithms.Map(following, relationshipTarget), serialiseAccount))
+	to.JSON(w, algorithms.Map(algorithms.Map(following, relationshipTarget), serialiseAccount))
 }
 
 func (a *Accounts) Update(w http.ResponseWriter, r *http.Request) {
@@ -131,5 +132,5 @@ func (a *Accounts) Update(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serialiseAccount(account.Actor))
+	to.JSON(w, serialiseAccount(account.Actor))
 }

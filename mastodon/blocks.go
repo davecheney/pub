@@ -5,6 +5,7 @@ import (
 
 	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/to"
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 )
@@ -27,7 +28,7 @@ func (b *Blocks) Index(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	toJSON(w, algorithms.Map(algorithms.Map(blocks, relationshipTarget), serialiseAccount))
+	to.JSON(w, algorithms.Map(algorithms.Map(blocks, relationshipTarget), serialiseAccount))
 }
 
 func (b *Blocks) Create(w http.ResponseWriter, r *http.Request) {
@@ -46,7 +47,7 @@ func (b *Blocks) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serialiseRelationship(rel))
+	to.JSON(w, serialiseRelationship(rel))
 }
 
 func (b *Blocks) Destroy(w http.ResponseWriter, r *http.Request) {
@@ -65,5 +66,5 @@ func (b *Blocks) Destroy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serialiseRelationship(rel))
+	to.JSON(w, serialiseRelationship(rel))
 }

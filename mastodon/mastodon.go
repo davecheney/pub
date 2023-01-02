@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/davecheney/pub/internal/models"
-	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 )
 
@@ -140,17 +139,6 @@ func (s *Service) authenticate(r *http.Request) (*models.Account, error) {
 		return nil, err
 	}
 	return token.Account, nil
-}
-
-// toJSON writes the given object to the response body as JSON.
-// If obj is a nil slice, an empty JSON array is written.
-// If obj is a nil map, an empty JSON object is written.
-// If obj is a nil pointer, a null is written.
-func toJSON(w http.ResponseWriter, obj any) error {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	return json.MarshalOptions{}.MarshalFull(json.EncodeOptions{
-		Indent: "  ",
-	}, w, obj)
 }
 
 func stringOrDefault(s string, def string) string {

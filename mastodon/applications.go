@@ -6,6 +6,7 @@ import (
 	"github.com/davecheney/pub/internal/mime"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
+	"github.com/davecheney/pub/internal/to"
 	"github.com/go-json-experiment/json"
 	"github.com/google/uuid"
 )
@@ -58,7 +59,7 @@ func (a *Applications) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	toJSON(w, map[string]any{
+	to.JSON(w, map[string]any{
 		"id":            toString(app.ID),
 		"name":          app.Name,
 		"website":       app.Website,

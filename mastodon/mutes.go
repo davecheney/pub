@@ -5,6 +5,7 @@ import (
 
 	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/to"
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 )
@@ -30,7 +31,7 @@ func (svc *Mutes) Index(w http.ResponseWriter, r *http.Request) {
 	for _, a := range mutes {
 		resp = append(resp, serialiseAccount(a.Target))
 	}
-	toJSON(w, algorithms.Map(algorithms.Map(mutes, relationshipTarget), serialiseAccount))
+	to.JSON(w, algorithms.Map(algorithms.Map(mutes, relationshipTarget), serialiseAccount))
 }
 
 func (svc *Mutes) Create(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +50,7 @@ func (svc *Mutes) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serialiseRelationship(rel))
+	to.JSON(w, serialiseRelationship(rel))
 }
 
 func (svc *Mutes) Destroy(w http.ResponseWriter, r *http.Request) {
@@ -68,5 +69,5 @@ func (svc *Mutes) Destroy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serialiseRelationship(rel))
+	to.JSON(w, serialiseRelationship(rel))
 }

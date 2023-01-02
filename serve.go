@@ -143,11 +143,11 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	})
 
 	r.Route("/u/{username}", func(r chi.Router) {
-		r.Get("/", ap.Users().Show)
+		r.Get("/", activitypub.UsersShow)
 		r.Post("/inbox", ap.Inboxes(getKey).Create)
-		r.Get("/outbox", ap.Outboxes().Index)
-		r.Get("/followers", ap.Followers().Index)
-		r.Get("/following", ap.Following().Index)
+		r.Get("/outbox", activitypub.OutboxIndex)
+		r.Get("/followers", activitypub.FollowersIndex)
+		r.Get("/following", activitypub.FollowingIndex)
 		r.Get("/collections/{collection}", ap.Collections().Show)
 	})
 

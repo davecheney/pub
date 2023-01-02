@@ -8,6 +8,7 @@ import (
 
 	"github.com/davecheney/pub/activitypub"
 	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/to"
 	"github.com/davecheney/pub/internal/webfinger"
 	"github.com/go-json-experiment/json"
 )
@@ -98,7 +99,7 @@ func (s *Search) searchAccounts(w http.ResponseWriter, r *http.Request, q string
 		"hashtags": []any{},
 		"statuses": []any{},
 	}
-	toJSON(w, resp)
+	to.JSON(w, resp)
 }
 
 func (s *Search) searchStatuses(w http.ResponseWriter, r *http.Request, q string) {
@@ -128,7 +129,7 @@ func (s *Search) searchStatuses(w http.ResponseWriter, r *http.Request, q string
 			serialiseStatus(status),
 		},
 	}
-	toJSON(w, resp)
+	to.JSON(w, resp)
 }
 
 func marshalIndent(v any) ([]byte, error) {

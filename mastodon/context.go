@@ -5,6 +5,7 @@ import (
 
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
+	"github.com/davecheney/pub/internal/to"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -34,7 +35,7 @@ func (c *Contexts) Show(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ancestors, decendants := thread(status.ID, statuses)
-	toJSON(w, struct {
+	to.JSON(w, struct {
 		Ancestors   []map[string]any `json:"ancestors"`
 		Descendants []map[string]any `json:"descendants"`
 	}{

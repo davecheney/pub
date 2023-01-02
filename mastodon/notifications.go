@@ -2,6 +2,8 @@ package mastodon
 
 import (
 	"net/http"
+
+	"github.com/davecheney/pub/internal/to"
 )
 
 type Notifications struct {
@@ -14,5 +16,5 @@ func (n *Notifications) Index(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	toJSON(w, []map[string]any{})
+	to.JSON(w, []map[string]any{})
 }

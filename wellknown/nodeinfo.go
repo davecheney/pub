@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/to"
 )
 
 type NodeInfo struct {
@@ -12,7 +13,7 @@ type NodeInfo struct {
 }
 
 func (ni *NodeInfo) Index(rw http.ResponseWriter, r *http.Request) {
-	toJSON(rw, map[string]any{
+	to.JSON(rw, map[string]any{
 		"links": []map[string]any{
 			{
 				"rel":  "http://nodeinfo.diaspora.software/ns/schema/2.0",
@@ -28,7 +29,7 @@ func (ni *NodeInfo) Show(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	toJSON(w, serializeNodeInfo(&instance))
+	to.JSON(w, serializeNodeInfo(&instance))
 }
 
 func serializeNodeInfo(i *models.Instance) map[string]any {

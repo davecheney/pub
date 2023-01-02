@@ -6,6 +6,7 @@ import (
 
 	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/to"
 )
 
 type Timelines struct {
@@ -37,7 +38,7 @@ func (t *Timelines) Home(w http.ResponseWriter, r *http.Request) {
 	if len(statuses) > 0 {
 		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/home?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/home?min_id=%d>; rel=\"prev\"", r.Host, statuses[len(statuses)-1].ID, r.Host, statuses[0].ID))
 	}
-	toJSON(w, algorithms.Map(statuses, serialiseStatus))
+	to.JSON(w, algorithms.Map(statuses, serialiseStatus))
 }
 
 func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
@@ -64,5 +65,5 @@ func (t *Timelines) Public(w http.ResponseWriter, r *http.Request) {
 	if len(statuses) > 0 {
 		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/public?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/public?min_id=%d>; rel=\"prev\"", r.Host, statuses[len(statuses)-1].ID, r.Host, statuses[0].ID))
 	}
-	toJSON(w, algorithms.Map(statuses, serialiseStatus))
+	to.JSON(w, algorithms.Map(statuses, serialiseStatus))
 }

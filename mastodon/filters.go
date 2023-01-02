@@ -2,6 +2,8 @@ package mastodon
 
 import (
 	"net/http"
+
+	"github.com/davecheney/pub/internal/to"
 )
 
 type Filters struct {
@@ -15,5 +17,5 @@ func (f *Filters) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	toJSON(w, []map[string]any{})
+	to.JSON(w, []map[string]any{})
 }

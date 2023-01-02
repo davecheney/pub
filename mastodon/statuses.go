@@ -8,6 +8,7 @@ import (
 
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
+	"github.com/davecheney/pub/internal/to"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
@@ -77,7 +78,7 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serialiseStatus(&status))
+	to.JSON(w, serialiseStatus(&status))
 }
 
 func (s *Statuses) Destroy(w http.ResponseWriter, r *http.Request) {
@@ -104,7 +105,7 @@ func (s *Statuses) Destroy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serialiseStatus(&status))
+	to.JSON(w, serialiseStatus(&status))
 }
 
 func (s *Statuses) Show(w http.ResponseWriter, r *http.Request) {
@@ -123,5 +124,5 @@ func (s *Statuses) Show(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serialiseStatus(&status))
+	to.JSON(w, serialiseStatus(&status))
 }

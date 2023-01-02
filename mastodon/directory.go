@@ -5,6 +5,7 @@ import (
 
 	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/to"
 	"gorm.io/gorm"
 )
 
@@ -20,7 +21,7 @@ func (d *Directory) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	toJSON(w, algorithms.Map(actors, serialiseAccount))
+	to.JSON(w, algorithms.Map(actors, serialiseAccount))
 }
 
 func isLocal(r *http.Request) func(db *gorm.DB) *gorm.DB {

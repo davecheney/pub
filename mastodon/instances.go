@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/to"
 )
 
 type Instances struct {
@@ -21,7 +22,7 @@ func (i *Instances) IndexV1(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serialiseInstanceV1(instance))
+	to.JSON(w, serialiseInstanceV1(instance))
 }
 
 func (i *Instances) IndexV2(w http.ResponseWriter, r *http.Request) {
@@ -35,7 +36,7 @@ func (i *Instances) IndexV2(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, serialiseInstanceV2(instance))
+	to.JSON(w, serialiseInstanceV2(instance))
 }
 
 func (i *Instances) PeersShow(w http.ResponseWriter, r *http.Request) {
@@ -44,15 +45,15 @@ func (i *Instances) PeersShow(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	toJSON(w, domains)
+	to.JSON(w, domains)
 }
 
 func (i *Instances) ActivityShow(w http.ResponseWriter, r *http.Request) {
-	toJSON(w, []map[string]interface{}{})
+	to.JSON(w, []map[string]interface{}{})
 }
 
 func (i *Instances) DomainBlocksShow(w http.ResponseWriter, r *http.Request) {
-	toJSON(w, []map[string]interface{}{})
+	to.JSON(w, []map[string]interface{}{})
 }
 
 // Count returns the number of instances in the database.

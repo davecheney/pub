@@ -5,6 +5,7 @@ import (
 
 	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/to"
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 )
@@ -31,7 +32,7 @@ func (f *Favourites) Create(w http.ResponseWriter, req *http.Request) {
 	}
 	status.Reaction = reaction
 	status.FavouritesCount++
-	toJSON(w, serialiseStatus(&status))
+	to.JSON(w, serialiseStatus(&status))
 }
 
 func (f *Favourites) Destroy(w http.ResponseWriter, req *http.Request) {
@@ -52,7 +53,7 @@ func (f *Favourites) Destroy(w http.ResponseWriter, req *http.Request) {
 	}
 	status.Reaction = reaction
 	status.FavouritesCount--
-	toJSON(w, serialiseStatus(&status))
+	to.JSON(w, serialiseStatus(&status))
 }
 
 func (f *Favourites) Show(w http.ResponseWriter, req *http.Request) {
@@ -69,7 +70,7 @@ func (f *Favourites) Show(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	toJSON(w, algorithms.Map(algorithms.Map(reactions, reactionActor), serialiseAccount))
+	to.JSON(w, algorithms.Map(algorithms.Map(reactions, reactionActor), serialiseAccount))
 }
 
 func reactionActor(r *models.Reaction) *models.Actor { return r.Actor }
