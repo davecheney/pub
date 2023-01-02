@@ -104,6 +104,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 				timelines := m.Timelines()
 				r.Get("/home", timelines.Home)
 				r.Get("/public", mastodon.TimelinesPublic)
+				r.Get("/list/{id}", timelines.ListShow)
 			})
 
 		})
