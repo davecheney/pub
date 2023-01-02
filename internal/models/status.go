@@ -96,10 +96,10 @@ func (s *Statuses) FindOrCreate(uri string, createFn func(string) (*Status, erro
 	}
 	status, err = createFn(uri)
 	if err != nil {
-		fmt.Println("findOrCreate: createFn:", err)
-		return nil, err
+		return nil, fmt.Errorf("findOrCreate: createFn: %w", err)
 	}
-	if err := s.db.Create(&status).Error; err != nil {
+	// Don't save the actor, it's already saved.
+	if err := s.db.Omit("Actor").Create(&status).Error; err != nil {
 		return nil, err
 	}
 	return status, nil

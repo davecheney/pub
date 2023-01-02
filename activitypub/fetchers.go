@@ -147,6 +147,7 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 	st := &models.Status{
 		ID:               snowflake.TimeToID(createdAt),
 		ActorID:          actor.ID,
+		Actor:            actor,
 		ConversationID:   conversationID,
 		InReplyToID:      inReplyToID(inReplyTo),
 		InReplyToActorID: inReplyToActorID(inReplyTo),

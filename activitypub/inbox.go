@@ -358,10 +358,9 @@ func (i *inboxProcessor) processFollow(body map[string]any) error {
 
 func (i *inboxProcessor) processUpdate(update map[string]any) error {
 	id := stringFromAny(update["id"])
-	var status models.Status
-	if err := i.db.Where("uri = ?", id).First(&status).Error; err != nil {
-		x, _ := marshalIndent(update)
-		fmt.Println("processUpdate", string(x), err)
+	statusFetcher := NewRemoteStatusFetcher(i.signAs, i.db)
+	status, err := models.NewStatuses(i.db).FindOrCreate(id, statusFetcher.Fetch)
+	if err != nil {
 		return err
 	}
 	updated, err := timeFromAny(update["published"])
@@ -370,7 +369,9 @@ func (i *inboxProcessor) processUpdate(update map[string]any) error {
 	}
 	status.UpdatedAt = updated
 	status.Note = stringFromAny(update["content"])
-	return i.db.Save(&status).Error
+
+	// TODO handle polls and attachments
+	return i.db.Omit("Actor").Save(&status).Error // don't update actor
 }
 
 func (i *inboxProcessor) processDelete(body map[string]any) error {
