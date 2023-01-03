@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/davecheney/pub/internal/httpsig"
+	"github.com/davecheney/pub/internal/models"
 	"github.com/go-json-experiment/json"
 	"github.com/google/uuid"
 )
@@ -27,8 +28,8 @@ type Client struct {
 }
 
 // NewClient returns a new ActivityPub client.
-func NewClient(keyID string, privateKeyPem []byte) (*Client, error) {
-	privPem, _ := pem.Decode(privateKeyPem)
+func NewClient(ctx context.Context, signAs *models.Account) (*Client, error) {
+	privPem, _ := pem.Decode(signAs.PrivateKey)
 	if privPem == nil || privPem.Type != "RSA PRIVATE KEY" {
 		return nil, errors.New("expected RSA PRIVATE KEY")
 	}
@@ -47,7 +48,7 @@ func NewClient(keyID string, privateKeyPem []byte) (*Client, error) {
 	}
 
 	return &Client{
-		keyID:      keyID,
+		keyID:      signAs.Actor.PublicKeyID(),
 		privateKey: privateKey,
 	}, nil
 }

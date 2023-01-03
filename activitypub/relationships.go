@@ -82,7 +82,7 @@ func (rrp *RelationshipRequestProcessor) processRequest(request *models.Relation
 }
 
 func (rrp *RelationshipRequestProcessor) processFollowRequest(account *models.Account, target *models.Actor) error {
-	client, err := activitypub.NewClient(account.Actor.PublicKeyID(), account.PrivateKey)
+	client, err := activitypub.NewClient(rrp.db.Statement.Context, account)
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func (rrp *RelationshipRequestProcessor) processFollowRequest(account *models.Ac
 }
 
 func (rrp *RelationshipRequestProcessor) processUnfollowRequest(account *models.Account, target *models.Actor) error {
-	client, err := activitypub.NewClient(account.Actor.PublicKeyID(), account.PrivateKey)
+	client, err := activitypub.NewClient(rrp.db.Statement.Context, account)
 	if err != nil {
 		return err
 	}

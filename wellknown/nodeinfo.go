@@ -37,7 +37,7 @@ func serializeNodeInfo(i *models.Instance) map[string]any {
 	return map[string]any{
 		"version": "2.0", // https://github.com/jhass/nodeinfo/blob/main/schemas/2.0/schema.json
 		"software": map[string]any{
-			"name":    "https://github.com/davecheney/m",
+			"name":    "https://github.com/davecheney/pub",
 			"version": "0.0.0-devel",
 		},
 		"protocols": []string{

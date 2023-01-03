@@ -6,6 +6,7 @@ import (
 
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
+	"github.com/davecheney/pub/media"
 )
 
 // serialisers for various mastodon API responses.
@@ -73,10 +74,10 @@ func serialiseAccount(a *models.Actor) *Account {
 		CreatedAt:      snowflake.ID(a.ID).ToTime().Round(time.Hour).Format("2006-01-02T00:00:00.000Z"),
 		Note:           a.Note,
 		URL:            fmt.Sprintf("https://%s/@%s", a.Domain, a.Name),
-		Avatar:         a.Avatar,
-		AvatarStatic:   a.Avatar,
-		Header:         stringOrDefault(a.Header, "https://static.ma-cdn.net/headers/original/missing.png"),
-		HeaderStatic:   stringOrDefault(a.Header, "https://static.ma-cdn.net/headers/original/missing.png"),
+		Avatar:         media.ProxyAvatarURL(a),
+		AvatarStatic:   media.ProxyAvatarURL(a),
+		Header:         media.ProxyHeaderURL(a),
+		HeaderStatic:   media.ProxyHeaderURL(a),
 		FollowersCount: a.FollowersCount,
 		FollowingCount: a.FollowingCount,
 		StatusesCount:  a.StatusesCount,
@@ -270,7 +271,7 @@ func serialiseInstanceV1(i *models.Instance) map[string]any {
 		"short_description": stringOrDefault(i.ShortDescription, i.Description),
 		"description":       i.Description,
 		"email":             i.Admin.Email,
-		"version":           "https://github.com/davecheney/m@latest",
+		"version":           "https://github.com/davecheney/pub@0.0.1-devel",
 		"urls": map[string]any{
 			"streaming_api": "wss://" + i.Domain + "/api/v1/streaming",
 		},
@@ -464,5 +465,25 @@ func serialiseList(l *models.AccountList) *List {
 		ID:            l.ID,
 		Title:         l.Title,
 		RepliesPolicy: l.RepliesPolicy,
+	}
+}
+
+type Application struct {
+	ID           snowflake.ID `json:"id,string"`
+	Name         string       `json:"name"`
+	Website      any          `json:"website,omitempty"` // string or null
+	VapidKey     string       `json:"vapid_key"`
+	ClientID     string       `json:"client_id,omitempty"`
+	ClientSecret string       `json:"client_secret,omitempty"`
+}
+
+func serialiseApplication(a *models.Application) *Application {
+	return &Application{
+		ID:           a.ID,
+		Name:         a.Name,
+		Website:      a.Website,
+		VapidKey:     a.VapidKey,
+		ClientID:     a.ClientID,
+		ClientSecret: a.ClientSecret,
 	}
 }

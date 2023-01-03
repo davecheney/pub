@@ -18,7 +18,7 @@ type Context struct {
 
 var cli struct {
 	LogSQL bool   `help:"Log SQL queries."`
-	DSN    string `help:"data source name" default:"m:m@tcp(localhost:3306)/m"`
+	DSN    string `help:"data source name" default:"pub:pub@tcp(localhost:3306)/pub"`
 
 	AutoMigrate          AutoMigrateCmd          `cmd:"" help:"Automigrate the database."`
 	CreateAccount        CreateAccountCmd        `cmd:"" help:"Create a new account."`

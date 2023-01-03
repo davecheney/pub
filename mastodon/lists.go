@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/davecheney/pub/internal/algorithms"
+	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/davecheney/pub/internal/to"
@@ -13,69 +14,37 @@ import (
 	"github.com/go-json-experiment/json"
 )
 
-type Lists struct {
-	service *Service
-}
-
-func (l *Lists) Index(w http.ResponseWriter, r *http.Request) {
-	user, err := l.service.authenticate(r)
+func ListsIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
+	user, err := env.authenticate(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
 
 	var lists []*models.AccountList
-	if err := l.service.db.Model(user).Association("Lists").Find(&lists); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if err := env.DB.Model(user).Association("Lists").Find(&lists); err != nil {
+		return err
 	}
 
-	to.JSON(w, algorithms.Map(lists, serialiseList))
+	return to.JSON(w, algorithms.Map(lists, serialiseList))
 }
 
-func (l *Lists) Show(w http.ResponseWriter, r *http.Request) {
-	user, err := l.service.authenticate(r)
+func ListsShow(env *Env, w http.ResponseWriter, r *http.Request) error {
+	user, err := env.authenticate(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
 
 	var list models.AccountList
-	if err := l.service.db.Model(user).Association("Lists").Find(&list, chi.URLParam(r, "id")); err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
+	if err := env.DB.Model(user).Association("Lists").Find(&list, chi.URLParam(r, "id")); err != nil {
+		return err
 	}
-	to.JSON(w, serialiseList(&list))
+	return to.JSON(w, serialiseList(&list))
 }
 
-func (l *Lists) ShowListMembership(w http.ResponseWriter, r *http.Request) {
-	_, err := l.service.authenticate(r)
+func ListsCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
+	user, err := env.authenticate(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	memberID, err := snowflake.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	accountLists := l.service.db.Select("account_list_id").Where(&models.AccountListMember{MemberID: memberID}).Table("account_list_members")
-	var lists []*models.AccountList
-	if err := l.service.db.Where("id IN (?)", accountLists).Find(&lists).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	to.JSON(w, algorithms.Map(lists, serialiseList))
-}
-
-func (l *Lists) Create(w http.ResponseWriter, r *http.Request) {
-	user, err := l.service.authenticate(r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
 	var params struct {
 		Title         string `json:"title"`
@@ -87,12 +56,10 @@ func (l *Lists) Create(w http.ResponseWriter, r *http.Request) {
 		params.RepliesPolicy = r.FormValue("replies_policy")
 	case "application/json":
 		if err := json.UnmarshalFull(r.Body, &params); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+			return httpx.Error(http.StatusBadRequest, err)
 		}
 	default:
-		http.Error(w, "unsupported media type", http.StatusUnsupportedMediaType)
-		return
+		return httpx.Error(http.StatusUnsupportedMediaType, fmt.Errorf("unsupported media type"))
 	}
 	fmt.Println("params", params)
 	list := models.AccountList{
@@ -100,28 +67,22 @@ func (l *Lists) Create(w http.ResponseWriter, r *http.Request) {
 		Title:         params.Title,
 		RepliesPolicy: params.RepliesPolicy,
 	}
-	if err := l.service.db.Model(user).Association("Lists").Append(&list); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if err := env.DB.Model(user).Association("Lists").Append(&list); err != nil {
+		return err
 	}
 
-	to.JSON(w, serialiseList(&list))
+	return to.JSON(w, serialiseList(&list))
 }
 
-func (l *Lists) AddMembers(w http.ResponseWriter, r *http.Request) {
-	// x, _ := httputil.DumpRequest(r, true)
-	// fmt.Println(string(x))
-	_, err := l.service.authenticate(r)
+func ListsAddMembers(env *Env, w http.ResponseWriter, r *http.Request) error {
+	_, err := env.authenticate(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
 
 	listID, err := snowflake.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		fmt.Println("error", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return httpx.Error(http.StatusBadRequest, err)
 	}
 
 	var params struct {
@@ -132,12 +93,10 @@ func (l *Lists) AddMembers(w http.ResponseWriter, r *http.Request) {
 		params.AccountIDs = strings.Split(r.FormValue("account_ids[]"), ",")
 	case "application/json":
 		if err := json.UnmarshalFull(r.Body, &params); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+			return httpx.Error(http.StatusBadRequest, err)
 		}
 	default:
-		http.Error(w, "unsupported media type", http.StatusUnsupportedMediaType)
-		return
+		return httpx.Error(http.StatusUnsupportedMediaType, fmt.Errorf("unsupported media type"))
 	}
 	fmt.Println("params", params)
 
@@ -147,35 +106,28 @@ func (l *Lists) AddMembers(w http.ResponseWriter, r *http.Request) {
 	for _, id := range params.AccountIDs {
 		memberID, err := snowflake.Parse(id)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+			return httpx.Error(http.StatusBadRequest, err)
 		}
-		if err := l.service.db.Model(&list).Association("Members").Append(&models.AccountListMember{
+		if err := env.DB.Model(&list).Association("Members").Append(&models.AccountListMember{
 			AccountListID: listID,
 			MemberID:      memberID,
 		}); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return err
 		}
 	}
 
-	to.JSON(w, map[string]any{})
+	return to.JSON(w, map[string]any{})
 }
 
-func (l *Lists) RemoveMembers(w http.ResponseWriter, r *http.Request) {
-	// x, _ := httputil.DumpRequest(r, true)
-	// fmt.Println(string(x))
-	_, err := l.service.authenticate(r)
+func ListsRemoveMembers(env *Env, w http.ResponseWriter, r *http.Request) error {
+	_, err := env.authenticate(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
 
 	listID, err := snowflake.Parse(chi.URLParam(r, "id"))
 	if err != nil {
-		fmt.Println("error", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return httpx.Error(http.StatusBadRequest, err)
 	}
 
 	var params struct {
@@ -186,12 +138,10 @@ func (l *Lists) RemoveMembers(w http.ResponseWriter, r *http.Request) {
 		params.AccountIDs = strings.Split(r.FormValue("account_ids[]"), ",")
 	case "application/json":
 		if err := json.UnmarshalFull(r.Body, &params); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+			return httpx.Error(http.StatusBadRequest, err)
 		}
 	default:
-		http.Error(w, "unsupported media type", http.StatusUnsupportedMediaType)
-		return
+		return httpx.Error(http.StatusUnsupportedMediaType, fmt.Errorf("unsupported media type"))
 	}
 
 	list := models.AccountList{
@@ -200,35 +150,31 @@ func (l *Lists) RemoveMembers(w http.ResponseWriter, r *http.Request) {
 	for _, id := range params.AccountIDs {
 		memberID, err := snowflake.Parse(id)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+			return httpx.Error(http.StatusBadRequest, err)
 		}
-		if err := l.service.db.Model(&list).Association("Members").Delete(&models.AccountListMember{
+		if err := env.DB.Model(&list).Association("Members").Delete(&models.AccountListMember{
 			AccountListID: listID,
 			MemberID:      memberID,
 		}); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return err
 		}
 	}
 
-	to.JSON(w, map[string]any{})
+	return to.JSON(w, map[string]any{})
 }
 
-func (l *Lists) ViewMembers(w http.ResponseWriter, r *http.Request) {
-	_, err := l.service.authenticate(r)
+func ListsViewMembers(env *Env, w http.ResponseWriter, r *http.Request) error {
+	_, err := env.authenticate(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
 
 	var members []*models.AccountListMember
-	if err := l.service.db.Joins("Member").Find(&members, "account_list_id", chi.URLParam(r, "id")).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if err := env.DB.Joins("Member").Find(&members, "account_list_id", chi.URLParam(r, "id")).Error; err != nil {
+		return err
 	}
 
-	to.JSON(w, algorithms.Map(algorithms.Map(members, listMember), serialiseAccount))
+	return to.JSON(w, algorithms.Map(algorithms.Map(members, listMember), serialiseAccount))
 }
 
 func listMember(list *models.AccountListMember) *models.Actor {

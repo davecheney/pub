@@ -1,6 +1,7 @@
+// Package httpx is a convenience wrapper around the http.ServeMux type that
+// allows us to return errors from our handlers.
+// see https://blog.questionable.services/article/http-handler-error-handling-revisited/ for more details.
 package httpx
-
-// see https://blog.questionable.services/article/http-handler-error-handling-revisited/
 
 import (
 	"errors"

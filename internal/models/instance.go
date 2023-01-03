@@ -15,7 +15,7 @@ type Instance struct {
 	UpdatedAt        time.Time
 	Domain           string `gorm:"size:64;uniqueIndex"`
 	AdminID          *snowflake.ID
-	Admin            *Account
+	Admin            *Account `gorm:"<-:false;"`
 	SourceURL        string
 	Title            string `gorm:"size:64"`
 	ShortDescription string

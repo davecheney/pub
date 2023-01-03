@@ -4,42 +4,33 @@ import (
 	"net/http"
 	"net/http/httputil"
 
+	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/to"
 )
 
-type Markers struct {
-	service *Service
-}
-
-func (ms *Markers) Index(w http.ResponseWriter, r *http.Request) {
-	user, err := ms.service.authenticate(r)
+func MarkersIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
+	user, err := env.authenticate(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
 
 	names := r.URL.Query()["timeline[]"]
-	var markers []models.AccountMarker
-	if err := ms.service.db.Model(user).Association("Markers").Find(&markers, "name in (?)", names); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	var markers []*models.AccountMarker
+	if err := env.DB.Model(user).Association("Markers").Find(&markers, "name in (?)", names); err != nil {
+		return err
 	}
 
-	resp := map[string]any{}
-	for _, marker := range markers {
-		resp[marker.Name] = seraliseMarker(&marker)
-	}
-	to.JSON(w, resp)
+	return to.JSON(w, algorithms.Map(markers, seraliseMarker))
 }
 
-func (ms *Markers) Create(w http.ResponseWriter, r *http.Request) {
-	_, err := ms.service.authenticate(r)
+func MarkersCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
+	_, err := env.authenticate(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
 	buf, _ := httputil.DumpRequest(r, true)
 	println(string(buf))
 	w.WriteHeader(http.StatusInternalServerError)
+	return nil
 }

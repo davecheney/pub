@@ -16,9 +16,9 @@ type Status struct {
 	snowflake.ID     `gorm:"primarykey;autoIncrement:false"`
 	UpdatedAt        time.Time
 	ActorID          snowflake.ID
-	Actor            *Actor `gorm:"constraint:OnDelete:CASCADE;"`
+	Actor            *Actor `gorm:"constraint:OnDelete:CASCADE;<-:false;"` // don't update actor on status update
 	ConversationID   uint32
-	Conversation     *Conversation `gorm:"constraint:OnDelete:CASCADE;"`
+	Conversation     *Conversation `gorm:"constraint:OnDelete:CASCADE;<-:false;"`
 	InReplyToID      *snowflake.ID
 	InReplyToActorID *snowflake.ID
 	Sensitive        bool
@@ -31,8 +31,8 @@ type Status struct {
 	ReblogsCount     int    `gorm:"not null;default:0"`
 	FavouritesCount  int    `gorm:"not null;default:0"`
 	ReblogID         *snowflake.ID
-	Reblog           *Status
-	Reaction         *Reaction
+	Reblog           *Status            `gorm:"<-:false;"` // don't update reblog on status update
+	Reaction         *Reaction          `gorm:"<-:false;"` // don't update reaction on status update
 	Attachments      []StatusAttachment `gorm:"constraint:OnDelete:CASCADE;"`
 }
 
@@ -96,19 +96,22 @@ func (s *Statuses) FindOrCreate(uri string, createFn func(string) (*Status, erro
 	}
 	status, err = createFn(uri)
 	if err != nil {
-		return nil, fmt.Errorf("findOrCreate: createFn: %w", err)
+		return nil, fmt.Errorf("Statuses.FindOrCreate: %w", err)
 	}
-	// Don't save the actor, it's already saved.
-	if err := s.db.Omit("Actor").Create(&status).Error; err != nil {
+	if err := s.db.Create(&status).Error; err != nil {
 		return nil, err
 	}
 	return status, nil
 }
 
 func (s *Statuses) FindByURI(uri string) (*Status, error) {
-	var status Status
-	if err := s.db.Preload("Actor").Where("uri = ?", uri).First(&status).Error; err != nil {
+	// use find to avoid the not found error on empty result
+	var status []Status
+	if err := s.db.Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").Preload("Attachments").Where(&Status{URI: uri}).Find(&status).Error; err != nil {
 		return nil, err
 	}
-	return &status, nil
+	if len(status) == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return &status[0], nil
 }

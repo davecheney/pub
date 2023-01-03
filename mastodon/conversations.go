@@ -9,19 +9,14 @@ import (
 	"github.com/davecheney/pub/internal/to"
 )
 
-type Conversations struct {
-	service *Service
-}
-
-func (c *Conversations) Index(w http.ResponseWriter, r *http.Request) {
-	_, err := c.service.authenticate(r)
+func ConversationsIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
+	_, err := env.authenticate(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
 
 	var statuses []*models.Status
-	scope := c.service.db.Scopes(models.PaginateConversation(r)).Where("visibility = ?", "direct")
+	scope := env.DB.Scopes(models.PaginateConversation(r)).Where("visibility = ?", "direct")
 	switch r.URL.Query().Get("local") {
 	case "":
 		scope = scope.Joins("Actor")
@@ -30,13 +25,11 @@ func (c *Conversations) Index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := scope.Order("statuses.id desc").Find(&statuses).Error; err != nil {
-		fmt.Println(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	if len(statuses) > 0 {
 		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/public?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/public?min_id=%d>; rel=\"prev\"", r.Host, statuses[len(statuses)-1].ID, r.Host, statuses[0].ID))
 	}
-	to.JSON(w, algorithms.Map(statuses, serialiseStatus))
+	return to.JSON(w, algorithms.Map(statuses, serialiseStatus))
 }

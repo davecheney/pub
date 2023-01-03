@@ -16,7 +16,7 @@ import (
 func InboxCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	// find the instance that this request is for.
 	var instance models.Instance
-	if err := env.DB.Joins("Admin").Preload("Admin.Actor").First(&instance, "domain = ?", r.Host).Error; err != nil {
+	if err := env.DB.Joins("Admin").Preload("Admin.Actor").Take(&instance, "domain = ?", r.Host).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return httpx.Error(http.StatusNotFound, err)
 		}
@@ -357,6 +357,18 @@ func (i *inboxProcessor) processFollow(body map[string]any) error {
 }
 
 func (i *inboxProcessor) processUpdate(update map[string]any) error {
+	typ := stringFromAny(update["type"])
+	switch typ {
+	case "Note":
+		return i.processUpdateStatus(update)
+	case "Person":
+		return i.processUpdateActor(update)
+	default:
+		return fmt.Errorf("unknown update object type: %q", typ)
+	}
+}
+
+func (i *inboxProcessor) processUpdateStatus(update map[string]any) error {
 	id := stringFromAny(update["id"])
 	statusFetcher := NewRemoteStatusFetcher(i.signAs, i.db)
 	status, err := models.NewStatuses(i.db).FindOrCreate(id, statusFetcher.Fetch)
@@ -371,7 +383,26 @@ func (i *inboxProcessor) processUpdate(update map[string]any) error {
 	status.Note = stringFromAny(update["content"])
 
 	// TODO handle polls and attachments
-	return i.db.Omit("Actor").Save(&status).Error // don't update actor
+	return i.db.Save(&status).Error
+}
+
+func (i *inboxProcessor) processUpdateActor(update map[string]any) error {
+	id := stringFromAny(update["id"])
+	actorFetcher := NewRemoteActorFetcher(i.signAs, i.db)
+	actor, err := models.NewActors(i.db).FindOrCreate(id, actorFetcher.Fetch)
+	if err != nil {
+		return err
+	}
+	actor.Name = stringFromAny(update["preferredUsername"])
+	actor.DisplayName = stringFromAny(update["name"])
+	actor.Locked = boolFromAny(update["manuallyApprovesFollowers"])
+	actor.Note = stringFromAny(update["summary"])
+	actor.Avatar = stringFromAny(mapFromAny(update["icon"])["url"])
+	actor.Header = stringFromAny(mapFromAny(update["image"])["url"])
+	actor.Attachments = anyToSlice(update["attachment"])
+	actor.PublicKey = []byte(stringFromAny(mapFromAny(update["publicKey"])["publicKeyPem"]))
+
+	return i.db.Save(&actor).Error
 }
 
 func (i *inboxProcessor) processDelete(body map[string]any) error {
@@ -390,8 +421,8 @@ func (i *inboxProcessor) processDelete(body map[string]any) error {
 
 func (i *inboxProcessor) processDeleteStatus(uri string) error {
 	// load status to delete it so we can fire the delete hooks.
-	var status models.Status
-	if err := i.db.Where("uri = ?", uri).First(&status).Error; err != nil {
+	status, err := models.NewStatuses(i.db).FindByURI(uri)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// already deleted
 			return nil
@@ -403,8 +434,8 @@ func (i *inboxProcessor) processDeleteStatus(uri string) error {
 
 func (i *inboxProcessor) processDeleteActor(uri string) error {
 	// load actor to delete it so we can fire the delete hooks.
-	var actor models.Actor
-	if err := i.db.Where("uri = ?", uri).First(&actor).Error; err != nil {
+	actor, err := models.NewActors(i.db).FindByURI(uri)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// already deleted
 			return nil

@@ -82,7 +82,7 @@ func (rrp *ReactionRequestProcessor) processRequest(request *models.ReactionRequ
 }
 
 func (rrp *ReactionRequestProcessor) processLikeRequest(account *models.Account, target *models.Status) error {
-	client, err := activitypub.NewClient(account.Actor.PublicKeyID(), account.PrivateKey)
+	client, err := activitypub.NewClient(rrp.db.Statement.Context, account)
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func (rrp *ReactionRequestProcessor) processLikeRequest(account *models.Account,
 }
 
 func (rrp *ReactionRequestProcessor) processUnlikeRequest(account *models.Account, target *models.Status) error {
-	client, err := activitypub.NewClient(account.Actor.PublicKeyID(), account.PrivateKey)
+	client, err := activitypub.NewClient(rrp.db.Statement.Context, account)
 	if err != nil {
 		return err
 	}

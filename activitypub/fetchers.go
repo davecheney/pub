@@ -58,7 +58,8 @@ func (f *RemoteActorFetcher) Fetch(uri string) (*models.Actor, error) {
 }
 
 func (f *RemoteActorFetcher) fetch(uri string) (map[string]any, error) {
-	c, err := activitypub.NewClient(f.signAs.Actor.PublicKeyID(), f.signAs.PrivateKey)
+	fmt.Println("RemoteActorFetcher.fetch:", uri)
+	c, err := activitypub.NewClient(f.db.Statement.Context, f.signAs)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +188,8 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 // }
 
 func (f *RemoteStatusFetcher) fetch(uri string) (map[string]interface{}, error) {
-	c, err := activitypub.NewClient(f.signAs.Actor.PublicKeyID(), f.signAs.PrivateKey)
+	fmt.Println("RemoteStatusFetcher.fetch:", uri)
+	c, err := activitypub.NewClient(f.db.Statement.Context, f.signAs)
 	if err != nil {
 		return nil, err
 	}

@@ -6,10 +6,6 @@ import (
 	"github.com/davecheney/pub/internal/to"
 )
 
-type Emojis struct {
-	service *Service
-}
-
-func (e *Emojis) Index(w http.ResponseWriter, r *http.Request) {
-	to.JSON(w, []any{})
+func EmojisIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
+	return to.JSON(w, []any{})
 }

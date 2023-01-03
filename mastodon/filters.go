@@ -6,16 +6,11 @@ import (
 	"github.com/davecheney/pub/internal/to"
 )
 
-type Filters struct {
-	service *Service
-}
-
-func (f *Filters) Index(w http.ResponseWriter, r *http.Request) {
-	_, err := f.service.authenticate(r)
+func FiltersIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
+	_, err := env.authenticate(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
 
-	to.JSON(w, []map[string]any{})
+	return to.JSON(w, []map[string]any{})
 }

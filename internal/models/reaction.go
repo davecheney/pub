@@ -12,9 +12,9 @@ import (
 // Reaction represents an an actors reaction to a status.
 type Reaction struct {
 	StatusID   snowflake.ID `gorm:"primarykey;autoIncrement:false"`
-	Status     *Status      `gorm:"constraint:OnDelete:CASCADE;"`
+	Status     *Status      `gorm:"constraint:OnDelete:CASCADE;<-:false"`
 	ActorID    snowflake.ID `gorm:"primarykey;autoIncrement:false"`
-	Actor      *Actor       `gorm:"constraint:OnDelete:CASCADE;"`
+	Actor      *Actor       `gorm:"constraint:OnDelete:CASCADE;<-:false"`
 	Favourited bool         `gorm:"not null;default:false"`
 	Reblogged  bool         `gorm:"not null;default:false"`
 	Muted      bool         `gorm:"not null;default:false"`

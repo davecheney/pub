@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/davecheney/pub/internal/algorithms"
+	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/davecheney/pub/internal/to"
@@ -14,15 +16,10 @@ import (
 	"gorm.io/gorm"
 )
 
-type Statuses struct {
-	service *Service
-}
-
-func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
-	user, err := s.service.authenticate(r)
+func StatusesCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
+	user, err := env.authenticate(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
 	actor := user.Actor
 	var toot struct {
@@ -35,27 +32,23 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 		ScheduledAt *time.Time    `json:"scheduled_at,omitempty"`
 	}
 	if err := json.UnmarshalFull(r.Body, &toot); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return httpx.Error(http.StatusBadRequest, err)
 	}
 
 	var conv *models.Conversation
 	if toot.InReplyToID != nil {
 		var parent models.Status
-		if err := s.service.db.First(&parent, *toot.InReplyToID).Error; err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+		if err := env.DB.Take(&parent, *toot.InReplyToID).Error; err != nil {
+			return httpx.Error(http.StatusBadRequest, err)
 		}
-		conv, err = models.NewConversations(s.service.db).FindOrCreate(parent.ConversationID, toot.Visibility)
+		conv, err = models.NewConversations(env.DB).FindOrCreate(parent.ConversationID, toot.Visibility)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return err
 		}
 	} else {
-		conv, err = models.NewConversations(s.service.db).New(toot.Visibility)
+		conv, err = models.NewConversations(env.DB).New(toot.Visibility)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return err
 		}
 	}
 
@@ -74,55 +67,127 @@ func (s *Statuses) Create(w http.ResponseWriter, r *http.Request) {
 		Language:       toot.Language,
 		Note:           toot.Status,
 	}
-	if err := s.service.db.Create(&status).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if err := env.DB.Create(&status).Error; err != nil {
+		return err
 	}
-	to.JSON(w, serialiseStatus(&status))
+	return to.JSON(w, serialiseStatus(&status))
 }
 
-func (s *Statuses) Destroy(w http.ResponseWriter, r *http.Request) {
-	account, err := s.service.authenticate(r)
+func StatusesDestroy(env *Env, w http.ResponseWriter, r *http.Request) error {
+	account, err := env.authenticate(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
 	actor := account.Actor
 	var status models.Status
-	if err := s.service.db.Joins("Actor").First(&status, chi.URLParam(r, "id")).Error; err != nil {
+	if err := env.DB.Joins("Actor").First(&status, chi.URLParam(r, "id")).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			http.Error(w, err.Error(), http.StatusNotFound)
-			return
+			return httpx.Error(http.StatusNotFound, err)
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 	if status.ActorID != actor.ID {
-		http.Error(w, "forbidden", http.StatusForbidden)
-		return
+		return httpx.Error(http.StatusForbidden, errors.New("forbidden"))
 	}
-	if err := s.service.db.Delete(&status).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if err := env.DB.Delete(&status).Error; err != nil {
+		return err
 	}
-	to.JSON(w, serialiseStatus(&status))
+	return to.JSON(w, serialiseStatus(&status))
 }
 
-func (s *Statuses) Show(w http.ResponseWriter, r *http.Request) {
-	user, err := s.service.authenticate(r)
+func StatusesShow(env *Env, w http.ResponseWriter, r *http.Request) error {
+	user, err := env.authenticate(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
 	var status models.Status
-	query := s.service.db.Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").Preload("Attachments").Preload("Reaction", "actor_id = ?", user.Actor.ID)
-	if err := query.First(&status, chi.URLParam(r, "id")).Error; err != nil {
+	query := env.DB.Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").Preload("Attachments").Preload("Reaction", "actor_id = ?", user.Actor.ID)
+	if err := query.Take(&status, chi.URLParam(r, "id")).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			http.Error(w, err.Error(), http.StatusNotFound)
-			return
+			return httpx.Error(http.StatusNotFound, err)
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
-	to.JSON(w, serialiseStatus(&status))
+	return to.JSON(w, serialiseStatus(&status))
+}
+
+func StatusesContextsShow(env *Env, w http.ResponseWriter, r *http.Request) error {
+	user, err := env.authenticate(r)
+	if err != nil {
+		return err
+	}
+
+	var status models.Status
+	if err := env.DB.Take(&status, chi.URLParam(r, "id")).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return httpx.Error(http.StatusNotFound, err)
+		}
+		return err
+	}
+
+	// load conversation statuses
+	var statuses []models.Status
+	query := env.DB.Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").Preload("Attachments").Preload("Reaction", "actor_id = ?", user.Actor.ID)
+	if err := query.Where("conversation_id = ?", status.ConversationID).Find(&statuses).Error; err != nil {
+		return err
+	}
+
+	ancestors, descendants := thread(status.ID, statuses)
+	return to.JSON(w, struct {
+		Ancestors   []map[string]any `json:"ancestors"`
+		Descendants []map[string]any `json:"descendants"`
+	}{
+		Ancestors:   algorithms.Map(ancestors, serialiseStatus),
+		Descendants: algorithms.Map(descendants, serialiseStatus),
+	})
+}
+
+// thread sorts statuses into a tree, it returns the statuses
+// preceding id, and statuses following id.
+func thread(id snowflake.ID, statuses []models.Status) ([]*models.Status, []*models.Status) {
+	type link struct {
+		parent   *link
+		status   *models.Status
+		children []*link
+	}
+	ids := make(map[snowflake.ID]*link)
+	for i := range statuses {
+		ids[statuses[i].ID] = &link{status: &statuses[i]}
+	}
+
+	for _, l := range ids {
+		if l.status.InReplyToID != nil {
+			parent, ok := ids[*l.status.InReplyToID]
+			if ok {
+				// watch out for deleted toots
+				l.parent = parent
+				parent.children = append(parent.children, l)
+			}
+		}
+	}
+
+	var ancestors []*models.Status
+	var l = ids[id].parent
+	for l != nil {
+		ancestors = append(ancestors, l.status)
+		l = l.parent
+	}
+	reverse(ancestors)
+
+	var descendants []*models.Status
+	var walk func(*link)
+	walk = func(l *link) {
+		for _, c := range l.children {
+			descendants = append(descendants, c.status)
+			walk(c)
+		}
+	}
+	walk(ids[id])
+	return ancestors, descendants
+}
+
+func reverse[T any](a []T) {
+	for i, j := 0, len(a)-1; i < j; i, j = i+1, j-1 {
+		a[i], a[j] = a[j], a[i]
+	}
 }

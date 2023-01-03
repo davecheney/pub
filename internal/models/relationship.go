@@ -11,9 +11,9 @@ import (
 
 type Relationship struct {
 	ActorID    snowflake.ID `gorm:"primarykey;autoIncrement:false"`
-	Actor      *Actor       `gorm:"constraint:OnDelete:CASCADE;"`
+	Actor      *Actor       `gorm:"constraint:OnDelete:CASCADE;<-:false;"`
 	TargetID   snowflake.ID `gorm:"primarykey;autoIncrement:false"`
-	Target     *Actor       `gorm:"constraint:OnDelete:CASCADE;"`
+	Target     *Actor       `gorm:"constraint:OnDelete:CASCADE;<-:false;"`
 	Muting     bool         `gorm:"not null;default:false"`
 	Blocking   bool         `gorm:"not null;default:false"`
 	BlockedBy  bool         `gorm:"not null;default:false"`
@@ -90,10 +90,10 @@ type RelationshipRequest struct {
 	UpdatedAt time.Time
 	ActorID   snowflake.ID `gorm:"uniqueIndex:idx_actor_id_target_id;not null;"`
 	// Actor is the actor that is requesting the relationship change.
-	Actor    *Actor       `gorm:"constraint:OnDelete:CASCADE;"`
+	Actor    *Actor       `gorm:"constraint:OnDelete:CASCADE;<-:false;"`
 	TargetID snowflake.ID `gorm:"uniqueIndex:idx_actor_id_target_id;not null;"`
 	// Target is the actor that is being followed or unfollowed.
-	Target *Actor `gorm:"constraint:OnDelete:CASCADE;"`
+	Target *Actor `gorm:"constraint:OnDelete:CASCADE;<-:false;"`
 	// Action is the action to perform, either follow or unfollow.
 	Action string `gorm:"type:enum('follow', 'unfollow');not null"`
 	// Attempts is the number of times the request has been attempted.

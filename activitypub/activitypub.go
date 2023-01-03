@@ -14,22 +14,25 @@ import (
 	"github.com/davecheney/pub/internal/to"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-json-experiment/json"
-	"gorm.io/gorm"
 )
 
 type Env struct {
-	// DB is the database connection.
-	DB *gorm.DB
+	*models.Env
 }
 
 func (e *Env) GetKey(keyID string) (crypto.PublicKey, error) {
-	actorId := trimKeyId(keyID)
-	var instance models.Instance
-	if err := e.DB.Joins("Admin").Preload("Admin.Actor").First(&instance, "admin_id is not null").Error; err != nil {
-		return nil, err
+
+	// defer resolving the admin actor until we need use it to fetch the remote actor
+	fetch := func(uri string) (*models.Actor, error) {
+		var instance models.Instance
+		if err := e.DB.Joins("Admin").Preload("Admin.Actor").Take(&instance, "admin_id is not null").Error; err != nil {
+			return nil, err
+		}
+		fetcher := NewRemoteActorFetcher(instance.Admin, e.DB)
+		return fetcher.Fetch(uri)
 	}
-	fetcher := NewRemoteActorFetcher(instance.Admin, e.DB)
-	actor, err := models.NewActors(e.DB).FindOrCreate(actorId, fetcher.Fetch)
+
+	actor, err := models.NewActors(e.DB).FindOrCreate(trimKeyId(keyID), fetch)
 	if err != nil {
 		return nil, err
 	}

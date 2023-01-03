@@ -3,8 +3,6 @@ package models
 import (
 	"errors"
 	"fmt"
-	"net/url"
-	"path"
 	"time"
 
 	"github.com/davecheney/pub/internal/snowflake"
@@ -20,13 +18,13 @@ type Actor struct {
 	Domain         string `gorm:"size:64;uniqueIndex:idx_actor_name_domain;not null"`
 	DisplayName    string `gorm:"size:128;not null"`
 	Locked         bool   `gorm:"default:false;not null"`
-	Note           string `gorm:"not null"`
+	Note           string `gorm:"not null;type:text"` // max 2^16
 	FollowersCount int32  `gorm:"default:0;not null"`
 	FollowingCount int32  `gorm:"default:0;not null"`
 	StatusesCount  int32  `gorm:"default:0;not null"`
 	LastStatusAt   time.Time
-	Avatar         string `gorm:"size:255;not null"`
-	Header         string `gorm:"size:255;not null"`
+	Avatar         string `gorm:"size:180;not null"`
+	Header         string `gorm:"size:180;not null"`
 	PublicKey      []byte `gorm:"not null"`
 	Attachments    []any  `gorm:"serializer:json"`
 }
@@ -70,35 +68,12 @@ func NewActors(db *gorm.DB) *Actors {
 	return &Actors{db: db}
 }
 
-// FindByURI returns an account by its URI if it exists locally.
-func (a *Actors) FindByURI(uri string) (*Actor, error) {
-	username, domain, err := splitAcct(uri)
-	if err != nil {
-		return nil, err
-	}
-	return a.Find(username, domain)
-}
-
-func (a *Actors) Find(name, domain string) (*Actor, error) {
-	var actor Actor
-	err := a.db.Where("name = ? AND domain = ?", name, domain).First(&actor).Error
-	if err != nil {
-		return nil, err
-	}
-	return &actor, nil
-}
-
 // FindOrCreate finds an account by its URI, or creates it if it doesn't exist.
 func (a *Actors) FindOrCreate(uri string, createFn func(string) (*Actor, error)) (*Actor, error) {
-	name, domain, err := splitAcct(uri)
-	if err != nil {
-		return nil, err
-	}
-	var actor Actor
-	err = a.db.Where("name = ? AND domain = ?", name, domain).First(&actor).Error
+	actor, err := a.FindByURI(uri)
 	if err == nil {
 		// found cached key
-		return &actor, nil
+		return actor, nil
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
@@ -112,10 +87,15 @@ func (a *Actors) FindOrCreate(uri string, createFn func(string) (*Actor, error))
 	return acc, err
 }
 
-func splitAcct(acct string) (string, string, error) {
-	url, err := url.Parse(acct)
-	if err != nil {
-		return "", "", fmt.Errorf("splitAcct: %w", err)
+// FindByURI returns an account by its URI if it exists locally.
+func (a *Actors) FindByURI(uri string) (*Actor, error) {
+	// use find to avoid record not found error in case of empty result
+	var actors []Actor
+	if err := a.db.Where(&Actor{URI: uri}).Find(&actors).Error; err != nil {
+		return nil, err
 	}
-	return path.Base(url.Path), url.Host, nil
+	if len(actors) == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return &actors[0], nil
 }

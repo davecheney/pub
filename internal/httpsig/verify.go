@@ -16,7 +16,7 @@ import (
 func Verify(req *http.Request, keyFn func(keyID string) (crypto.PublicKey, error)) error {
 	sigHeader := req.Header.Get("Signature")
 	if sigHeader == "" {
-		return errors.New("Signature header is missing")
+		return errors.New("signature header is missing")
 	}
 
 	var (

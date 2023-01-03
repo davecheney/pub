@@ -9,19 +9,14 @@ import (
 	"gorm.io/gorm"
 )
 
-type Directory struct {
-	service *Service
-}
-
-func (d *Directory) Index(w http.ResponseWriter, r *http.Request) {
+func DirectoryIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var actors []*models.Actor
-	query := d.service.db.Scopes(models.PaginateActors(r), isLocal(r))
+	query := env.DB.Scopes(models.PaginateActors(r), isLocal(r))
 	if err := query.Find(&actors).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
-	to.JSON(w, algorithms.Map(actors, serialiseAccount))
+	return to.JSON(w, algorithms.Map(actors, serialiseAccount))
 }
 
 func isLocal(r *http.Request) func(db *gorm.DB) *gorm.DB {

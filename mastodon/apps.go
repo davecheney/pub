@@ -1,8 +1,10 @@
 package mastodon
 
 import (
+	"errors"
 	"net/http"
 
+	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/mime"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
@@ -11,11 +13,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type Applications struct {
-	service *Service
-}
-
-func (a *Applications) Create(w http.ResponseWriter, r *http.Request) {
+func AppsCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var params struct {
 		ClientName   string  `json:"client_name"`
 		Website      *string `json:"website"`
@@ -30,18 +28,15 @@ func (a *Applications) Create(w http.ResponseWriter, r *http.Request) {
 		params.Scopes = r.PostFormValue("scopes")
 	case "application/json":
 		if err := json.UnmarshalFull(r.Body, &params); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+			return httpx.Error(http.StatusBadRequest, err)
 		}
 	default:
-		http.Error(w, "unsupported media type: "+mt, http.StatusUnsupportedMediaType)
-		return
+		return httpx.Error(http.StatusUnsupportedMediaType, errors.New("unsupported media type: "+mt))
 	}
 
 	var instance models.Instance
-	if err := a.service.db.First(&instance, "domain = ?", r.Host).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
+	if err := env.DB.Take(&instance, "domain = ?", r.Host).Error; err != nil {
+		return httpx.Error(http.StatusNotFound, err)
 	}
 
 	app := &models.Application{
@@ -54,20 +49,11 @@ func (a *Applications) Create(w http.ResponseWriter, r *http.Request) {
 		RedirectURI:  params.RedirectURIs,
 		VapidKey:     "BCk-QqERU0q-CfYZjcuB6lnyyOYfJ2AifKqfeGIm7Z-HiTU5T9eTG5GxVA0_OH5mMlI4UkkDTpaZwozy0TzdZ2M=",
 	}
-	if err := a.service.db.Create(app).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if err := env.DB.Create(app).Error; err != nil {
+		return err
 	}
 
-	to.JSON(w, map[string]any{
-		"id":            toString(app.ID),
-		"name":          app.Name,
-		"website":       app.Website,
-		"redirect_uri":  app.RedirectURI,
-		"client_id":     app.ClientID,
-		"client_secret": app.ClientSecret,
-		"vapid_key":     app.VapidKey,
-	})
+	return to.JSON(w, serialiseApplication(app))
 }
 
 func ptr[T any](v T) *T {

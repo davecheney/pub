@@ -4,73 +4,66 @@ import (
 	"net/http"
 
 	"github.com/davecheney/pub/internal/algorithms"
+	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/to"
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 )
 
-type Favourites struct {
-	service *Service
-}
-
-func (f *Favourites) Create(w http.ResponseWriter, req *http.Request) {
-	user, err := f.service.authenticate(req)
+func FavouritesCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
+	user, err := env.authenticate(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
 	var status models.Status
-	if err := f.service.db.Joins("Actor").First(&status, chi.URLParam(req, "id")).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
+	if err := env.DB.Joins("Actor").Take(&status, chi.URLParam(r, "id")).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return httpx.Error(http.StatusNotFound, err)
+		}
+		return err
 	}
-	reaction, err := models.NewReactions(f.service.db).Favourite(&status, user.Actor)
+	reaction, err := models.NewReactions(env.DB).Favourite(&status, user.Actor)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 	status.Reaction = reaction
 	status.FavouritesCount++
-	to.JSON(w, serialiseStatus(&status))
+	return to.JSON(w, serialiseStatus(&status))
 }
 
-func (f *Favourites) Destroy(w http.ResponseWriter, req *http.Request) {
-	user, err := f.service.authenticate(req)
+func FavouritesDestroy(env *Env, w http.ResponseWriter, r *http.Request) error {
+	user, err := env.authenticate(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
 	var status models.Status
-	if err := f.service.db.Joins("Actor").First(&status, chi.URLParam(req, "id")).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
+	if err := env.DB.Joins("Actor").Take(&status, chi.URLParam(r, "id")).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return httpx.Error(http.StatusNotFound, err)
+		}
+		return err
 	}
-	reaction, err := models.NewReactions(f.service.db).Unfavourite(&status, user.Actor)
+	reaction, err := models.NewReactions(env.DB).Unfavourite(&status, user.Actor)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 	status.Reaction = reaction
 	status.FavouritesCount--
-	to.JSON(w, serialiseStatus(&status))
+	return to.JSON(w, serialiseStatus(&status))
 }
 
-func (f *Favourites) Show(w http.ResponseWriter, req *http.Request) {
-	_, err := f.service.authenticate(req)
+func FavouritesShow(env *Env, w http.ResponseWriter, r *http.Request) error {
+	_, err := env.authenticate(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
+		return err
 	}
 	var reactions []*models.Reaction
-	if err := f.service.db.Preload("Actor").Where("status_id = ?", chi.URLParam(req, "id")).Find(&reactions).Error; err != nil {
-		if err != gorm.ErrRecordNotFound {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+	if err := env.DB.Joins("Actor").Where("status_id = ?", chi.URLParam(r, "id")).Find(&reactions).Error; err != nil {
+		return err
 	}
 
-	to.JSON(w, algorithms.Map(algorithms.Map(reactions, reactionActor), serialiseAccount))
+	return to.JSON(w, algorithms.Map(algorithms.Map(reactions, reactionActor), serialiseAccount))
 }
 
 func reactionActor(r *models.Reaction) *models.Actor { return r.Actor }

@@ -54,7 +54,7 @@ func (c *CreateInstanceCmd) Run(ctx *Context) error {
 		instance := models.Instance{
 			ID:               snowflake.Now(),
 			Domain:           c.Domain,
-			SourceURL:        "https://github.com/davecheney/m",
+			SourceURL:        "https://github.com/davecheney/pub",
 			Title:            c.Title,
 			ShortDescription: c.Description,
 			Description:      c.Description,
