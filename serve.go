@@ -112,6 +112,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 				r.Get("/home", httpx.HandlerFunc(envFn, mastodon.TimelinesHome))
 				r.Get("/public", httpx.HandlerFunc(envFn, mastodon.TimelinesPublic))
 				r.Get("/list/{id}", httpx.HandlerFunc(envFn, mastodon.TimelinesListShow))
+				r.Get("/tag/{tag}", httpx.HandlerFunc(envFn, mastodon.TimelinesTagShow))
 			})
 
 		})

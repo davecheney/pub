@@ -3,6 +3,7 @@ package activitypub
 import (
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/davecheney/pub/internal/activitypub"
@@ -185,6 +186,13 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 			st.Mentions = append(st.Mentions, models.StatusMention{
 				StatusID: st.ID,
 				ActorID:  mention.ID,
+			})
+		case "Hashtag":
+			st.Tags = append(st.Tags, models.StatusTag{
+				StatusID: st.ID,
+				Tag: &models.Tag{
+					Name: strings.TrimLeft(stringFromAny(t["name"]), "#"),
+				},
 			})
 		}
 	}

@@ -187,7 +187,7 @@ type Status struct {
 	Account            *Account           `json:"account"`
 	MediaAttachments   []*MediaAttachment `json:"media_attachments"`
 	Mentions           []*Mention         `json:"mentions"`
-	Tags               []any              `json:"tags"`
+	Tags               []*Tag             `json:"tags"`
 	Emojis             []any              `json:"emojis"`
 	Card               any                `json:"card"`
 	Poll               any                `json:"poll"`
@@ -223,11 +223,16 @@ func serialiseStatus(s *models.Status) *Status {
 		Account:            serialiseAccount(s.Actor),
 		MediaAttachments:   algorithms.Map(algorithms.Map(s.Attachments, statusAttachmentToAttachment), serialiseAttachment),
 		Mentions:           algorithms.Map(algorithms.Map(s.Mentions, statusMentionToActor), serialiseMention),
-		Tags:               []any{},
-		Emojis:             []any{},
-		Card:               nil,
-		Poll:               nil,
-		Application:        nil,
+		Tags: algorithms.Map(algorithms.Map(s.Tags, statusTagToTag), func(t *models.Tag) *Tag {
+			return &Tag{
+				Name: t.Name,
+				URL:  fmt.Sprintf("/tags/%s", t.Name), // todo, this URL should be absolute to the instance
+			}
+		}),
+		Emojis:      []any{},
+		Card:        nil,
+		Poll:        nil,
+		Application: nil,
 	}
 }
 
@@ -248,6 +253,10 @@ func statusAttachmentToAttachment(sa models.StatusAttachment) *models.Attachment
 
 func statusMentionToActor(sm models.StatusMention) *models.Actor {
 	return sm.Actor
+}
+
+func statusTagToTag(st models.StatusTag) *models.Tag {
+	return st.Tag
 }
 
 func serialiseAttachment(att *models.Attachment) *MediaAttachment {
@@ -541,4 +550,12 @@ func serialiseMention(a *models.Actor) *Mention {
 		Acct:     a.Acct(),
 		Username: a.Name,
 	}
+}
+
+// Tag represents a hashtag in the context of a status.
+// https://docs.joinmastodon.org/entities/Tag
+type Tag struct {
+	Name    string           `json:"name"`
+	URL     string           `json:"url"`
+	History []map[string]any `json:"history,omitempty"`
 }

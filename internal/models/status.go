@@ -35,6 +35,7 @@ type Status struct {
 	Reaction         *Reaction          `gorm:"<-:false;"` // don't update reaction on status update
 	Attachments      []StatusAttachment `gorm:"constraint:OnDelete:CASCADE;"`
 	Mentions         []StatusMention    `gorm:"constraint:OnDelete:CASCADE;"`
+	Tags             []StatusTag        `gorm:"constraint:OnDelete:CASCADE;"`
 }
 
 func (st *Status) AfterCreate(tx *gorm.DB) error {
@@ -80,6 +81,12 @@ type StatusMention struct {
 	StatusID snowflake.ID `gorm:"primarykey;autoIncrement:false"`
 	ActorID  snowflake.ID `gorm:"primarykey;autoIncrement:false"`
 	Actor    *Actor       `gorm:"constraint:OnDelete:CASCADE;<-:false;"` // don't update actor on mention update
+}
+
+type StatusTag struct {
+	StatusID snowflake.ID `gorm:"primarykey;autoIncrement:false"`
+	TagID    uint32       `gorm:"primarykey;autoIncrement:false"`
+	Tag      *Tag
 }
 
 type Statuses struct {
