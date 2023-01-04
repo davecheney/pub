@@ -80,9 +80,9 @@ TLS is also required, so you'll need to configure TLS for your reverse proxy, pr
 
 `pub` would not be possible without these amazing projects
 
-- [Kong](github.com/alecthomas/kong)
-- [Gorm](github.com/jinzhu/gorm)
-- [Chi](github.com/go-chi/chi)
+- [Kong](https://github.com/alecthomas/kong)
+- [Gorm](https://github.com/jinzhu/gorm)
+- [Chi](https://github.com/go-chi/chi)
 
 ## Contributions
 
