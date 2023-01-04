@@ -110,6 +110,7 @@ func TimelinesTagShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var tag models.Tag
 	if err := env.DB.Where("name = ?", chi.URLParam(r, "tag")).First(&tag).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
+			// TODO move this tag lookup in a join in the query below so an unknown tag returns an empty result set.
 			return to.JSON(w, []any{})
 		}
 		return err
@@ -117,6 +118,8 @@ func TimelinesTagShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 
 	var statuses []*models.Status
 	scope := env.DB.Scopes(models.PaginateStatuses(r))
+	// use Joins("JOIN status_tags ...") as Joins("Tags") -- joining on an association -- causes a reflect panic in gorm.
+	// no biggie, just write the JOIN manually.
 	query := scope.Joins("JOIN status_tags ON status_tags.status_id = statuses.id").Where("status_tags.tag_id = ?", tag.ID)
 	query = query.Preload("Actor")
 	query = query.Preload("Reblog").Preload("Reblog.Actor")          // boosts
