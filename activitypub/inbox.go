@@ -498,5 +498,5 @@ func visiblity(obj map[string]any) string {
 			return "public"
 		}
 	}
-	return ""
+	return "direct" // hack
 }
