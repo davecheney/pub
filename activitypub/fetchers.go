@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/davecheney/pub/internal/activitypub"
+	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
 	"gorm.io/gorm"
@@ -159,22 +160,9 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 		Language:         stringFromAny(obj["language"]),
 		URI:              uri,
 		Note:             stringFromAny(obj["content"]),
+		Attachments:      algorithms.Map(algorithms.Map(anyToSlice(obj["attachment"]), mapFromAny), objToStatusAttachment),
 	}
-	for _, att := range anyToSlice(obj["attachment"]) {
-		at := mapFromAny(att)
-		fmt.Println("attachment:", at)
-		st.Attachments = append(st.Attachments, models.StatusAttachment{
-			Attachment: models.Attachment{
-				ID:        snowflake.Now(),
-				MediaType: stringFromAny(at["mediaType"]),
-				URL:       stringFromAny(at["url"]),
-				Name:      stringFromAny(at["name"]),
-				Width:     intFromAny(at["width"]),
-				Height:    intFromAny(at["height"]),
-				Blurhash:  stringFromAny(at["blurhash"]),
-			},
-		})
-	}
+
 	for _, tag := range anyToSlice(obj["tag"]) {
 		t := mapFromAny(tag)
 		switch t["type"] {

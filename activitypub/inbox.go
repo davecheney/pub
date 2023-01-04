@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
@@ -283,23 +284,7 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 			Visibility:       vis,
 			Language:         "en",
 			Note:             stringFromAny(create["content"]),
-		}
-
-		// todo use algorithms.Map here
-		for _, att := range anyToSlice(create["attachment"]) {
-			at := mapFromAny(att)
-			fmt.Println("attachment:", at)
-			st.Attachments = append(st.Attachments, models.StatusAttachment{
-				Attachment: models.Attachment{
-					ID:        snowflake.Now(),
-					MediaType: stringFromAny(at["mediaType"]),
-					URL:       stringFromAny(at["url"]),
-					Name:      stringFromAny(at["name"]),
-					Width:     intFromAny(at["width"]),
-					Height:    intFromAny(at["height"]),
-					Blurhash:  stringFromAny(at["blurhash"]),
-				},
-			})
+			Attachments:      algorithms.Map(algorithms.Map(anyToSlice(create["attachment"]), mapFromAny), objToStatusAttachment),
 		}
 		// and here
 		for _, tag := range anyToSlice(create["tag"]) {
@@ -345,6 +330,21 @@ func inReplyToActorID(inReplyTo *models.Status) *snowflake.ID {
 		return &inReplyTo.ActorID
 	}
 	return nil
+}
+
+func objToStatusAttachment(obj map[string]any) models.StatusAttachment {
+	fmt.Println("objToStatusAttachment:", obj)
+	return models.StatusAttachment{
+		Attachment: models.Attachment{
+			ID:        snowflake.Now(),
+			MediaType: stringFromAny(obj["mediaType"]),
+			URL:       stringFromAny(obj["url"]),
+			Name:      stringFromAny(obj["name"]),
+			Width:     intFromAny(obj["width"]),
+			Height:    intFromAny(obj["height"]),
+			Blurhash:  stringFromAny(obj["blurhash"]),
+		},
+	}
 }
 
 func (i *inboxProcessor) processAccept(obj map[string]any) error {
