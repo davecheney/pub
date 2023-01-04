@@ -420,8 +420,9 @@ func (i *inboxProcessor) processUpdateActor(update map[string]any) error {
 	actor.Note = stringFromAny(update["summary"])
 	actor.Avatar = stringFromAny(mapFromAny(update["icon"])["url"])
 	actor.Header = stringFromAny(mapFromAny(update["image"])["url"])
-	actor.Attachments = anyToSlice(update["attachment"])
 	actor.PublicKey = []byte(stringFromAny(mapFromAny(update["publicKey"])["publicKeyPem"]))
+
+	// todo update attributes
 
 	return i.db.Save(&actor).Error
 }

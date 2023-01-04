@@ -23,10 +23,10 @@ type Actor struct {
 	FollowingCount int32  `gorm:"default:0;not null"`
 	StatusesCount  int32  `gorm:"default:0;not null"`
 	LastStatusAt   time.Time
-	Avatar         string `gorm:"size:255"`
-	Header         string `gorm:"size:255"`
-	PublicKey      []byte `gorm:"type:blob;not null"`
-	Attachments    []any  `gorm:"type:text;serializer:json"`
+	Avatar         string            `gorm:"size:255"`
+	Header         string            `gorm:"size:255"`
+	PublicKey      []byte            `gorm:"type:blob;not null"`
+	Attributes     []*ActorAttribute `gorm:"constraint:OnDelete:CASCADE;"`
 }
 
 func (a *Actor) Acct() string {
@@ -58,6 +58,13 @@ func (a *Actor) PublicKeyID() string {
 
 func (a *Actor) URL() string {
 	return fmt.Sprintf("https://%s/@%s", a.Domain, a.Name)
+}
+
+type ActorAttribute struct {
+	ID      uint32 `gorm:"primarykey"`
+	ActorID snowflake.ID
+	Name    string `gorm:"size:255;not null"`
+	Value   string `gorm:"type:text;not null"`
 }
 
 type Actors struct {
