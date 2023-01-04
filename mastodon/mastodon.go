@@ -61,7 +61,3 @@ type number interface {
 func toString[T number](n T) string {
 	return strconv.FormatUint(uint64(n), 10)
 }
-
-func utoa(u uint) string {
-	return strconv.FormatUint(uint64(u), 10)
-}

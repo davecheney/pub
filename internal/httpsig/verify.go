@@ -92,5 +92,10 @@ func Verify(req *http.Request, keyFn func(keyID string) (crypto.PublicKey, error
 }
 
 func rsaVerify(pubKey crypto.PublicKey, digest, sig []byte) error {
-	return rsa.VerifyPKCS1v15(pubKey.(*rsa.PublicKey), crypto.SHA256, digest, sig)
+	switch key := pubKey.(type) {
+	case *rsa.PublicKey:
+		return rsa.VerifyPKCS1v15(key, crypto.SHA256, digest, sig)
+	default:
+		return fmt.Errorf("unknown public key type: %T", key)
+	}
 }

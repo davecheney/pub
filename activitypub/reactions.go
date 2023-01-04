@@ -40,21 +40,21 @@ func (rrp *ReactionRequestProcessor) Run(stop <-chan struct{}) error {
 // process make one pass through the RelationshipRequest table, processing
 // any pending requests.
 func (rrp *ReactionRequestProcessor) process() error {
-	var requests []models.ReactionRequest
+	var requests []*models.ReactionRequest
 	if err := rrp.db.Preload("Actor").Preload("Target").Find(&requests).Error; err != nil {
 		return err
 	}
 
 	for _, request := range requests {
-		if err := rrp.processRequest(&request); err != nil {
+		if err := rrp.processRequest(request); err != nil {
 			request.LastAttempt = time.Now()
 			request.Attempts++
 			request.LastResult = err.Error()
-			if err := rrp.db.Save(&request).Error; err != nil {
+			if err := rrp.db.Save(request).Error; err != nil {
 				return err
 			}
 		}
-		if err := rrp.db.Delete(&request).Error; err != nil {
+		if err := rrp.db.Delete(request).Error; err != nil {
 			return err
 		}
 	}

@@ -5,7 +5,6 @@ import (
 
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
-	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/davecheney/pub/internal/to"
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
@@ -99,8 +98,8 @@ func UsersShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 		"summary":                   actor.Note,
 		"url":                       actor.URL(),
 		"manuallyApprovesFollowers": actor.Locked,
-		"discoverable":              false,                                                          // mastodon sets this to false
-		"published":                 snowflake.ID(actor.ID).ToTime().Format("2006-01-02T00:00:00Z"), // spec says round created_at to nearest day
+		"discoverable":              false,                                            // mastodon sets this to false
+		"published":                 actor.ID.ToTime().Format("2006-01-02T00:00:00Z"), // spec says round created_at to nearest day
 		"devices":                   actor.URI + "/collections/devices",
 		"publicKey": map[string]any{
 			"id":           actor.PublicKeyID(),

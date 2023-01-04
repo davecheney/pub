@@ -32,10 +32,6 @@ func (se *StatusError) Status() int {
 	return se.Code
 }
 
-type env interface {
-	any
-}
-
 // HandlerFunc adapts a function that returns an error to an http.HandlerFunc.
 func HandlerFunc[E any](envFn func(r *http.Request) *E, fn func(*E, http.ResponseWriter, *http.Request) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

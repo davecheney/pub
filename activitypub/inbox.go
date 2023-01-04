@@ -173,10 +173,6 @@ func (i *inboxProcessor) processAnnounce(obj map[string]any) error {
 	return i.db.Create(status).Error
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (i *inboxProcessor) processAdd(act map[string]any) error {
 	target := stringFromAny(act["target"])
 	switch target {

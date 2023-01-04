@@ -71,7 +71,7 @@ func serialiseAccount(a *models.Actor) *Account {
 		Locked:         a.Locked,
 		Bot:            a.IsBot(),
 		Group:          a.IsGroup(),
-		CreatedAt:      snowflake.ID(a.ID).ToTime().Round(time.Hour).Format("2006-01-02T00:00:00.000Z"),
+		CreatedAt:      a.ID.ToTime().Round(time.Hour).Format("2006-01-02T00:00:00.000Z"),
 		Note:           a.Note,
 		URL:            fmt.Sprintf("https://%s/@%s", a.Domain, a.Name),
 		Avatar:         media.ProxyAvatarURL(a),

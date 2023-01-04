@@ -64,7 +64,7 @@ This will create an account for you to act as `acct:you@domain.com`
 
 ### Running
 
-Start m:
+Start `pub`:
 
 ```bash
 pub --log-http --dsn 'pub:pub@/pub' serve 

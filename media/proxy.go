@@ -2,8 +2,10 @@
 package media
 
 import (
-	"crypto/sha1"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
+	"hash"
 	"io"
 	"net/http"
 
@@ -56,15 +58,17 @@ func fetch(w http.ResponseWriter, url string) error {
 }
 
 func ProxyAvatarURL(actor *models.Actor) string {
-	h := sha1.New()
-	io.WriteString(h, actor.Avatar)
-	return fmt.Sprintf("https://cheney.net/media/avatar/%x/%d", h.Sum(nil), actor.ID)
+	return fmt.Sprintf("https://cheney.net/media/avatar/%s/%d", b64Hash(sha256.New(), actor.Avatar), actor.ID)
 }
 
 func ProxyHeaderURL(actor *models.Actor) string {
-	h := sha1.New()
-	io.WriteString(h, actor.Header)
-	return fmt.Sprintf("https://cheney.net/media/header/%x/%d", h.Sum(nil), actor.ID)
+	return fmt.Sprintf("https://cheney.net/media/header/%s/%d", b64Hash(sha256.New(), actor.Header), actor.ID)
+}
+
+func b64Hash(h hash.Hash, s string) string {
+	h.Reset()
+	io.WriteString(h, s)
+	return base64.RawURLEncoding.EncodeToString(h.Sum(nil))
 }
 
 func stringOrDefault(s string, def string) string {
