@@ -15,7 +15,7 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 	}
 
 	return db.AutoMigrate(
-		&models.Actor{},
+		&models.Actor{}, &models.ActorAttribute{},
 		&models.Account{}, &models.AccountList{}, &models.AccountListMember{}, &models.AccountRole{}, &models.AccountMarker{},
 		&models.Application{},
 		&models.Conversation{},

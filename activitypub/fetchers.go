@@ -42,7 +42,7 @@ func (f *RemoteActorFetcher) Fetch(uri string) (*models.Actor, error) {
 		published = time.Now()
 	}
 
-	return &models.Actor{
+	actor := models.Actor{
 		ID:           snowflake.TimeToID(published),
 		Type:         stringFromAny(obj["type"]),
 		Name:         stringFromAny(obj["preferredUsername"]),
@@ -54,9 +54,21 @@ func (f *RemoteActorFetcher) Fetch(uri string) (*models.Actor, error) {
 		Avatar:       stringFromAny(mapFromAny(obj["icon"])["url"]),
 		Header:       stringFromAny(mapFromAny(obj["image"])["url"]),
 		LastStatusAt: time.Now(),
-		Attachments:  anyToSlice(obj["attachment"]),
-		PublicKey:    []byte(stringFromAny(mapFromAny(obj["publicKey"])["publicKeyPem"])),
-	}, nil
+		// AttachmentsJSON: anyToSlice(obj["attachment"]),
+		PublicKey: []byte(stringFromAny(mapFromAny(obj["publicKey"])["publicKeyPem"])),
+	}
+	for _, att := range anyToSlice(obj["attachment"]) {
+		t := mapFromAny(att)
+		fmt.Println("RemoteActorFetcher.Fetch: attachment:", t)
+		switch t["type"] {
+		case "PropertyValue":
+			actor.Attributes = append(actor.Attributes, &models.ActorAttribute{
+				Name:  stringFromAny(t["name"]),
+				Value: stringFromAny(t["value"]),
+			})
+		}
+	}
+	return &actor, nil
 }
 
 func (f *RemoteActorFetcher) fetch(uri string) (map[string]any, error) {

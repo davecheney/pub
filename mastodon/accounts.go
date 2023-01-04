@@ -19,7 +19,7 @@ func AccountsShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	var actor models.Actor
-	if err := env.DB.First(&actor, chi.URLParam(r, "id")).Error; err != nil {
+	if err := env.DB.Preload("Attributes").Take(&actor, chi.URLParam(r, "id")).Error; err != nil {
 		return httpx.Error(http.StatusNotFound, err)
 	}
 	return to.JSON(w, serialiseAccount(&actor))

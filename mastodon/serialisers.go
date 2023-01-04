@@ -34,7 +34,13 @@ type Account struct {
 	LastStatusAt   *string          `json:"last_status_at"`
 	NoIndex        bool             `json:"noindex"` // default false
 	Emojis         []map[string]any `json:"emojis"`
-	Fields         []map[string]any `json:"fields"`
+	Fields         []Field          `json:"fields"`
+}
+
+type Field struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+	// TODO verified_at
 }
 
 type CredentialAccount struct {
@@ -90,7 +96,12 @@ func serialiseAccount(a *models.Actor) *Account {
 			return &st
 		}(),
 		Emojis: make([]map[string]any, 0), // must be an empty array -- not null
-		Fields: make([]map[string]any, 0), // ditto
+		Fields: algorithms.Map(a.Attributes, func(a *models.ActorAttribute) Field {
+			return Field{
+				Name:  a.Name,
+				Value: a.Value,
+			}
+		}),
 	}
 }
 
