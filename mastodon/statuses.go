@@ -134,8 +134,8 @@ func StatusesContextsShow(env *Env, w http.ResponseWriter, r *http.Request) erro
 
 	ancestors, descendants := thread(status.ID, statuses)
 	return to.JSON(w, struct {
-		Ancestors   []map[string]any `json:"ancestors"`
-		Descendants []map[string]any `json:"descendants"`
+		Ancestors   []*Status `json:"ancestors"`
+		Descendants []*Status `json:"descendants"`
 	}{
 		Ancestors:   algorithms.Map(ancestors, serialiseStatus),
 		Descendants: algorithms.Map(descendants, serialiseStatus),

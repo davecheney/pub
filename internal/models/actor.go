@@ -18,14 +18,14 @@ type Actor struct {
 	Domain         string `gorm:"size:64;uniqueIndex:idx_actor_name_domain;not null"`
 	DisplayName    string `gorm:"size:128;not null"`
 	Locked         bool   `gorm:"default:false;not null"`
-	Note           string `gorm:"not null;type:text"` // max 2^16
+	Note           string `gorm:"type:text"` // max 2^16
 	FollowersCount int32  `gorm:"default:0;not null"`
 	FollowingCount int32  `gorm:"default:0;not null"`
 	StatusesCount  int32  `gorm:"default:0;not null"`
 	LastStatusAt   time.Time
-	Avatar         string `gorm:"size:180;not null"`
-	Header         string `gorm:"size:180;not null"`
-	PublicKey      []byte `gorm:"not null"`
+	Avatar         string `gorm:"size:255"`
+	Header         string `gorm:"size:255"`
+	PublicKey      []byte `gorm:"type:blob;not null"`
 	Attachments    []any  `gorm:"serializer:json"`
 }
 

@@ -159,42 +159,74 @@ func serialiseRelationship(rel *models.Relationship) *Relationship {
 	}
 }
 
-func serialiseStatus(s *models.Status) map[string]any {
-	return map[string]any{
-		"id":                     toString(s.ID),
-		"created_at":             snowflake.ID(s.ID).ToTime().Round(time.Second).Format("2006-01-02T15:04:05.000Z"),
-		"edited_at":              nil,
-		"in_reply_to_id":         stringOrNull(s.InReplyToID),
-		"in_reply_to_account_id": stringOrNull(s.InReplyToActorID),
-		"sensitive":              s.Sensitive,
-		"spoiler_text":           s.SpoilerText,
-		"visibility":             s.Visibility,
-		"language":               "en", // s.Language,
-		"uri":                    s.URI,
-		"url":                    nil,
-		"text":                   nil, // not optional!!
-		"replies_count":          s.RepliesCount,
-		"reblogs_count":          s.ReblogsCount,
-		"favourites_count":       s.FavouritesCount,
-		"favourited":             s.Reaction != nil && s.Reaction.Favourited,
-		"reblogged":              s.Reaction != nil && s.Reaction.Reblogged,
-		"muted":                  s.Reaction != nil && s.Reaction.Muted,
-		"bookmarked":             s.Reaction != nil && s.Reaction.Bookmarked,
-		"content":                s.Note,
-		"reblog": func(s *models.Status) any {
-			if s.Reblog == nil {
-				return nil
-			}
-			return serialiseStatus(s.Reblog)
-		}(s),
-		// "filtered":          []map[string]any{},
-		"account":           serialiseAccount(s.Actor),
-		"media_attachments": serialiseAttachments(s.Attachments),
-		"mentions":          []map[string]any{},
-		"tags":              []map[string]any{},
-		"emojis":            []map[string]any{},
-		"card":              nil,
-		"poll":              nil,
+// Status is a representation of a Mastodon Status object.
+// https://docs.joinmastodon.org/entities/Status/
+type Status struct {
+	ID                 snowflake.ID      `json:"id,string"`
+	CreatedAt          string            `json:"created_at"`
+	EditedAt           any               `json:"edited_at"`
+	InReplyToID        *snowflake.ID     `json:"in_reply_to_id,string"`
+	InReplyToAccountID *snowflake.ID     `json:"in_reply_to_account_id,string"`
+	Sensitive          bool              `json:"sensitive"`
+	SpoilerText        string            `json:"spoiler_text"`
+	Visibility         string            `json:"visibility"`
+	Language           string            `json:"language"`
+	URI                string            `json:"uri"`
+	URL                any               `json:"url"`
+	Text               any               `json:"text"`
+	RepliesCount       int               `json:"replies_count"`
+	ReblogsCount       int               `json:"reblogs_count"`
+	FavouritesCount    int               `json:"favourites_count"`
+	Favourited         bool              `json:"favourited"`
+	Reblogged          bool              `json:"reblogged"`
+	Muted              bool              `json:"muted"`
+	Bookmarked         bool              `json:"bookmarked"`
+	Content            string            `json:"content"`
+	Reblog             *Status           `json:"reblog"`
+	Account            *Account          `json:"account"`
+	MediaAttachments   []MediaAttachment `json:"media_attachments"`
+	Mentions           []any             `json:"mentions"`
+	Tags               []any             `json:"tags"`
+	Emojis             []any             `json:"emojis"`
+	Card               any               `json:"card"`
+	Poll               any               `json:"poll"`
+	Application        any               `json:"application"`
+}
+
+func serialiseStatus(s *models.Status) *Status {
+	if s == nil {
+		return nil
+	}
+	return &Status{
+		ID:                 s.ID,
+		CreatedAt:          s.ID.ToTime().Round(time.Second).Format("2006-01-02T15:04:05.000Z"),
+		EditedAt:           nil,
+		InReplyToID:        s.InReplyToID,
+		InReplyToAccountID: s.InReplyToActorID,
+		Sensitive:          s.Sensitive,
+		SpoilerText:        s.SpoilerText,
+		Visibility:         s.Visibility,
+		Language:           s.Language,
+		URI:                s.URI,
+		URL:                nil,
+		Text:               nil, // not optional!!
+		RepliesCount:       s.RepliesCount,
+		ReblogsCount:       s.ReblogsCount,
+		FavouritesCount:    s.FavouritesCount,
+		Favourited:         s.Reaction != nil && s.Reaction.Favourited,
+		Reblogged:          s.Reaction != nil && s.Reaction.Reblogged,
+		Muted:              s.Reaction != nil && s.Reaction.Muted,
+		Bookmarked:         s.Reaction != nil && s.Reaction.Bookmarked,
+		Content:            s.Note,
+		Reblog:             serialiseStatus(s.Reblog),
+		Account:            serialiseAccount(s.Actor),
+		MediaAttachments:   serialiseAttachments(s.Attachments),
+		Mentions:           []any{},
+		Tags:               []any{},
+		Emojis:             []any{},
+		Card:               nil,
+		Poll:               nil,
+		Application:        nil,
 	}
 }
 

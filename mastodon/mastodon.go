@@ -3,7 +3,6 @@ package mastodon
 
 import (
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/davecheney/pub/internal/httpx"
@@ -45,19 +44,4 @@ func stringOrDefault(s string, def string) string {
 		return def
 	}
 	return s
-}
-
-func stringOrNull[T number](v *T) any {
-	if v == nil {
-		return nil
-	}
-	return strconv.Itoa(int(*v))
-}
-
-type number interface {
-	~uint | ~uint64 | ~uint32
-}
-
-func toString[T number](n T) string {
-	return strconv.FormatUint(uint64(n), 10)
 }

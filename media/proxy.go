@@ -58,11 +58,13 @@ func fetch(w http.ResponseWriter, url string) error {
 }
 
 func ProxyAvatarURL(actor *models.Actor) string {
-	return fmt.Sprintf("https://cheney.net/media/avatar/%s/%d", b64Hash(sha256.New(), actor.Avatar), actor.ID)
+	url := stringOrDefault(actor.Avatar, "https://avatars.githubusercontent.com/u/1024?v=4")
+	return fmt.Sprintf("https://cheney.net/media/avatar/%s/%d", b64Hash(sha256.New(), url), actor.ID)
 }
 
 func ProxyHeaderURL(actor *models.Actor) string {
-	return fmt.Sprintf("https://cheney.net/media/header/%s/%d", b64Hash(sha256.New(), actor.Header), actor.ID)
+	url := stringOrDefault(actor.Header, "https://avatars.githubusercontent.com/u/1024?v=4")
+	return fmt.Sprintf("https://cheney.net/media/header/%s/%d", b64Hash(sha256.New(), url), actor.ID)
 }
 
 func b64Hash(h hash.Hash, s string) string {
