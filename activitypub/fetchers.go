@@ -174,6 +174,20 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 			},
 		})
 	}
+	for _, tag := range anyToSlice(obj["tag"]) {
+		t := mapFromAny(tag)
+		switch t["type"] {
+		case "Mention":
+			mention, err := models.NewActors(f.db).FindOrCreate(stringFromAny(t["href"]), fetcher.Fetch)
+			if err != nil {
+				return nil, err
+			}
+			st.Mentions = append(st.Mentions, models.StatusMention{
+				StatusID: st.ID,
+				ActorID:  mention.ID,
+			})
+		}
+	}
 	return st, nil
 }
 

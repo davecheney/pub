@@ -24,9 +24,14 @@ func TimelinesHome(env *Env, w http.ResponseWriter, r *http.Request) error {
 	followingIDs = append(followingIDs, int64(user.ID))
 
 	var statuses []*models.Status
+	// TODO stop copying and pasting this query
 	scope := env.DB.Scopes(models.PaginateStatuses(r)).Where("(actor_id IN (?) AND in_reply_to_actor_id is null) or (actor_id in (?) and in_reply_to_actor_id IN (?))", followingIDs, followingIDs, followingIDs)
-	scope = scope.Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").Preload("Attachments").Preload("Reaction", "actor_id = ?", user.Actor.ID)
-	if err := scope.Find(&statuses).Error; err != nil {
+	query := scope.Joins("Actor")                                    // author, one join and one join only
+	query = query.Preload("Reblog").Preload("Reblog.Actor")          // boosts
+	query = query.Preload("Attachments")                             // media
+	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
+	query = query.Preload("Mentions").Preload("Mentions.Actor")      // mentions
+	if err := query.Find(&statuses).Error; err != nil {
 		return httpx.Error(http.StatusInternalServerError, err)
 	}
 

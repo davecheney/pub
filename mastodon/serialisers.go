@@ -186,7 +186,7 @@ type Status struct {
 	Reblog             *Status            `json:"reblog"`
 	Account            *Account           `json:"account"`
 	MediaAttachments   []*MediaAttachment `json:"media_attachments"`
-	Mentions           []any              `json:"mentions"`
+	Mentions           []*Mention         `json:"mentions"`
 	Tags               []any              `json:"tags"`
 	Emojis             []any              `json:"emojis"`
 	Card               any                `json:"card"`
@@ -222,7 +222,7 @@ func serialiseStatus(s *models.Status) *Status {
 		Reblog:             serialiseStatus(s.Reblog),
 		Account:            serialiseAccount(s.Actor),
 		MediaAttachments:   algorithms.Map(algorithms.Map(s.Attachments, statusAttachmentToAttachment), serialiseAttachment),
-		Mentions:           []any{},
+		Mentions:           algorithms.Map(algorithms.Map(s.Mentions, statusMentionToActor), serialiseMention),
 		Tags:               []any{},
 		Emojis:             []any{},
 		Card:               nil,
@@ -244,6 +244,10 @@ type MediaAttachment struct {
 
 func statusAttachmentToAttachment(sa models.StatusAttachment) *models.Attachment {
 	return &sa.Attachment
+}
+
+func statusMentionToActor(sm models.StatusMention) *models.Actor {
+	return sm.Actor
 }
 
 func serialiseAttachment(att *models.Attachment) *MediaAttachment {
@@ -518,5 +522,23 @@ func serialiseApplication(a *models.Application) *Application {
 		VapidKey:     a.VapidKey,
 		ClientID:     a.ClientID,
 		ClientSecret: a.ClientSecret,
+	}
+}
+
+// Mention represents a mention of a user in the context of a status.
+// https://docs.joinmastodon.org/entities/Status/#Mention
+type Mention struct {
+	ID       snowflake.ID `json:"id,string"`
+	URL      string       `json:"url"`
+	Acct     string       `json:"acct"`
+	Username string       `json:"username"`
+}
+
+func serialiseMention(a *models.Actor) *Mention {
+	return &Mention{
+		ID:       a.ID,
+		URL:      a.URL(),
+		Acct:     a.Acct(),
+		Username: a.Name,
 	}
 }
