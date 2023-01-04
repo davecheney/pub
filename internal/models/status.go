@@ -34,6 +34,7 @@ type Status struct {
 	Reblog           *Status            `gorm:"<-:false;"` // don't update reblog on status update
 	Reaction         *Reaction          `gorm:"<-:false;"` // don't update reaction on status update
 	Attachments      []StatusAttachment `gorm:"constraint:OnDelete:CASCADE;"`
+	Mentions         []StatusMention    `gorm:"constraint:OnDelete:CASCADE;"`
 }
 
 func (st *Status) AfterCreate(tx *gorm.DB) error {
@@ -73,6 +74,12 @@ type StatusPoll struct {
 type StatusPollOption struct {
 	Title string `json:"title"`
 	Count int    `json:"count"`
+}
+
+type StatusMention struct {
+	StatusID snowflake.ID `gorm:"primarykey;autoIncrement:false"`
+	ActorID  snowflake.ID `gorm:"primarykey;autoIncrement:false"`
+	Actor    *Actor       `gorm:"constraint:OnDelete:CASCADE;<-:false;"` // don't update actor on mention update
 }
 
 type Statuses struct {

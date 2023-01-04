@@ -283,6 +283,8 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 			Language:         "en",
 			Note:             stringFromAny(create["content"]),
 		}
+
+		// todo use algorithms.Map here
 		for _, att := range anyToSlice(create["attachment"]) {
 			at := mapFromAny(att)
 			fmt.Println("attachment:", at)
@@ -297,6 +299,21 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 					Blurhash:  stringFromAny(at["blurhash"]),
 				},
 			})
+		}
+		// and here
+		for _, tag := range anyToSlice(create["tag"]) {
+			t := mapFromAny(tag)
+			switch t["type"] {
+			case "Mention":
+				mention, err := models.NewActors(i.db).FindOrCreate(stringFromAny(t["href"]), fetcher.Fetch)
+				if err != nil {
+					return nil, err
+				}
+				st.Mentions = append(st.Mentions, models.StatusMention{
+					StatusID: st.ID,
+					ActorID:  mention.ID,
+				})
+			}
 		}
 
 		return st, nil
