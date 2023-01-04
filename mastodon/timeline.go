@@ -42,6 +42,9 @@ func TimelinesHome(env *Env, w http.ResponseWriter, r *http.Request) error {
 }
 
 func TimelinesPublic(env *Env, w http.ResponseWriter, r *http.Request) error {
+	user, err := env.authenticate(r)
+	authenticated := err == nil
+
 	var statuses []*models.Status
 	scope := env.DB.Scopes(models.PaginateStatuses(r)).Where("visibility = ? and reblog_id is null and in_reply_to_id is null", "public")
 	switch r.URL.Query().Get("local") {
@@ -50,8 +53,13 @@ func TimelinesPublic(env *Env, w http.ResponseWriter, r *http.Request) error {
 	default:
 		scope = scope.Joins("Actor")
 	}
-	scope = scope.Preload("Attachments")
-	if err := scope.Find(&statuses).Error; err != nil {
+	query := scope.Preload("Reblog").Preload("Reblog.Actor") // boosts
+	query = query.Preload("Attachments")                     // media
+	if authenticated {
+		query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
+	}
+	query = query.Preload("Mentions").Preload("Mentions.Actor") // mentions
+	if err := query.Find(&statuses).Error; err != nil {
 		return httpx.Error(http.StatusInternalServerError, err)
 	}
 
@@ -74,8 +82,12 @@ func TimelinesListShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 
 	var statuses []*models.Status
 	scope := env.DB.Scopes(models.PaginateStatuses(r)).Where("(actor_id IN (?) AND in_reply_to_actor_id is null) or (actor_id in (?) and in_reply_to_actor_id IN (?))", listMembers, listMembers, listMembers)
-	scope = scope.Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").Preload("Attachments").Preload("Reaction", "actor_id = ?", user.Actor.ID)
-	if err := scope.Find(&statuses).Error; err != nil {
+	query := scope.Joins("Actor")                                    // author, one join and one join only
+	query = query.Preload("Reblog").Preload("Reblog.Actor")          // boosts
+	query = query.Preload("Attachments")                             // media
+	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
+	query = query.Preload("Mentions").Preload("Mentions.Actor")      // mentions
+	if err := query.Find(&statuses).Error; err != nil {
 		return httpx.Error(http.StatusInternalServerError, err)
 	}
 
