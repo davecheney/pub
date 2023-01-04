@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
@@ -312,6 +313,13 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 				st.Mentions = append(st.Mentions, models.StatusMention{
 					StatusID: st.ID,
 					ActorID:  mention.ID,
+				})
+			case "Hashtag":
+				st.Tags = append(st.Tags, models.StatusTag{
+					StatusID: st.ID,
+					Tag: &models.Tag{
+						Name: strings.TrimLeft(stringFromAny(t["name"]), "#"),
+					},
 				})
 			}
 		}
