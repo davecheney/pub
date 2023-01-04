@@ -2,6 +2,7 @@
 package mastodon
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -18,6 +19,9 @@ type Env struct {
 // successful, returns the account associated with the token.
 func (e *Env) authenticate(r *http.Request) (*models.Account, error) {
 	bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if bearer == "" {
+		return nil, httpx.Error(http.StatusUnauthorized, errors.New("missing bearer token"))
+	}
 	var token models.Token
 	if err := e.DB.Joins("Account").Preload("Account.Actor").Preload("Account.Role").Take(&token, "access_token = ?", bearer).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
