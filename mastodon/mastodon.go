@@ -28,17 +28,6 @@ func (e *Env) authenticate(r *http.Request) (*models.Account, error) {
 	return token.Account, nil
 }
 
-func (e *Env) findByDomain(domain string) (*models.Instance, error) {
-	var instance models.Instance
-	if err := e.DB.Where("domain = ?", domain).Preload("Admin").Preload("Admin.Actor").Preload("Rules").Take(&instance).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, httpx.Error(http.StatusNotFound, err)
-		}
-		return nil, err
-	}
-	return &instance, nil
-}
-
 func stringOrDefault(s string, def string) string {
 	if s == "" {
 		return def
