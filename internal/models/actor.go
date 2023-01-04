@@ -26,7 +26,7 @@ type Actor struct {
 	Avatar         string `gorm:"size:255"`
 	Header         string `gorm:"size:255"`
 	PublicKey      []byte `gorm:"type:blob;not null"`
-	Attachments    []any  `gorm:"serializer:json"`
+	Attachments    []any  `gorm:"type:text;serializer:json"`
 }
 
 func (a *Actor) Acct() string {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/davecheney/pub/media"
@@ -162,35 +163,35 @@ func serialiseRelationship(rel *models.Relationship) *Relationship {
 // Status is a representation of a Mastodon Status object.
 // https://docs.joinmastodon.org/entities/Status/
 type Status struct {
-	ID                 snowflake.ID      `json:"id,string"`
-	CreatedAt          string            `json:"created_at"`
-	EditedAt           any               `json:"edited_at"`
-	InReplyToID        *snowflake.ID     `json:"in_reply_to_id,string"`
-	InReplyToAccountID *snowflake.ID     `json:"in_reply_to_account_id,string"`
-	Sensitive          bool              `json:"sensitive"`
-	SpoilerText        string            `json:"spoiler_text"`
-	Visibility         string            `json:"visibility"`
-	Language           string            `json:"language"`
-	URI                string            `json:"uri"`
-	URL                any               `json:"url"`
-	Text               any               `json:"text"`
-	RepliesCount       int               `json:"replies_count"`
-	ReblogsCount       int               `json:"reblogs_count"`
-	FavouritesCount    int               `json:"favourites_count"`
-	Favourited         bool              `json:"favourited"`
-	Reblogged          bool              `json:"reblogged"`
-	Muted              bool              `json:"muted"`
-	Bookmarked         bool              `json:"bookmarked"`
-	Content            string            `json:"content"`
-	Reblog             *Status           `json:"reblog"`
-	Account            *Account          `json:"account"`
-	MediaAttachments   []MediaAttachment `json:"media_attachments"`
-	Mentions           []any             `json:"mentions"`
-	Tags               []any             `json:"tags"`
-	Emojis             []any             `json:"emojis"`
-	Card               any               `json:"card"`
-	Poll               any               `json:"poll"`
-	Application        any               `json:"application"`
+	ID                 snowflake.ID       `json:"id,string"`
+	CreatedAt          string             `json:"created_at"`
+	EditedAt           any                `json:"edited_at"`
+	InReplyToID        *snowflake.ID      `json:"in_reply_to_id,string"`
+	InReplyToAccountID *snowflake.ID      `json:"in_reply_to_account_id,string"`
+	Sensitive          bool               `json:"sensitive"`
+	SpoilerText        string             `json:"spoiler_text"`
+	Visibility         string             `json:"visibility"`
+	Language           string             `json:"language"`
+	URI                string             `json:"uri"`
+	URL                any                `json:"url"`
+	Text               any                `json:"text"`
+	RepliesCount       int                `json:"replies_count"`
+	ReblogsCount       int                `json:"reblogs_count"`
+	FavouritesCount    int                `json:"favourites_count"`
+	Favourited         bool               `json:"favourited"`
+	Reblogged          bool               `json:"reblogged"`
+	Muted              bool               `json:"muted"`
+	Bookmarked         bool               `json:"bookmarked"`
+	Content            string             `json:"content"`
+	Reblog             *Status            `json:"reblog"`
+	Account            *Account           `json:"account"`
+	MediaAttachments   []*MediaAttachment `json:"media_attachments"`
+	Mentions           []any              `json:"mentions"`
+	Tags               []any              `json:"tags"`
+	Emojis             []any              `json:"emojis"`
+	Card               any                `json:"card"`
+	Poll               any                `json:"poll"`
+	Application        any                `json:"application"`
 }
 
 func serialiseStatus(s *models.Status) *Status {
@@ -220,7 +221,7 @@ func serialiseStatus(s *models.Status) *Status {
 		Content:            s.Note,
 		Reblog:             serialiseStatus(s.Reblog),
 		Account:            serialiseAccount(s.Actor),
-		MediaAttachments:   serialiseAttachments(s.Attachments),
+		MediaAttachments:   algorithms.Map(algorithms.Map(s.Attachments, statusAttachmentToAttachment), serialiseAttachment),
 		Mentions:           []any{},
 		Tags:               []any{},
 		Emojis:             []any{},
@@ -241,38 +242,38 @@ type MediaAttachment struct {
 	Blurhash    string         `json:"blurhash"`
 }
 
-func serialiseAttachments(atts []models.StatusAttachment) []MediaAttachment {
-	res := []MediaAttachment{} // ensure we return a slice, not null
-	for _, att := range atts {
-		res = append(res, MediaAttachment{
-			ID:         att.ID,
-			Type:       attachmentType(&att.Attachment),
-			URL:        att.URL,
-			PreviewURL: att.URL,
-			RemoteURL:  nil,
-			Meta: map[string]any{
-				"original": map[string]any{
-					"width":  att.Width,
-					"height": att.Height,
-					"size":   fmt.Sprintf("%dx%d", att.Width, att.Height),
-					"aspect": float64(att.Width) / float64(att.Height),
-				},
-				// "small": map[string]any{
-				// 	"width":  att.Width,
-				// 	"height": att.Height,
-				// 	"size":   fmt.Sprintf("%dx%d", att.Attachment.Width, att.Attachment.Height),
-				// 	"aspect": float64(att.Attachment.Width) / float64(att.Attachment.Height),
-				// },
-				// "focus": map[string]any{
-				// 	"x": 0.0,
-				// 	"y": 0.0,
-				// },
+func statusAttachmentToAttachment(sa models.StatusAttachment) *models.Attachment {
+	return &sa.Attachment
+}
+
+func serialiseAttachment(att *models.Attachment) *MediaAttachment {
+	return &MediaAttachment{
+		ID:         att.ID,
+		Type:       attachmentType(att),
+		URL:        att.URL,
+		PreviewURL: att.URL,
+		RemoteURL:  nil,
+		Meta: map[string]any{
+			"original": map[string]any{
+				"width":  att.Width,
+				"height": att.Height,
+				"size":   fmt.Sprintf("%dx%d", att.Width, att.Height),
+				"aspect": float64(att.Width) / float64(att.Height),
 			},
-			Description: att.Name,
-			Blurhash:    att.Blurhash,
-		})
+			// "small": map[string]any{
+			// 	"width":  att.Width,
+			// 	"height": att.Height,
+			// 	"size":   fmt.Sprintf("%dx%d", att.Attachment.Width, att.Attachment.Height),
+			// 	"aspect": float64(att.Attachment.Width) / float64(att.Attachment.Height),
+			// },
+			// "focus": map[string]any{
+			// 	"x": 0.0,
+			// 	"y": 0.0,
+			// },
+		},
+		Description: att.Name,
+		Blurhash:    att.Blurhash,
 	}
-	return res
 }
 
 func attachmentType(att *models.Attachment) string {
