@@ -28,7 +28,6 @@ var cli struct {
 	DeleteAccount        DeleteAccountCmd        `cmd:"" help:"Delete an account."`
 	Serve                ServeCmd                `cmd:"" help:"Serve a local web server."`
 	SynchroniseFollowers SynchroniseFollowersCmd `cmd:"" help:"Synchronise followers."`
-	Imoport              ImportCmd               `cmd:"" help:"Import data from another instance."`
 	Follow               FollowCmd               `cmd:"" help:"Follow an object."`
 }
 
