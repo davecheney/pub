@@ -76,9 +76,11 @@ pub --log-http --dsn 'pub:pub@/pub' serve
 You'll need to put `pub` behind a reverse proxy, and configure the reverse proxy to forward requests to `pub`.
 TLS is also required, so you'll need to configure TLS for your reverse proxy, probably using [Let's Encrypt](https://letsencrypt.org/).
 
+See the [examples](examples) directory for sample configurations for [nginx](examples/nginx).
+
 ## Acknowledgements 
 
-`pub` would not be possible without these amazing projects
+`pub` would not be possible without these amazing projects:
 
 - [Chi][chi]
 - [GORM][gorm]
