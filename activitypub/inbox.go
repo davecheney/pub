@@ -431,7 +431,7 @@ func (i *inboxProcessor) processUpdateStatus(update map[string]any) error {
 func objToStatusPoll(obj map[string]any) (*models.StatusPoll, error) {
 	oneOf := anyToSlice(obj["oneOf"])
 	if len(oneOf) == 0 {
-		return nil, nil
+		return nil, nil // try to outsmart linter
 	}
 
 	expiresAt, err := timeFromAny(obj["endTime"])
