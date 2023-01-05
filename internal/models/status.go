@@ -139,11 +139,10 @@ func (s *Statuses) FindByURI(uri string) (*Status, error) {
 	// use find to avoid the not found error on empty result
 	var status []Status
 	query := s.db.Joins("Actor")
-	query = query.Preload("Reblog").Preload("Reblog.Actor")
 	query = query.Preload("Attachments")
 	query = query.Preload("Poll").Preload("Poll.Options")
-	query = query.Where(&Status{URI: uri})
-	if err := s.db.Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").Preload("Attachments").Where(&Status{URI: uri}).Find(&status).Error; err != nil {
+	query = query.Preload("Reblog").Preload("Reblog.Actor")
+	if err := query.Where(&Status{URI: uri}).Find(&status).Error; err != nil {
 		return nil, err
 	}
 	if len(status) == 0 {

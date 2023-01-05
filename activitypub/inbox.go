@@ -387,12 +387,10 @@ func (i *inboxProcessor) processFollow(body map[string]any) error {
 func (i *inboxProcessor) processUpdate(update map[string]any) error {
 	typ := stringFromAny(update["type"])
 	switch typ {
-	case "Note":
+	case "Note", "Question":
 		return i.processUpdateStatus(update)
 	case "Person":
 		return i.processUpdateActor(update)
-	case "Question":
-		return i.processUpdateStatus(update)
 	default:
 		return fmt.Errorf("unknown update object type: %q", typ)
 	}
@@ -412,10 +410,10 @@ func (i *inboxProcessor) processUpdateStatus(update map[string]any) error {
 
 	status.UpdatedAt = updated
 	status.Note = stringFromAny(update["content"])
-
-	// delete any existing poll
-	if err := i.db.Delete(&models.StatusPoll{StatusID: status.ID}).Error; err != nil {
-		return err
+	if status.Poll != nil {
+		if err := i.db.Delete(status.Poll).Error; err != nil {
+			return err
+		}
 	}
 
 	status.Poll, err = objToStatusPoll(update)
