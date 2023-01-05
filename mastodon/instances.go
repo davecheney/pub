@@ -25,9 +25,6 @@ func instancesIndex(env *Env, w http.ResponseWriter, r *http.Request, seraliser 
 		}
 		return err
 	}
-	if err := env.DB.Model(&models.Instance{}).Count(&instance.DomainsCount).Error; err != nil {
-		return err
-	}
 	return to.JSON(w, seraliser(&instance))
 }
 

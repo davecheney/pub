@@ -29,6 +29,16 @@ type Actor struct {
 	Attributes     []*ActorAttribute `gorm:"constraint:OnDelete:CASCADE;"`
 }
 
+func (a *Actor) AfterCreate(tx *gorm.DB) error {
+	return forEach(tx, a.updateInstanceDomainsCount)
+}
+
+func (a *Actor) updateInstanceDomainsCount(tx *gorm.DB) error {
+	return tx.Model(&Instance{}).Where("1 = 1").UpdateColumns(map[string]interface{}{
+		"domains_count": tx.Select("COUNT(distinct domain)").Model(&Actor{}),
+	}).Error // update domain count on all instances.
+}
+
 func (a *Actor) Acct() string {
 	if a.IsLocal() {
 		return a.Name
