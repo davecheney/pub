@@ -225,7 +225,7 @@ func (i *inboxProcessor) processRemove(act map[string]any) error {
 func (i *inboxProcessor) processCreate(create map[string]any) error {
 	typ := stringFromAny(create["type"])
 	switch typ {
-	case "Note":
+	case "Note", "Question":
 		return i.processCreateNote(create)
 	default:
 		return fmt.Errorf("unknown create object type: %q", typ)
@@ -308,6 +308,14 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 			}
 		}
 
+		st.Poll, err = objToStatusPoll(create)
+		if err != nil {
+			return nil, err
+		}
+		if st.Poll != nil {
+			st.Poll.StatusID = st.ID
+		}
+
 		return st, nil
 	})
 	if err != nil {
@@ -383,6 +391,8 @@ func (i *inboxProcessor) processUpdate(update map[string]any) error {
 		return i.processUpdateStatus(update)
 	case "Person":
 		return i.processUpdateActor(update)
+	case "Question":
+		return i.processUpdateStatus(update)
 	default:
 		return fmt.Errorf("unknown update object type: %q", typ)
 	}
@@ -395,15 +405,60 @@ func (i *inboxProcessor) processUpdateStatus(update map[string]any) error {
 	if err != nil {
 		return err
 	}
-	updated, err := timeFromAny(update["published"])
+	updated, err := timeFromAny(update["updated"])
 	if err != nil {
 		return err
 	}
+
 	status.UpdatedAt = updated
 	status.Note = stringFromAny(update["content"])
 
-	// TODO handle polls and attachments
+	// delete any existing poll
+	if err := i.db.Delete(&models.StatusPoll{StatusID: status.ID}).Error; err != nil {
+		return err
+	}
+
+	status.Poll, err = objToStatusPoll(update)
+	if err != nil {
+		return err
+	}
+	if status.Poll != nil {
+		status.Poll.StatusID = status.ID
+	}
+
+	// TODO handle attachments
 	return i.db.Save(&status).Error
+}
+
+func objToStatusPoll(obj map[string]any) (*models.StatusPoll, error) {
+	oneOf := anyToSlice(obj["oneOf"])
+	if len(oneOf) == 0 {
+		return nil, nil
+	}
+
+	expiresAt, err := timeFromAny(obj["endTime"])
+	if err != nil {
+		return nil, err
+	}
+
+	poll := &models.StatusPoll{
+		ExpiresAt: expiresAt,
+		Multiple:  false,
+	}
+
+	for _, o := range oneOf {
+		option := mapFromAny(o)
+		if option["type"] != "Note" {
+			return nil, fmt.Errorf("invalid poll option type: %q", option["type"])
+		}
+
+		poll.Options = append(poll.Options, models.StatusPollOption{
+			Title: stringFromAny(option["name"]),
+			Count: intFromAny(mapFromAny(option["replies"])["totalItems"]),
+		})
+	}
+
+	return poll, nil
 }
 
 func (i *inboxProcessor) processUpdateActor(update map[string]any) error {

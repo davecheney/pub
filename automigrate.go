@@ -25,7 +25,7 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 		&models.Reaction{}, &models.ReactionRequest{},
 		&models.Relationship{}, &models.RelationshipRequest{},
 		// &models.Notification{},
-		&models.Status{}, &models.StatusPoll{}, &models.StatusAttachment{}, &models.StatusMention{}, &models.StatusTag{},
+		&models.Status{}, &models.StatusPoll{}, &models.StatusPollOption{}, &models.StatusAttachment{}, &models.StatusMention{}, &models.StatusTag{},
 		&models.Tag{},
 		&models.Token{},
 	)

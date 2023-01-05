@@ -201,7 +201,7 @@ type Status struct {
 	Tags               []*Tag             `json:"tags"`
 	Emojis             []any              `json:"emojis"`
 	Card               any                `json:"card"`
-	Poll               any                `json:"poll"`
+	Poll               *Poll              `json:"poll"`
 	Application        any                `json:"application"`
 }
 
@@ -212,7 +212,7 @@ func serialiseStatus(s *models.Status) *Status {
 	return &Status{
 		ID:                 s.ID,
 		CreatedAt:          s.ID.ToTime().Round(time.Second).Format("2006-01-02T15:04:05.000Z"),
-		EditedAt:           nil,
+		EditedAt:           nil, // todo
 		InReplyToID:        s.InReplyToID,
 		InReplyToAccountID: s.InReplyToActorID,
 		Sensitive:          s.Sensitive,
@@ -242,7 +242,7 @@ func serialiseStatus(s *models.Status) *Status {
 		}),
 		Emojis:      []any{},
 		Card:        nil,
-		Poll:        nil,
+		Poll:        serialisePoll(s.Poll),
 		Application: nil,
 	}
 }
@@ -569,4 +569,50 @@ type Tag struct {
 	Name    string           `json:"name"`
 	URL     string           `json:"url"`
 	History []map[string]any `json:"history,omitempty"`
+}
+
+// https://docs.joinmastodon.org/entities/Poll/
+type Poll struct {
+	ID          snowflake.ID `json:"id,string"`
+	ExpiresAt   string       `json:"expires_at"`
+	Expired     bool         `json:"expired"`
+	Multiple    bool         `json:"multiple"`
+	VotesCount  int          `json:"votes_count"`
+	VotersCount any          `json:"voters_count"`
+	Voted       bool         `json:"voted"`
+	Options     []PollOption `json:"options"`
+	Emojies     []any        `json:"emojies"`
+}
+
+type PollOption struct {
+	Title      string `json:"title"`
+	VotesCount int    `json:"votes_count"`
+}
+
+func serialisePoll(p *models.StatusPoll) *Poll {
+	if p == nil {
+		return nil
+	}
+	return &Poll{
+		ID:          p.StatusID,
+		ExpiresAt:   p.ExpiresAt.Format("2006-01-02T15:04:05.006Z"),
+		Expired:     p.ExpiresAt.After(time.Now()),
+		Multiple:    p.Multiple,
+		VotesCount:  p.VotesCount,
+		VotersCount: nil,
+		Voted:       false,
+		Options:     serialisePollOptions(p.Options),
+		Emojies:     nil,
+	}
+}
+
+func serialisePollOptions(options []models.StatusPollOption) []PollOption {
+	pollOptions := []PollOption{}
+	for _, option := range options {
+		pollOptions = append(pollOptions, PollOption{
+			Title:      option.Title,
+			VotesCount: option.Count,
+		})
+	}
+	return pollOptions
 }

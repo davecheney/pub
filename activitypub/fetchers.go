@@ -208,6 +208,15 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 			})
 		}
 	}
+
+	st.Poll, err = objToStatusPoll(obj)
+	if err != nil {
+		return nil, err
+	}
+	if st.Poll != nil {
+		st.Poll.StatusID = st.ID
+	}
+
 	return st, nil
 }
 

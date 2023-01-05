@@ -107,6 +107,7 @@ func StatusesShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
 	query = query.Preload("Mentions").Preload("Mentions.Actor")      // mentions
 	query = query.Preload("Tags").Preload("Tags.Tag")                // tags
+	query = query.Preload("Poll").Preload("Poll.Options")            // polls
 	if err := query.Take(&status, chi.URLParam(r, "id")).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return httpx.Error(http.StatusNotFound, err)
@@ -139,6 +140,7 @@ func StatusesContextsShow(env *Env, w http.ResponseWriter, r *http.Request) erro
 	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
 	query = query.Preload("Mentions").Preload("Mentions.Actor")      // mentions
 	query = query.Preload("Tags").Preload("Tags.Tag")                // tags
+	query = query.Preload("Poll").Preload("Poll.Options")            // polls
 	query = query.Where(&models.Status{ConversationID: status.ConversationID})
 	if err := query.Find(&statuses).Error; err != nil {
 		return err

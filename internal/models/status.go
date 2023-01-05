@@ -36,6 +36,7 @@ type Status struct {
 	Attachments      []*StatusAttachment `gorm:"constraint:OnDelete:CASCADE;"`
 	Mentions         []StatusMention     `gorm:"constraint:OnDelete:CASCADE;"`
 	Tags             []StatusTag         `gorm:"constraint:OnDelete:CASCADE;"`
+	Poll             *StatusPoll         `gorm:"constraint:OnDelete:CASCADE;"`
 }
 
 func (st *Status) AfterCreate(tx *gorm.DB) error {
@@ -50,7 +51,9 @@ func (st *Status) updateRepliesCount(tx *gorm.DB) error {
 
 	parent := &Status{ID: *st.InReplyToID}
 	repliesCount := tx.Select("COUNT(id)").Where("in_reply_to_id = ?", *st.InReplyToID).Table("statuses")
-	return tx.Model(parent).Update("replies_count", repliesCount).Error
+	return tx.Model(parent).UpdateColumns(map[string]interface{}{
+		"replies_count": repliesCount,
+	}).Error
 }
 
 // updateStatusCount updates the status_count and last_status_at fields on the actor.
@@ -58,23 +61,37 @@ func (st *Status) updateStatusCount(tx *gorm.DB) error {
 	statusesCount := tx.Select("COUNT(id)").Where("actor_id = ?", st.ActorID).Table("statuses")
 	createdAt := st.ID.ToTime()
 	actor := &Actor{ID: st.ActorID}
-	return tx.Model(actor).Updates(map[string]interface{}{
+	return tx.Model(actor).UpdateColumns(map[string]interface{}{
 		"statuses_count": statusesCount,
 		"last_status_at": createdAt,
 	}).Error
 }
 
 type StatusPoll struct {
-	ID         uint64 `gorm:"primarykey"`
+	StatusID   snowflake.ID `gorm:"primarykey;autoIncrement:false"`
 	ExpiresAt  time.Time
 	Multiple   bool
 	VotesCount int                `gorm:"not null;default:0"`
-	Options    []StatusPollOption `gorm:"serializer:json"`
+	Options    []StatusPollOption `gorm:"constraint:OnDelete:CASCADE;"`
+}
+
+func (st *StatusPoll) AfterCreate(tx *gorm.DB) error {
+	return forEach(tx, st.updateVotesCount)
+}
+
+func (st *StatusPoll) updateVotesCount(tx *gorm.DB) error {
+	votesCount := tx.Select("SUM(count)").Where("status_poll_id = ?", st.StatusID).Table("status_poll_options")
+	poll := &StatusPoll{StatusID: st.StatusID}
+	return tx.Model(poll).UpdateColumns(map[string]interface{}{
+		"votes_count": votesCount,
+	}).Error
 }
 
 type StatusPollOption struct {
-	Title string `json:"title"`
-	Count int    `json:"count"`
+	ID           uint32 `gorm:"primarykey;autoIncrement:true"`
+	StatusPollID snowflake.ID
+	Title        string `gorm:"size:255;not null"`
+	Count        int    `gorm:"not null;default:0"`
 }
 
 type StatusMention struct {
@@ -121,6 +138,11 @@ func (s *Statuses) FindOrCreate(uri string, createFn func(string) (*Status, erro
 func (s *Statuses) FindByURI(uri string) (*Status, error) {
 	// use find to avoid the not found error on empty result
 	var status []Status
+	query := s.db.Joins("Actor")
+	query = query.Preload("Reblog").Preload("Reblog.Actor")
+	query = query.Preload("Attachments")
+	query = query.Preload("Poll").Preload("Poll.Options")
+	query = query.Where(&Status{URI: uri})
 	if err := s.db.Joins("Actor").Preload("Reblog").Preload("Reblog.Actor").Preload("Attachments").Where(&Status{URI: uri}).Find(&status).Error; err != nil {
 		return nil, err
 	}
