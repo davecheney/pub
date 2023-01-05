@@ -66,7 +66,7 @@ func (r *Reaction) updateStatusCount(tx *gorm.DB) error {
 	status := &Status{ID: r.StatusID}
 	favouritesCount := tx.Select("COUNT(*)").Where("status_id = ? and favourited = true", r.StatusID).Table("reactions")
 	reblogsCount := tx.Select("COUNT(*)").Where("status_id = ? and reblogged = true", r.StatusID).Table("reactions")
-	return tx.Model(status).Updates(map[string]interface{}{
+	return tx.Model(status).UpdateColumns(map[string]interface{}{
 		"favourites_count": favouritesCount,
 		"reblogs_count":    reblogsCount,
 	}).Error
