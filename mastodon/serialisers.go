@@ -258,7 +258,7 @@ type MediaAttachment struct {
 	Blurhash    string         `json:"blurhash"`
 }
 
-func statusAttachmentToAttachment(sa models.StatusAttachment) *models.Attachment {
+func statusAttachmentToAttachment(sa *models.StatusAttachment) *models.Attachment {
 	return &sa.Attachment
 }
 

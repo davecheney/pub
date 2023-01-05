@@ -31,11 +31,11 @@ type Status struct {
 	ReblogsCount     int    `gorm:"not null;default:0"`
 	FavouritesCount  int    `gorm:"not null;default:0"`
 	ReblogID         *snowflake.ID
-	Reblog           *Status            `gorm:"<-:false;"` // don't update reblog on status update
-	Reaction         *Reaction          `gorm:"<-:false;"` // don't update reaction on status update
-	Attachments      []StatusAttachment `gorm:"constraint:OnDelete:CASCADE;"`
-	Mentions         []StatusMention    `gorm:"constraint:OnDelete:CASCADE;"`
-	Tags             []StatusTag        `gorm:"constraint:OnDelete:CASCADE;"`
+	Reblog           *Status             `gorm:"<-:false;"` // don't update reblog on status update
+	Reaction         *Reaction           `gorm:"<-:false;"` // don't update reaction on status update
+	Attachments      []*StatusAttachment `gorm:"constraint:OnDelete:CASCADE;"`
+	Mentions         []StatusMention     `gorm:"constraint:OnDelete:CASCADE;"`
+	Tags             []StatusTag         `gorm:"constraint:OnDelete:CASCADE;"`
 }
 
 func (st *Status) AfterCreate(tx *gorm.DB) error {

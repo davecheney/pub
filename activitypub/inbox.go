@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
@@ -284,7 +283,7 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 			Visibility:       vis,
 			Language:         "en",
 			Note:             stringFromAny(create["content"]),
-			Attachments:      algorithms.Map(algorithms.Map(anyToSlice(create["attachment"]), mapFromAny), objToStatusAttachment),
+			Attachments:      attachmentsToStatusAttachments(anyToSlice(create["attachment"])),
 		}
 		// and here
 		for _, tag := range anyToSlice(create["tag"]) {
@@ -332,9 +331,9 @@ func inReplyToActorID(inReplyTo *models.Status) *snowflake.ID {
 	return nil
 }
 
-func objToStatusAttachment(obj map[string]any) models.StatusAttachment {
+func objToStatusAttachment(obj map[string]any) *models.StatusAttachment {
 	fmt.Println("objToStatusAttachment:", obj)
-	return models.StatusAttachment{
+	return &models.StatusAttachment{
 		Attachment: models.Attachment{
 			ID:        snowflake.Now(),
 			MediaType: stringFromAny(obj["mediaType"]),

@@ -42,7 +42,7 @@ func (f *RemoteActorFetcher) Fetch(uri string) (*models.Actor, error) {
 		published = time.Now()
 	}
 
-	actor := models.Actor{
+	return &models.Actor{
 		ID:           snowflake.TimeToID(published),
 		Type:         stringFromAny(obj["type"]),
 		Name:         stringFromAny(obj["preferredUsername"]),
@@ -54,21 +54,33 @@ func (f *RemoteActorFetcher) Fetch(uri string) (*models.Actor, error) {
 		Avatar:       stringFromAny(mapFromAny(obj["icon"])["url"]),
 		Header:       stringFromAny(mapFromAny(obj["image"])["url"]),
 		LastStatusAt: time.Now(),
-		// AttachmentsJSON: anyToSlice(obj["attachment"]),
-		PublicKey: []byte(stringFromAny(mapFromAny(obj["publicKey"])["publicKeyPem"])),
+		PublicKey:    []byte(stringFromAny(mapFromAny(obj["publicKey"])["publicKeyPem"])),
+		Attributes:   attachmentsToActorAttributes(anyToSlice(obj["attachment"])),
+	}, nil
+}
+
+func attachmentsToActorAttributes(attachments []any) []*models.ActorAttribute {
+	return algorithms.Map(
+		algorithms.Filter(
+			algorithms.Map(attachments, mapFromAny),
+			propertyType("PropertyValue"),
+		),
+		objToActorAttribute,
+	)
+}
+
+func objToActorAttribute(obj map[string]any) *models.ActorAttribute {
+	fmt.Println("RemoteActorFetcher.Fetch: attachment:", obj)
+	return &models.ActorAttribute{
+		Name:  stringFromAny(obj["name"]),
+		Value: stringFromAny(obj["value"]),
 	}
-	for _, att := range anyToSlice(obj["attachment"]) {
-		t := mapFromAny(att)
-		fmt.Println("RemoteActorFetcher.Fetch: attachment:", t)
-		switch t["type"] {
-		case "PropertyValue":
-			actor.Attributes = append(actor.Attributes, &models.ActorAttribute{
-				Name:  stringFromAny(t["name"]),
-				Value: stringFromAny(t["value"]),
-			})
-		}
+}
+
+func propertyType(t string) func(map[string]any) bool {
+	return func(m map[string]any) bool {
+		return m["type"] == t
 	}
-	return &actor, nil
 }
 
 func (f *RemoteActorFetcher) fetch(uri string) (map[string]any, error) {
@@ -172,7 +184,7 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 		Language:         stringFromAny(obj["language"]),
 		URI:              uri,
 		Note:             stringFromAny(obj["content"]),
-		Attachments:      algorithms.Map(algorithms.Map(anyToSlice(obj["attachment"]), mapFromAny), objToStatusAttachment),
+		Attachments:      attachmentsToStatusAttachments(anyToSlice(obj["attachment"])),
 	}
 
 	for _, tag := range anyToSlice(obj["tag"]) {
@@ -197,6 +209,16 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 		}
 	}
 	return st, nil
+}
+
+func attachmentsToStatusAttachments(attachments []any) []*models.StatusAttachment {
+	return algorithms.Map(
+		algorithms.Map(
+			attachments,
+			mapFromAny,
+		),
+		objToStatusAttachment,
+	)
 }
 
 // // noteToStatus converts an ActivityPub note to a Status.
