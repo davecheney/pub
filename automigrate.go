@@ -6,9 +6,11 @@ import (
 )
 
 type AutoMigrateCmd struct {
+	DisableForeignKeyConstraints bool `help:"disable foreign key constraints when creating tables."`
 }
 
 func (a *AutoMigrateCmd) Run(ctx *Context) error {
+	ctx.Config.DisableForeignKeyConstraintWhenMigrating = a.DisableForeignKeyConstraints
 	db, err := gorm.Open(ctx.Dialector, &ctx.Config)
 	if err != nil {
 		return err
