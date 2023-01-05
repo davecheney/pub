@@ -21,8 +21,8 @@ _Warning: `pub` is still in development, if it breaks, you can keep the pieces._
 
 ### Pre-requisites
 
-- [Go](https://golang.org/doc/install)
-- [MariaDB](https://mariadb.org/download/)
+- [Go][go]
+- [MariaDB][mariadb]
 
 ### Installation
 
@@ -80,9 +80,11 @@ TLS is also required, so you'll need to configure TLS for your reverse proxy, pr
 
 `pub` would not be possible without these amazing projects
 
-- [Kong](github.com/alecthomas/kong)
-- [Gorm](github.com/jinzhu/gorm)
-- [Chi](github.com/go-chi/chi)
+- [Chi][chi]
+- [GORM][gorm]
+- [Kong][kong]
+- [Requests][requests]
+
 
 ## Contributions
 
@@ -93,3 +95,10 @@ In the meantime, if you have a feature request, or a bug report, please open an 
 If you're _really_ adventurous, you can contact me via [`@dfc@cheney.net`](acct:dfc@cheney.net).
 
 Thank you in advance for your understanding.
+
+[chi]: https://github.com/go-chi/chi
+[kong]: https://github.com/alecthomas/kong
+[gorm]: https://gorm.io/
+[requests]: https://github.com/carlmjohnson/requests/
+[go]: https://golang.org/doc/install
+[mariadb]: https://mariadb.org/download/
