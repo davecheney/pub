@@ -508,6 +508,7 @@ func serialiseRules(i *models.Instance) []Rule {
 	return rules
 }
 
+// https://docs.joinmastodon.org/entities/Marker/
 type Marker struct {
 	LastReadID snowflake.ID `json:"last_read_id,string"`
 	Version    int32        `json:"version"`

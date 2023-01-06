@@ -63,8 +63,8 @@ type AccountMarker struct {
 	ID         uint32 `gorm:"primarykey"`
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
-	AccountID  snowflake.ID `gorm:"not null;"`
-	Name       string       `gorm:"enum('home','notifications');not null;"`
+	AccountID  snowflake.ID `gorm:"not null;uniqueIndex:idx_account_name"`
+	Name       string       `gorm:"enum('home','notifications');not null;uniqueIndex:idx_account_name"`
 	Version    int32        `gorm:"not null;"`
 	LastReadID snowflake.ID `gorm:"not null;"`
 }
