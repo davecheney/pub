@@ -22,14 +22,10 @@ func TimelinesHome(env *Env, w http.ResponseWriter, r *http.Request) error {
 
 	var statuses []*models.Status
 	// TODO stop copying and pasting this query
-	scope := env.DB.Scopes(models.PaginateStatuses(r)).
+	scope := env.DB.Joins("Actor").Scopes(models.PaginateStatuses(r), models.PreloadStatus).
 		Where("(actor_id IN (?) AND in_reply_to_actor_id is null) or (actor_id in (?) and in_reply_to_actor_id IN (?))", following, following, following)
-	query := scope.Joins("Actor")                                    // author, one join and one join only
-	query = query.Preload("Reblog").Preload("Reblog.Actor")          // boosts
-	query = query.Preload("Attachments")                             // media
-	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
-	query = query.Preload("Mentions").Preload("Mentions.Actor")      // mentions
-	query = query.Preload("Tags").Preload("Tags.Tag")                // tags
+	query := scope.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
+	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ID)
 	if err := query.Find(&statuses).Error; err != nil {
 		return httpx.Error(http.StatusInternalServerError, err)
 	}
@@ -45,14 +41,12 @@ func TimelinesPublic(env *Env, w http.ResponseWriter, r *http.Request) error {
 	authenticated := err == nil
 
 	var statuses []*models.Status
-	scope := env.DB.Scopes(models.PaginateStatuses(r), publicStatuses, localOnly(r))
-	query := scope.Preload("Reblog").Preload("Reblog.Actor") // boosts
-	query = query.Preload("Attachments")                     // media
+	query := env.DB.Scopes(models.PaginateStatuses(r), publicStatuses, localOnly(r), models.PreloadStatus)
+	// localOnly handles the join to the actors table
 	if authenticated {
 		query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
+		query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ID)
 	}
-	query = query.Preload("Mentions").Preload("Mentions.Actor") // mentions
-	query = query.Preload("Tags").Preload("Tags.Tag")           // tags
 	if err := query.Find(&statuses).Error; err != nil {
 		return httpx.Error(http.StatusInternalServerError, err)
 	}
@@ -88,13 +82,10 @@ func TimelinesListShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	var statuses []*models.Status
-	scope := env.DB.Scopes(models.PaginateStatuses(r)).Where("(actor_id IN (?) AND in_reply_to_actor_id is null) or (actor_id in (?) and in_reply_to_actor_id IN (?))", listMembers, listMembers, listMembers)
-	query := scope.Joins("Actor")                                    // author, one join and one join only
-	query = query.Preload("Reblog").Preload("Reblog.Actor")          // boosts
-	query = query.Preload("Attachments")                             // media
+	scope := env.DB.Scopes(models.PaginateStatuses(r), models.PreloadStatus).Where("(actor_id IN (?) AND in_reply_to_actor_id is null) or (actor_id in (?) and in_reply_to_actor_id IN (?))", listMembers, listMembers, listMembers)
+	query := scope.Joins("Actor")
 	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
-	query = query.Preload("Mentions").Preload("Mentions.Actor")      // mentions
-	query = query.Preload("Tags").Preload("Tags.Tag")                // tags
+	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ID)
 	if err := query.Find(&statuses).Error; err != nil {
 		return httpx.Error(http.StatusInternalServerError, err)
 	}
@@ -117,12 +108,9 @@ func TimelinesTagShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	// no biggie, just write the JOIN manually.
 	tag := env.DB.Select("id").Where("name = ?", chi.URLParam(r, "tag")).Table("tags")
 	query := scope.Joins("JOIN status_tags ON status_tags.status_id = statuses.id").Where("status_tags.tag_id = (?)", tag)
-	query = query.Preload("Actor")
-	query = query.Preload("Reblog").Preload("Reblog.Actor")          // boosts
-	query = query.Preload("Attachments")                             // media
+	query = query.Preload("Actor").Scopes(models.PreloadStatus)
 	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
-	query = query.Preload("Mentions").Preload("Mentions.Actor")      // mentions
-	query = query.Preload("Tags").Preload("Tags.Tag")                // tags
+	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ID)
 	if err := query.Find(&statuses).Error; err != nil {
 		return httpx.Error(http.StatusInternalServerError, err)
 	}

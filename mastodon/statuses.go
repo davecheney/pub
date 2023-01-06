@@ -102,13 +102,9 @@ func StatusesShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	var status models.Status
-	query := env.DB.Joins("Actor")                                   // author, one join and one join only
-	query = query.Preload("Reblog").Preload("Reblog.Actor")          // boosts
-	query = query.Preload("Attachments")                             // media
+	query := env.DB.Joins("Actor").Scopes(models.PreloadStatus)
 	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
-	query = query.Preload("Mentions").Preload("Mentions.Actor")      // mentions
-	query = query.Preload("Tags").Preload("Tags.Tag")                // tags
-	query = query.Preload("Poll").Preload("Poll.Options")            // polls
+	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ID)
 	if err := query.Take(&status, chi.URLParam(r, "id")).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return httpx.Error(http.StatusNotFound, err)
@@ -125,7 +121,10 @@ func StatusesContextsShow(env *Env, w http.ResponseWriter, r *http.Request) erro
 	}
 
 	var status models.Status
-	if err := env.DB.Take(&status, chi.URLParam(r, "id")).Error; err != nil {
+	query := env.DB.Joins("Actor").Scopes(models.PreloadStatus)
+	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
+	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ID)
+	if err := query.Take(&status, chi.URLParam(r, "id")).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return httpx.Error(http.StatusNotFound, err)
 		}
@@ -134,16 +133,10 @@ func StatusesContextsShow(env *Env, w http.ResponseWriter, r *http.Request) erro
 
 	// load conversation statuses
 	var statuses []models.Status
-	// TODO stop copying this logic around everywhere
-	query := env.DB.Joins("Actor")                                   // author, one join and one join only
-	query = query.Preload("Reblog").Preload("Reblog.Actor")          // boosts
-	query = query.Preload("Attachments")                             // media
+	query = env.DB.Joins("Actor").Scopes(models.PreloadStatus)
 	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
-	query = query.Preload("Mentions").Preload("Mentions.Actor")      // mentions
-	query = query.Preload("Tags").Preload("Tags.Tag")                // tags
-	query = query.Preload("Poll").Preload("Poll.Options")            // polls
-	query = query.Where(&models.Status{ConversationID: status.ConversationID})
-	if err := query.Find(&statuses).Error; err != nil {
+	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ID)
+	if err := query.Where(&models.Status{ConversationID: status.ConversationID}).Find(&statuses).Error; err != nil {
 		return err
 	}
 

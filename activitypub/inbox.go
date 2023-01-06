@@ -131,15 +131,13 @@ func (i *inboxProcessor) processUndoFollow(body map[string]any) error {
 func (i *inboxProcessor) processAnnounce(obj map[string]any) error {
 	target := stringFromAny(obj["object"])
 	statusFetcher := NewRemoteStatusFetcher(i.signAs, i.db)
-	statuses := models.NewStatuses(i.db)
-	original, err := statuses.FindOrCreate(target, statusFetcher.Fetch)
+	original, err := models.NewStatuses(i.db).FindOrCreate(target, statusFetcher.Fetch)
 	if err != nil {
 		return err
 	}
 
 	actorFetcher := NewRemoteActorFetcher(i.signAs, i.db)
-	actors := models.NewActors(i.db)
-	actor, err := actors.FindOrCreate(stringFromAny(obj["actor"]), actorFetcher.Fetch)
+	actor, err := models.NewActors(i.db).FindOrCreate(stringFromAny(obj["actor"]), actorFetcher.Fetch)
 	if err != nil {
 		return err
 	}

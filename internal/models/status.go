@@ -138,10 +138,7 @@ func (s *Statuses) FindOrCreate(uri string, createFn func(string) (*Status, erro
 func (s *Statuses) FindByURI(uri string) (*Status, error) {
 	// use find to avoid the not found error on empty result
 	var status []Status
-	query := s.db.Joins("Actor")
-	query = query.Preload("Attachments")
-	query = query.Preload("Poll").Preload("Poll.Options")
-	query = query.Preload("Reblog").Preload("Reblog.Actor")
+	query := s.db.Joins("Actor").Scopes(PreloadStatus)
 	if err := query.Where(&Status{URI: uri}).Find(&status).Error; err != nil {
 		return nil, err
 	}
@@ -149,4 +146,18 @@ func (s *Statuses) FindByURI(uri string) (*Status, error) {
 		return nil, gorm.ErrRecordNotFound
 	}
 	return &status[0], nil
+}
+
+// PreloadStatus preloads all of a Status' relations and associations.
+func PreloadStatus(query *gorm.DB) *gorm.DB {
+	return query.Preload("Attachments").
+		Preload("Poll").Preload("Poll.Options").
+		Preload("Mentions").Preload("Mentions.Actor").
+		Preload("Tags").Preload("Tags.Tag").
+		Preload("Reblog").
+		Preload("Reblog.Actor").
+		Preload("Reblog.Attachments").
+		Preload("Reblog.Poll").Preload("Reblog.Poll.Options").
+		Preload("Reblog.Mentions").Preload("Reblog.Mentions.Actor").
+		Preload("Reblog.Tags").Preload("Reblog.Tags.Tag")
 }
