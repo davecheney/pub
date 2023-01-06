@@ -209,10 +209,11 @@ func serialiseStatus(s *models.Status) *Status {
 	if s == nil {
 		return nil
 	}
-	return &Status{
+	createdAt := s.ID.ToTime()
+	st := &Status{
 		ID:                 s.ID,
-		CreatedAt:          s.ID.ToTime().Round(time.Second).Format("2006-01-02T15:04:05.000Z"),
-		EditedAt:           nil, // todo
+		CreatedAt:          createdAt.Round(time.Second).Format("2006-01-02T15:04:05.000Z"),
+		EditedAt:           maybeEditedAt(createdAt, s.UpdatedAt),
 		InReplyToID:        s.InReplyToID,
 		InReplyToAccountID: s.InReplyToActorID,
 		Sensitive:          s.Sensitive,
@@ -245,6 +246,16 @@ func serialiseStatus(s *models.Status) *Status {
 		Poll:        serialisePoll(s.Poll),
 		Application: nil,
 	}
+	fmt.Println("status: ", s.ID, "created at: ", st.CreatedAt, "edited at: ", st.EditedAt)
+	return st
+}
+
+// maybeEditedAt returns a string representation of the time the status was edited, or null if it was not edited.
+func maybeEditedAt(createdAt, updatedAt time.Time) any {
+	if updatedAt.Equal(createdAt) || updatedAt.Before(createdAt) {
+		return nil
+	}
+	return updatedAt.Round(time.Second).Format("2006-01-02T15:04:05.000Z")
 }
 
 type MediaAttachment struct {

@@ -56,6 +56,7 @@ func StatusesCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	id := snowflake.TimeToID(createdAt)
 	status := models.Status{
 		ID:             id,
+		UpdatedAt:      createdAt,
 		ActorID:        actor.ID,
 		Actor:          actor,
 		ConversationID: conv.ID,

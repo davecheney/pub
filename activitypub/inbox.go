@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
@@ -143,7 +144,7 @@ func (i *inboxProcessor) processAnnounce(obj map[string]any) error {
 		return err
 	}
 
-	published, err := timeFromAny(obj["published"])
+	publishedAt, updatedAt, err := publishedAndUpdated(obj)
 	if err != nil {
 		return err
 	}
@@ -156,7 +157,8 @@ func (i *inboxProcessor) processAnnounce(obj map[string]any) error {
 	}
 
 	status := &models.Status{
-		ID:               snowflake.TimeToID(published),
+		ID:               snowflake.TimeToID(publishedAt),
+		UpdatedAt:        updatedAt,
 		ActorID:          actor.ID,
 		Actor:            actor,
 		ConversationID:   conv.ID,
@@ -245,7 +247,7 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 			return nil, err
 		}
 
-		published, err := timeFromAny(create["published"])
+		publishedAt, updatedAt, err := publishedAndUpdated(create)
 		if err != nil {
 			return nil, err
 		}
@@ -272,7 +274,8 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 		}
 
 		st := &models.Status{
-			ID:               snowflake.TimeToID(published),
+			ID:               snowflake.TimeToID(publishedAt),
+			UpdatedAt:        updatedAt,
 			ActorID:          actor.ID,
 			ConversationID:   conversationID,
 			URI:              uri,
@@ -323,6 +326,21 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 		fmt.Println("processCreate", string(b), err)
 	}
 	return err
+}
+
+// publishedAndUpdated returns the published and updated times for the given object.
+// If the object does not have a published time, an error is returned.
+// If the object does not have an updated time, updated at is set to published at.
+func publishedAndUpdated(obj map[string]any) (time.Time, time.Time, error) {
+	published, err := time.Parse(time.RFC3339, stringFromAny(obj["published"]))
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+	updated, err := time.Parse(time.RFC3339, stringFromAny(obj["updated"]))
+	if err != nil {
+		updated = published
+	}
+	return published, updated, nil
 }
 
 func inReplyToID(inReplyTo *models.Status) *snowflake.ID {
@@ -403,12 +421,12 @@ func (i *inboxProcessor) processUpdateStatus(update map[string]any) error {
 	if err != nil {
 		return err
 	}
-	updated, err := timeFromAny(update["updated"])
+	_, updatedAt, err := publishedAndUpdated(update)
 	if err != nil {
 		return err
 	}
 
-	status.UpdatedAt = updated
+	status.UpdatedAt = updatedAt
 	status.Note = stringFromAny(update["content"])
 	if status.Poll != nil {
 		if err := i.db.Delete(status.Poll).Error; err != nil {

@@ -14,7 +14,7 @@ import (
 // A Status belongs to a single Account, and is part of a single Conversation.
 type Status struct {
 	snowflake.ID     `gorm:"primarykey;autoIncrement:false"`
-	UpdatedAt        time.Time
+	UpdatedAt        time.Time `gorm:"autoUpdateTime:false"`
 	ActorID          snowflake.ID
 	Actor            *Actor `gorm:"constraint:OnDelete:CASCADE;<-:false;"` // don't update actor on status update
 	ConversationID   uint32

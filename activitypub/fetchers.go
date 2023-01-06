@@ -169,10 +169,14 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 	if err != nil {
 		return nil, err
 	}
-	createdAt := timeFromAnyOrZero(obj["published"])
+	publishedAt, updatedAt, err := publishedAndUpdated(obj)
+	if err != nil {
+		return nil, err
+	}
 
 	st := &models.Status{
-		ID:               snowflake.TimeToID(createdAt),
+		ID:               snowflake.TimeToID(publishedAt),
+		UpdatedAt:        updatedAt,
 		ActorID:          actor.ID,
 		Actor:            actor,
 		ConversationID:   conversationID,
