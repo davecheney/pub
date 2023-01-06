@@ -1,6 +1,7 @@
 package activitypub
 
 import (
+	"crypto"
 	"errors"
 	"fmt"
 	"net/http"
@@ -25,10 +26,6 @@ func InboxCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if err := validateSignature(env, r); err != nil {
-		return httpx.Error(http.StatusUnauthorized, err)
-	}
-
 	var body map[string]any
 	if err := json.UnmarshalFull(r.Body, &body); err != nil {
 		return httpx.Error(http.StatusBadRequest, err)
@@ -37,8 +34,10 @@ func InboxCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	// if we need to make an activity pub request, we need to sign it with the
 	// instance's admin account.
 	processor := &inboxProcessor{
+		req:    r,
 		db:     env.DB,
 		signAs: instance.Admin,
+		getKey: env.GetKey,
 	}
 
 	err := processor.processActivity(body)
@@ -50,8 +49,10 @@ func InboxCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 }
 
 type inboxProcessor struct {
+	req    *http.Request
 	db     *gorm.DB
 	signAs *models.Account
+	getKey func(keyID string) (crypto.PublicKey, error)
 }
 
 // processActivity processes an activity. If the activity can be handled without
@@ -61,30 +62,39 @@ func (i *inboxProcessor) processActivity(body map[string]any) error {
 	fmt.Println("processActivity: type:", stringFromAny(body["type"]), "id:", stringFromAny(body["id"]))
 	typ := stringFromAny(body["type"])
 	switch typ {
-	case "Create":
-		create := mapFromAny(body["object"])
-		return i.processCreate(create)
-	case "Announce":
-		return i.processAnnounce(body)
-	case "Undo":
-		undo := mapFromAny(body["object"])
-		return i.processUndo(undo)
-	case "Update":
-		update := mapFromAny(body["object"])
-		return i.processUpdate(update)
 	case "Delete":
+		// Delete is a special case, as we may not have the actor in our database.
+		// In that case, check the actor exists locally, and if it does, then
+		// validate the signature.
 		return i.processDelete(body)
-	case "Follow":
-		return i.processFollow(body)
-	case "Accept":
-		accept := mapFromAny(body["object"])
-		return i.processAccept(accept)
-	case "Add":
-		return i.processAdd(body)
-	case "Remove":
-		return i.processRemove(body)
 	default:
-		return errors.New("unknown activity type " + typ)
+		if err := i.validateSignature(); err != nil {
+			return httpx.Error(http.StatusUnauthorized, err)
+		}
+		switch typ {
+		case "Create":
+			create := mapFromAny(body["object"])
+			return i.processCreate(create)
+		case "Announce":
+			return i.processAnnounce(body)
+		case "Undo":
+			undo := mapFromAny(body["object"])
+			return i.processUndo(undo)
+		case "Update":
+			update := mapFromAny(body["object"])
+			return i.processUpdate(update)
+		case "Follow":
+			return i.processFollow(body)
+		case "Accept":
+			accept := mapFromAny(body["object"])
+			return i.processAccept(accept)
+		case "Add":
+			return i.processAdd(body)
+		case "Remove":
+			return i.processRemove(body)
+		default:
+			return errors.New("unknown activity type " + typ)
+		}
 	}
 }
 
@@ -510,6 +520,10 @@ func (i *inboxProcessor) processDelete(body map[string]any) error {
 }
 
 func (i *inboxProcessor) processDeleteStatus(uri string) error {
+	if err := i.validateSignature(); err != nil {
+		return httpx.Error(http.StatusUnauthorized, err)
+	}
+
 	// load status to delete it so we can fire the delete hooks.
 	status, err := models.NewStatuses(i.db).FindByURI(uri)
 	if err != nil {
@@ -532,15 +546,18 @@ func (i *inboxProcessor) processDeleteActor(uri string) error {
 		}
 		return err
 	}
+	if err := i.validateSignature(); err != nil {
+		return httpx.Error(http.StatusUnauthorized, err)
+	}
 	return i.db.Delete(&actor).Error
 }
 
-func validateSignature(env *Env, r *http.Request) error {
-	verifier, err := httpsig.NewVerifier(r)
+func (i *inboxProcessor) validateSignature() error {
+	verifier, err := httpsig.NewVerifier(i.req)
 	if err != nil {
 		return err
 	}
-	pubKey, err := env.GetKey(verifier.KeyId())
+	pubKey, err := i.getKey(verifier.KeyId())
 	if err != nil {
 		return err
 	}
