@@ -25,7 +25,7 @@ type Status struct {
 	SpoilerText      string `gorm:"size:128"`
 	Visibility       string `gorm:"type:enum('public', 'unlisted', 'private', 'direct', 'limited')"`
 	Language         string `gorm:"size:2"`
-	Note             string
+	Note             string `gorm:"type:text"`
 	URI              string `gorm:"uniqueIndex;size:128"`
 	RepliesCount     int    `gorm:"not null;default:0"`
 	ReblogsCount     int    `gorm:"not null;default:0"`
