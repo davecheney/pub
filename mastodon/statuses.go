@@ -80,7 +80,7 @@ func StatusesDestroy(env *Env, w http.ResponseWriter, r *http.Request) error {
 	}
 	actor := account.Actor
 	var status models.Status
-	if err := env.DB.Joins("Actor").First(&status, chi.URLParam(r, "id")).Error; err != nil {
+	if err := env.DB.Joins("Actor").Take(&status, chi.URLParam(r, "id")).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return httpx.Error(http.StatusNotFound, err)
 		}

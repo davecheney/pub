@@ -18,15 +18,12 @@ func TimelinesHome(env *Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	var followingIDs []int64
-	if err := env.DB.Model(&models.Relationship{ActorID: user.Actor.ID}).Where("following = true").Pluck("target_id", &followingIDs).Error; err != nil {
-		return httpx.Error(http.StatusInternalServerError, err)
-	}
-	followingIDs = append(followingIDs, int64(user.ID))
+	following := env.DB.Select("target_id").Where(&models.Relationship{ActorID: user.Actor.ID, Following: true}).Table("relationships")
 
 	var statuses []*models.Status
 	// TODO stop copying and pasting this query
-	scope := env.DB.Scopes(models.PaginateStatuses(r)).Where("(actor_id IN (?) AND in_reply_to_actor_id is null) or (actor_id in (?) and in_reply_to_actor_id IN (?))", followingIDs, followingIDs, followingIDs)
+	scope := env.DB.Scopes(models.PaginateStatuses(r)).
+		Where("(actor_id IN (?) AND in_reply_to_actor_id is null) or (actor_id in (?) and in_reply_to_actor_id IN (?))", following, following, following)
 	query := scope.Joins("Actor")                                    // author, one join and one join only
 	query = query.Preload("Reblog").Preload("Reblog.Actor")          // boosts
 	query = query.Preload("Attachments")                             // media
@@ -48,13 +45,7 @@ func TimelinesPublic(env *Env, w http.ResponseWriter, r *http.Request) error {
 	authenticated := err == nil
 
 	var statuses []*models.Status
-	scope := env.DB.Scopes(models.PaginateStatuses(r)).Where("visibility = ? and reblog_id is null and in_reply_to_id is null", "public")
-	switch r.URL.Query().Get("local") {
-	case "true":
-		scope = scope.Joins("Actor").Where("Actor.domain = ?", r.Host)
-	default:
-		scope = scope.Joins("Actor")
-	}
+	scope := env.DB.Scopes(models.PaginateStatuses(r), publicStatuses, localOnly(r))
 	query := scope.Preload("Reblog").Preload("Reblog.Actor") // boosts
 	query = query.Preload("Attachments")                     // media
 	if authenticated {
@@ -70,6 +61,19 @@ func TimelinesPublic(env *Env, w http.ResponseWriter, r *http.Request) error {
 		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/public?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/public?min_id=%d>; rel=\"prev\"", r.Host, statuses[len(statuses)-1].ID, r.Host, statuses[0].ID))
 	}
 	return to.JSON(w, algorithms.Map(statuses, serialiseStatus))
+}
+
+// localOnly returns a scope that filters statuses to those that are local
+// to the instance.
+func localOnly(r *http.Request) func(db *gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		switch r.URL.Query().Get("local") {
+		case "true":
+			return db.Joins("Actor").Where("Actor.domain = ?", r.Host)
+		default:
+			return db.Joins("Actor")
+		}
+	}
 }
 
 func TimelinesListShow(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -107,20 +111,12 @@ func TimelinesTagShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	var tag models.Tag
-	if err := env.DB.Where("name = ?", chi.URLParam(r, "tag")).First(&tag).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			// TODO move this tag lookup in a join in the query below so an unknown tag returns an empty result set.
-			return to.JSON(w, []any{})
-		}
-		return err
-	}
-
 	var statuses []*models.Status
 	scope := env.DB.Scopes(models.PaginateStatuses(r))
 	// use Joins("JOIN status_tags ...") as Joins("Tags") -- joining on an association -- causes a reflect panic in gorm.
 	// no biggie, just write the JOIN manually.
-	query := scope.Joins("JOIN status_tags ON status_tags.status_id = statuses.id").Where("status_tags.tag_id = ?", tag.ID)
+	tag := env.DB.Select("id").Where("name = ?", chi.URLParam(r, "tag")).Table("tags")
+	query := scope.Joins("JOIN status_tags ON status_tags.status_id = statuses.id").Where("status_tags.tag_id = (?)", tag)
 	query = query.Preload("Actor")
 	query = query.Preload("Reblog").Preload("Reblog.Actor")          // boosts
 	query = query.Preload("Attachments")                             // media
@@ -135,4 +131,9 @@ func TimelinesTagShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	// 	w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/home?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/home?min_id=%d>; rel=\"prev\"", r.Host, statuses[len(statuses)-1].ID, r.Host, statuses[0].ID))
 	// }
 	return to.JSON(w, algorithms.Map(statuses, serialiseStatus))
+}
+
+// publicStatuses returns a scope that only returns public statuses which are not replies or reblogs.
+func publicStatuses(db *gorm.DB) *gorm.DB {
+	return db.Where("visibility = ? and reblog_id is null and in_reply_to_id is null", "public")
 }
