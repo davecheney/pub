@@ -79,7 +79,7 @@ func FavouritesShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 
 	var favouriters []*models.Actor
 	query := env.DB.Joins("JOIN reactions ON reactions.actor_id = actors.id and reactions.status_id = ? and reactions.favourited = ?", chi.URLParam(r, "id"), true)
-	if err := query.Find(&favouriters).Error; err != nil {
+	if err := query.Order("id desc").Find(&favouriters).Error; err != nil {
 		return err
 	}
 
