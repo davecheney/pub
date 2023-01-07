@@ -444,11 +444,11 @@ func (i *inboxProcessor) processUpdateStatus(update map[string]any) error {
 		}
 	}
 
-	status.Poll, err = objToStatusPoll(update)
-	if err != nil {
-		return err
-	}
-	if status.Poll != nil {
+	if len(anyToSlice(update["oneOf"])) > 0 {
+		status.Poll, err = objToStatusPoll(update)
+		if err != nil {
+			return err
+		}
 		status.Poll.StatusID = status.ID
 	}
 
@@ -457,11 +457,6 @@ func (i *inboxProcessor) processUpdateStatus(update map[string]any) error {
 }
 
 func objToStatusPoll(obj map[string]any) (*models.StatusPoll, error) {
-	oneOf := anyToSlice(obj["oneOf"])
-	if len(oneOf) == 0 {
-		return nil, nil // try to outsmart linter
-	}
-
 	expiresAt, err := timeFromAny(obj["endTime"])
 	if err != nil {
 		return nil, err
@@ -472,6 +467,7 @@ func objToStatusPoll(obj map[string]any) (*models.StatusPoll, error) {
 		Multiple:  false,
 	}
 
+	oneOf := anyToSlice(obj["oneOf"])
 	for _, o := range oneOf {
 		option := mapFromAny(o)
 		if option["type"] != "Note" {

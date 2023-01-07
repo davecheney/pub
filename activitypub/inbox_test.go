@@ -51,6 +51,6 @@ func TestPublishedAndUpdated(t *testing.T) {
 		}
 		published, updated, err := publishedAndUpdated(obj)
 		require.NoError(err)
-		require.Equal(published, published)
+		require.True(published.Before(updated))
 	})
 }
