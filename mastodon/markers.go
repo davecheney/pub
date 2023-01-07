@@ -40,12 +40,12 @@ func MarkersCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 		return httpx.Error(http.StatusBadRequest, err)
 	}
 
-	markers := make(map[string]models.AccountMarker)
+	markers := make(map[string]*models.AccountMarker)
 	for name, v := range m {
-		marker := models.AccountMarker{
+		marker := &models.AccountMarker{
 			AccountID:  user.ID,
 			Name:       name,
-			LastReadID: snowflake.ID(v.LastReadID),
+			LastReadID: v.LastReadID,
 		}
 		markers[name] = marker
 
@@ -64,7 +64,7 @@ func MarkersCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	}
 	resp := make(map[string]any)
 	for name, marker := range markers {
-		resp[name] = seraliseMarker(&marker)
+		resp[name] = seraliseMarker(marker)
 	}
 
 	return to.JSON(w, resp)
