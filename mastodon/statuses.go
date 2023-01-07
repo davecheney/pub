@@ -158,9 +158,6 @@ func StatusesContextsShow(env *Env, w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	if len(statuses) > 0 {
-		w.Header().Add("Link", fmt.Sprintf(`<https://%s/%s?min_id=%d>; rel="prev"`, r.Host, r.URL, statuses[len(statuses)-1].ID))
-	}
 	ancestors, descendants := thread(status.ID, statuses)
 	return to.JSON(w, struct {
 		Ancestors   []*Status `json:"ancestors"`
