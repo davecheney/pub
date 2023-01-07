@@ -114,6 +114,24 @@ func StatusesShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	return to.JSON(w, serialiseStatus(&status))
 }
 
+func StatusesHistoryShow(env *Env, w http.ResponseWriter, r *http.Request) error {
+	user, err := env.authenticate(r)
+	if err != nil {
+		return err
+	}
+	var status models.Status
+	query := env.DB.Joins("Actor").Scopes(models.PreloadStatus)
+	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
+	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ID)
+	if err := query.Take(&status, chi.URLParam(r, "id")).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return httpx.Error(http.StatusNotFound, err)
+		}
+		return err
+	}
+	return to.JSON(w, []any{serialiseStatusEdit(&status)})
+}
+
 func StatusesContextsShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	user, err := env.authenticate(r)
 	if err != nil {

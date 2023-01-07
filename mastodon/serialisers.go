@@ -233,7 +233,7 @@ func serialiseStatus(s *models.Status) *Status {
 		Content:            s.Note,
 		Reblog:             serialiseStatus(s.Reblog),
 		Account:            serialiseAccount(s.Actor),
-		MediaAttachments:   algorithms.Map(algorithms.Map(s.Attachments, statusAttachmentToAttachment), serialiseAttachment),
+		MediaAttachments:   statusAttachmentsToMediaAttachments(s.Attachments),
 		Mentions:           algorithms.Map(algorithms.Map(s.Mentions, statusMentionToActor), serialiseMention),
 		Tags: algorithms.Map(algorithms.Map(s.Tags, statusTagToTag), func(t *models.Tag) *Tag {
 			return &Tag{
@@ -626,4 +626,39 @@ func serialisePollOptions(options []models.StatusPollOption) []PollOption {
 		})
 	}
 	return pollOptions
+}
+
+// https://docs.joinmastodon.org/entities/StatusEdit/
+type StatusEdit struct {
+	Content          string             `json:"content"`
+	SpoilerText      string             `json:"spoiler_text"`
+	Sensitive        bool               `json:"sensitive"`
+	CreatedAt        string             `json:"created_at"` // updated_at if edited, created_at if original
+	Account          *Account           `json:"account"`
+	Poll             *Poll              `json:"poll"`
+	MediaAttachments []*MediaAttachment `json:"media_attachments"`
+	Emojies          []any              `json:"emojies"`
+}
+
+func serialiseStatusEdit(s *models.Status) *StatusEdit {
+	return &StatusEdit{
+		Content:     s.Note,
+		SpoilerText: s.SpoilerText,
+		Sensitive:   s.Sensitive,
+		CreatedAt: func() time.Time {
+			createdAt := s.ID.ToTime()
+			if s.UpdatedAt.After(createdAt) {
+				return s.UpdatedAt
+			}
+			return createdAt
+		}().Format("2006-01-02T15:04:05.006Z"),
+		Account:          serialiseAccount(s.Actor),
+		Poll:             serialisePoll(s.Poll),
+		MediaAttachments: statusAttachmentsToMediaAttachments(s.Attachments),
+		Emojies:          nil,
+	}
+}
+
+func statusAttachmentsToMediaAttachments(attachments []*models.StatusAttachment) []*MediaAttachment {
+	return algorithms.Map(algorithms.Map(attachments, statusAttachmentToAttachment), serialiseAttachment)
 }
