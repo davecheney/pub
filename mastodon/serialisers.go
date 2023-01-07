@@ -13,28 +13,28 @@ import (
 // serialisers for various mastodon API responses.
 
 type Account struct {
-	ID             snowflake.ID     `json:"id,string"`
-	Username       string           `json:"username"`
-	Acct           string           `json:"acct"`
-	DisplayName    string           `json:"display_name"`
-	Locked         bool             `json:"locked"`
-	Bot            bool             `json:"bot"`
-	Discoverable   *bool            `json:"discoverable"`
-	Group          bool             `json:"group"`
-	CreatedAt      string           `json:"created_at"`
-	Note           string           `json:"note"`
-	URL            string           `json:"url"`
-	Avatar         string           `json:"avatar"`        // these four fields _cannot_ be blank
-	AvatarStatic   string           `json:"avatar_static"` // if they are, various clients will consider the
-	Header         string           `json:"header"`        // account to be invalid and ignore it or just go weird :grr:
-	HeaderStatic   string           `json:"header_static"` // so they must be set to a default image.
-	FollowersCount int32            `json:"followers_count"`
-	FollowingCount int32            `json:"following_count"`
-	StatusesCount  int32            `json:"statuses_count"`
-	LastStatusAt   *string          `json:"last_status_at"`
-	NoIndex        bool             `json:"noindex"` // default false
-	Emojis         []map[string]any `json:"emojis"`
-	Fields         []Field          `json:"fields"`
+	ID             snowflake.ID `json:"id,string"`
+	Username       string       `json:"username"`
+	Acct           string       `json:"acct"`
+	DisplayName    string       `json:"display_name"`
+	Locked         bool         `json:"locked"`
+	Bot            bool         `json:"bot"`
+	Discoverable   bool         `json:"discoverable"`
+	Group          bool         `json:"group"`
+	CreatedAt      string       `json:"created_at"`
+	Note           string       `json:"note"`
+	URL            string       `json:"url"`
+	Avatar         string       `json:"avatar"`        // these four fields _cannot_ be blank
+	AvatarStatic   string       `json:"avatar_static"` // if they are, various clients will consider the
+	Header         string       `json:"header"`        // account to be invalid and ignore it or just go weird :grr:
+	HeaderStatic   string       `json:"header_static"` // so they must be set to a default image.
+	FollowersCount int32        `json:"followers_count"`
+	FollowingCount int32        `json:"following_count"`
+	StatusesCount  int32        `json:"statuses_count"`
+	LastStatusAt   *string      `json:"last_status_at"`
+	// NoIndex        bool             `json:"noindex"` // default false
+	Emojis []map[string]any `json:"emojis"`
+	Fields []Field          `json:"fields"`
 }
 
 type Field struct {
@@ -77,6 +77,7 @@ func serialiseAccount(a *models.Actor) *Account {
 		DisplayName:    a.DisplayName,
 		Locked:         a.Locked,
 		Bot:            a.IsBot(),
+		Discoverable:   true, // TODO
 		Group:          a.IsGroup(),
 		CreatedAt:      a.ID.ToTime().Round(time.Hour).Format("2006-01-02T00:00:00.000Z"),
 		Note:           a.Note,
@@ -176,7 +177,6 @@ func serialiseRelationship(rel *models.Relationship) *Relationship {
 type Status struct {
 	ID                 snowflake.ID       `json:"id,string"`
 	CreatedAt          string             `json:"created_at"`
-	EditedAt           any                `json:"edited_at"`
 	InReplyToID        *snowflake.ID      `json:"in_reply_to_id,string"`
 	InReplyToAccountID *snowflake.ID      `json:"in_reply_to_account_id,string"`
 	Sensitive          bool               `json:"sensitive"`
@@ -185,15 +185,16 @@ type Status struct {
 	Language           string             `json:"language"`
 	URI                string             `json:"uri"`
 	URL                any                `json:"url"`
-	Text               any                `json:"text"`
 	RepliesCount       int                `json:"replies_count"`
 	ReblogsCount       int                `json:"reblogs_count"`
 	FavouritesCount    int                `json:"favourites_count"`
+	EditedAt           any                `json:"edited_at"`
 	Favourited         bool               `json:"favourited"`
 	Reblogged          bool               `json:"reblogged"`
 	Muted              bool               `json:"muted"`
 	Bookmarked         bool               `json:"bookmarked"`
 	Content            string             `json:"content"`
+	Filtered           []any              `json:"filtered"`
 	Reblog             *Status            `json:"reblog"`
 	Account            *Account           `json:"account"`
 	MediaAttachments   []*MediaAttachment `json:"media_attachments"`
@@ -202,7 +203,7 @@ type Status struct {
 	Emojis             []any              `json:"emojis"`
 	Card               any                `json:"card"`
 	Poll               *Poll              `json:"poll"`
-	Application        any                `json:"application"`
+	// Application        any                `json:"application"`
 }
 
 func serialiseStatus(s *models.Status) *Status {
@@ -221,8 +222,7 @@ func serialiseStatus(s *models.Status) *Status {
 		Visibility:         s.Visibility,
 		Language:           s.Language,
 		URI:                s.URI,
-		URL:                nil,
-		Text:               nil, // not optional!!
+		URL:                s.URL(),
 		RepliesCount:       s.RepliesCount,
 		ReblogsCount:       s.ReblogsCount,
 		FavouritesCount:    s.FavouritesCount,
@@ -241,10 +241,9 @@ func serialiseStatus(s *models.Status) *Status {
 				URL:  fmt.Sprintf("/tags/%s", t.Name), // todo, this URL should be absolute to the instance
 			}
 		}),
-		Emojis:      []any{},
-		Card:        nil,
-		Poll:        serialisePoll(s.Poll),
-		Application: nil,
+		Emojis: []any{},
+		Card:   nil,
+		Poll:   serialisePoll(s.Poll),
 	}
 	return st
 }

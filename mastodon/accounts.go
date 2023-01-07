@@ -57,6 +57,9 @@ func AccountsStatusesShow(env *Env, w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
+	if len(statuses) > 0 {
+		w.Header().Add("Link", fmt.Sprintf(`<https://%s/api/v1/statuses?min_id=%d>; rel="prev"`, r.Host, statuses[len(statuses)-1].ID))
+	}
 	return to.JSON(w, algorithms.Map(statuses, serialiseStatus))
 }
 

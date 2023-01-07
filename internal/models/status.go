@@ -39,6 +39,11 @@ type Status struct {
 	Poll             *StatusPoll         `gorm:"constraint:OnDelete:CASCADE;"`
 }
 
+// URL returns a link to the status’s HTML representation.
+func (st *Status) URL() string {
+	return fmt.Sprintf("https://%s/@%s/%d", st.Actor.Domain, st.Actor.Name, st.ID)
+}
+
 func (st *Status) AfterCreate(tx *gorm.DB) error {
 	return forEach(tx, st.updateStatusCount, st.updateRepliesCount)
 }
@@ -160,4 +165,11 @@ func PreloadStatus(query *gorm.DB) *gorm.DB {
 		Preload("Reblog.Poll").Preload("Reblog.Poll.Options").
 		Preload("Reblog.Mentions").Preload("Reblog.Mentions.Actor").
 		Preload("Reblog.Tags").Preload("Reblog.Tags.Tag")
+}
+
+// PreloadReaction preloads all of a Reaction's relations and associations.
+func PreloadReaction(actor *Actor) func(query *gorm.DB) *gorm.DB {
+	return func(query *gorm.DB) *gorm.DB {
+		return query.Preload("Reaction", "actor_id = ?", actor.ID).Preload("Reblog.Reaction", "actor_id = ?", actor.ID)
+	}
 }

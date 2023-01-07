@@ -200,7 +200,8 @@ func (i *inboxProcessor) processAdd(act map[string]any) error {
 			return errors.New("actor is not the author of the status")
 		}
 		reactions := models.NewReactions(i.db)
-		return reactions.Pin(status, actor)
+		_, err = reactions.Pin(status, actor)
+		return err
 	default:
 		x, _ := marshalIndent(act)
 		fmt.Println("processAdd:", string(x))
@@ -224,7 +225,8 @@ func (i *inboxProcessor) processRemove(act map[string]any) error {
 			return errors.New("actor is not the author of the status")
 		}
 		reactions := models.NewReactions(i.db)
-		return reactions.Unpin(status, actor)
+		_, err = reactions.Unpin(status, actor)
+		return err
 	default:
 		x, _ := marshalIndent(act)
 		fmt.Println("processRemove:", string(x))

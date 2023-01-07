@@ -105,22 +105,24 @@ func NewReactions(db *gorm.DB) *Reactions {
 	return &Reactions{db: db}
 }
 
-func (r *Reactions) Pin(status *Status, actor *Actor) error {
+func (r *Reactions) Pin(status *Status, actor *Actor) (*Reaction, error) {
 	reaction, err := r.findOrCreate(status, actor)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	reaction.Pinned = true
-	return r.db.Model(reaction).Update("pinned", true).Error
+	err = r.db.Model(reaction).UpdateColumn("pinned", true).Error
+	return reaction, err
 }
 
-func (r *Reactions) Unpin(status *Status, actor *Actor) error {
+func (r *Reactions) Unpin(status *Status, actor *Actor) (*Reaction, error) {
 	reaction, err := r.findOrCreate(status, actor)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	reaction.Pinned = false
-	return r.db.Model(reaction).Update("pinned", false).Error
+	err = r.db.Model(reaction).UpdateColumn("pinned", false).Error
+	return reaction, err
 }
 
 func (r *Reactions) Favourite(status *Status, actor *Actor) (*Reaction, error) {
@@ -129,9 +131,10 @@ func (r *Reactions) Favourite(status *Status, actor *Actor) (*Reaction, error) {
 		return nil, err
 	}
 	reaction.Favourited = true
-	if err := r.db.Model(reaction).Update("favourited", true).Error; err != nil {
+	if err := r.db.Model(reaction).UpdateColumn("favourited", true).Error; err != nil {
 		return nil, err
 	}
+	reaction.Status.FavouritesCount++
 	return reaction, nil
 }
 
@@ -141,10 +144,31 @@ func (r *Reactions) Unfavourite(status *Status, actor *Actor) (*Reaction, error)
 		return nil, err
 	}
 	reaction.Favourited = false
-	if err := r.db.Model(reaction).Update("favourited", false).Error; err != nil {
+	if err := r.db.Model(reaction).UpdateColumn("favourited", false).Error; err != nil {
 		return nil, err
 	}
+	reaction.Status.FavouritesCount--
 	return reaction, nil
+}
+
+func (r *Reactions) Bookmark(status *Status, actor *Actor) (*Reaction, error) {
+	reaction, err := r.findOrCreate(status, actor)
+	if err != nil {
+		return nil, err
+	}
+	reaction.Bookmarked = true
+	err = r.db.Model(reaction).Update("bookmarked", true).Error
+	return reaction, err
+}
+
+func (r *Reactions) Unbookmark(status *Status, actor *Actor) (*Reaction, error) {
+	reaction, err := r.findOrCreate(status, actor)
+	if err != nil {
+		return nil, err
+	}
+	reaction.Bookmarked = false
+	err = r.db.Model(reaction).Update("bookmarked", false).Error
+	return reaction, err
 }
 
 func (r *Reactions) findOrCreate(status *Status, actor *Actor) (*Reaction, error) {
@@ -152,5 +176,8 @@ func (r *Reactions) findOrCreate(status *Status, actor *Actor) (*Reaction, error
 	if err := r.db.FirstOrCreate(&reaction, Reaction{StatusID: status.ID, ActorID: actor.ID}).Error; err != nil {
 		return nil, err
 	}
+	status.Reaction = &reaction
+	reaction.Status = status
+	reaction.Actor = actor
 	return &reaction, nil
 }
