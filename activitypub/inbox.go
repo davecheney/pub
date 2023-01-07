@@ -321,11 +321,11 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 			}
 		}
 
-		st.Poll, err = objToStatusPoll(create)
-		if err != nil {
-			return nil, err
-		}
-		if st.Poll != nil {
+		if _, ok := create["oneOf"]; ok {
+			st.Poll, err = objToStatusPoll(create)
+			if err != nil {
+				return nil, err
+			}
 			st.Poll.StatusID = st.ID
 		}
 
@@ -444,7 +444,7 @@ func (i *inboxProcessor) processUpdateStatus(update map[string]any) error {
 		}
 	}
 
-	if len(anyToSlice(update["oneOf"])) > 0 {
+	if _, ok := update["oneOf"]; ok {
 		status.Poll, err = objToStatusPoll(update)
 		if err != nil {
 			return err
