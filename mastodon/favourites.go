@@ -1,7 +1,6 @@
 package mastodon
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/davecheney/pub/internal/algorithms"
@@ -61,12 +60,14 @@ func FavouritesIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var favourited []*models.Status
 	query := env.DB.Joins("JOIN reactions ON reactions.status_id = statuses.id and reactions.actor_id = ? and reactions.favourited = ?", user.Actor.ID, true)
 	query = query.Preload("Actor")
-	query = query.Scopes(models.PreloadStatus, models.PreloadReaction(user.Actor))
+	query = query.Scopes(models.PaginateStatuses(r), models.PreloadStatus, models.PreloadReaction(user.Actor))
 	if err := query.Find(&favourited).Error; err != nil {
 		return err
 	}
 
-	w.Header().Add("Link", fmt.Sprintf(`<https://%s/%s?min_id=%d>; rel="prev"`, r.Host, r.URL, favourited[len(favourited)-1].ID))
+	if len(favourited) > 0 {
+		linkHeader(w, r, favourited[0].ID, favourited[len(favourited)-1].ID)
+	}
 	return to.JSON(w, algorithms.Map(favourited, serialiseStatus))
 }
 
@@ -82,7 +83,9 @@ func FavouritesShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	// w.Header().Add("Link", fmt.Sprintf(`<https://%s/%s?min_id=%d>; rel="prev"`, r.Host, r.URL, favouriters[len(favouriters)-1].ID))
+	if len(favouriters) > 0 {
+		linkHeader(w, r, favouriters[0].ID, favouriters[len(favouriters)-1].ID)
+	}
 
 	return to.JSON(w, algorithms.Map(favouriters, serialiseAccount))
 }

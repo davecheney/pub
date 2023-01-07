@@ -1,7 +1,6 @@
 package mastodon
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/davecheney/pub/internal/algorithms"
@@ -31,7 +30,7 @@ func TimelinesHome(env *Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if len(statuses) > 0 {
-		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/home?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/home?min_id=%d>; rel=\"prev\"", r.Host, statuses[len(statuses)-1].ID, r.Host, statuses[0].ID))
+		linkHeader(w, r, statuses[0].ID, statuses[len(statuses)-1].ID)
 	}
 	return to.JSON(w, algorithms.Map(statuses, serialiseStatus))
 }
@@ -52,7 +51,7 @@ func TimelinesPublic(env *Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if len(statuses) > 0 {
-		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/public?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/public?min_id=%d>; rel=\"prev\"", r.Host, statuses[len(statuses)-1].ID, r.Host, statuses[0].ID))
+		linkHeader(w, r, statuses[0].ID, statuses[len(statuses)-1].ID)
 	}
 	return to.JSON(w, algorithms.Map(statuses, serialiseStatus))
 }
@@ -90,9 +89,9 @@ func TimelinesListShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 		return httpx.Error(http.StatusInternalServerError, err)
 	}
 
-	// if len(statuses) > 0 {
-	// 	w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/home?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/home?min_id=%d>; rel=\"prev\"", r.Host, statuses[len(statuses)-1].ID, r.Host, statuses[0].ID))
-	// }
+	if len(statuses) > 0 {
+		linkHeader(w, r, statuses[0].ID, statuses[len(statuses)-1].ID)
+	}
 	return to.JSON(w, algorithms.Map(statuses, serialiseStatus))
 }
 
@@ -115,9 +114,9 @@ func TimelinesTagShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 		return httpx.Error(http.StatusInternalServerError, err)
 	}
 
-	// if len(statuses) > 0 {
-	// 	w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/home?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/home?min_id=%d>; rel=\"prev\"", r.Host, statuses[len(statuses)-1].ID, r.Host, statuses[0].ID))
-	// }
+	if len(statuses) > 0 {
+		linkHeader(w, r, statuses[0].ID, statuses[len(statuses)-1].ID)
+	}
 	return to.JSON(w, algorithms.Map(statuses, serialiseStatus))
 }
 

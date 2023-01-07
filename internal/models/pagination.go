@@ -106,16 +106,16 @@ func PaginateStatuses(r *http.Request) func(db *gorm.DB) *gorm.DB {
 		}
 		db = db.Limit(limit)
 
-		sinceID, _ := strconv.Atoi(r.URL.Query().Get("since_id"))
-		if sinceID > 0 {
+		sinceID := q.Get("since_id")
+		if sinceID != "" {
 			db = db.Where("statuses.id > ?", sinceID)
 		}
-		minID, _ := strconv.Atoi(r.URL.Query().Get("min_id"))
-		if minID > 0 {
+		minID := q.Get("min_id")
+		if minID != "" {
 			db = db.Where("statuses.id > ?", minID)
 		}
-		maxID, _ := strconv.Atoi(r.URL.Query().Get("max_id"))
-		if maxID > 0 {
+		maxID := q.Get("max_id")
+		if maxID != "" {
 			db = db.Where("statuses.id < ?", maxID)
 		}
 		return db.Order("statuses.id desc")
