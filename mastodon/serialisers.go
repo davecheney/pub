@@ -246,7 +246,6 @@ func serialiseStatus(s *models.Status) *Status {
 		Poll:        serialisePoll(s.Poll),
 		Application: nil,
 	}
-	fmt.Println("status: ", s.ID, "created at: ", st.CreatedAt, "edited at: ", st.EditedAt)
 	return st
 }
 
