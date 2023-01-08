@@ -49,7 +49,11 @@ func (st *Status) URL() any {
 }
 
 func (st *Status) AfterCreate(tx *gorm.DB) error {
-	return forEach(tx, st.updateStatusCount, st.updateRepliesCount)
+	return forEach(tx, st.updateStatusCount, st.updateRepliesCount, st.updateReblogsCount)
+}
+
+func (st *Status) AfterUpdate(tx *gorm.DB) error {
+	return forEach(tx, st.updateStatusCount, st.updateRepliesCount, st.updateReblogsCount)
 }
 
 // updateRepliesCount updates the replies_count field on the status.
@@ -62,6 +66,19 @@ func (st *Status) updateRepliesCount(tx *gorm.DB) error {
 	repliesCount := tx.Select("COUNT(id)").Where("in_reply_to_id = ?", *st.InReplyToID).Table("statuses")
 	return tx.Model(parent).UpdateColumns(map[string]interface{}{
 		"replies_count": repliesCount,
+	}).Error
+}
+
+// updateReblogsCount updates the reblogs_count field on the status it reblogs.
+func (st *Status) updateReblogsCount(tx *gorm.DB) error {
+	if st.ReblogID == nil {
+		return nil
+	}
+
+	reblog := &Status{ID: *st.ReblogID}
+	reblogsCount := tx.Select("COUNT(id)").Where("reblog_id = ?", *st.ReblogID).Table("statuses")
+	return tx.Model(reblog).UpdateColumns(map[string]interface{}{
+		"reblogs_count": reblogsCount,
 	}).Error
 }
 
