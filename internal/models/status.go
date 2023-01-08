@@ -39,8 +39,12 @@ type Status struct {
 	Poll             *StatusPoll         `gorm:"constraint:OnDelete:CASCADE;"`
 }
 
-// URL returns a link to the status’s HTML representation.
-func (st *Status) URL() string {
+// URL returns a link to the status’s HTML representation or nil if the status
+// is a reblog.
+func (st *Status) URL() any {
+	if st.ReblogID != nil {
+		return nil
+	}
 	return fmt.Sprintf("https://%s/@%s/%d", st.Actor.Domain, st.Actor.Name, st.ID)
 }
 
