@@ -3,6 +3,7 @@ package models
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/davecheney/pub/internal/snowflake"
@@ -117,7 +118,30 @@ func (a *Actors) FindByURI(uri string) (*Actor, error) {
 	return &actors[0], nil
 }
 
+// MaybeExcludeReplies returns a query that excludes replies if the request contains
+// the exclude_replies parameter.
+func MaybeExcludeReplies(r *http.Request) func(db *gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		if excludeReplies := parseBool(r, "exclude_replies"); excludeReplies {
+			db = db.Where("in_reply_to_id IS NULL")
+		}
+		return db
+	}
+}
+
 // PreloadActor preloads all of an Actor's relations and associations.
 func PreloadActor(query *gorm.DB) *gorm.DB {
 	return query.Preload("Attributes")
+}
+
+// parseBool parses a boolean value from a request parameter.
+// If the parameter is not present, it returns false.
+// If the parameter is present but cannot be parsed, it returns false
+func parseBool(r *http.Request, key string) bool {
+	switch r.URL.Query().Get(key) {
+	case "true", "1":
+		return true
+	default:
+		return false
+	}
 }

@@ -3,7 +3,6 @@ package mastodon
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/httpx"
@@ -34,31 +33,22 @@ func AccountsVerifyCredentials(env *Env, w http.ResponseWriter, r *http.Request)
 }
 
 func AccountsStatusesShow(env *Env, w http.ResponseWriter, r *http.Request) error {
-	_, err := env.authenticate(r)
+	user, err := env.authenticate(r)
 	if err != nil {
 		return err
 	}
 
-	tx := env.DB.Preload("Actor").Where("actor_id = ?", chi.URLParam(r, "id"))
-
-	// todo: use pagination
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit < 1 || limit > 40 {
-		limit = 20
-	}
-	tx = tx.Limit(limit)
-	sinceID, _ := strconv.Atoi(r.URL.Query().Get("since_id"))
-	if sinceID > 0 {
-		tx = tx.Where("id > ?", sinceID)
-	}
-
 	var statuses []*models.Status
-	if err := tx.Order("id desc").Find(&statuses).Error; err != nil {
+	query := env.DB.Scopes(models.PaginateStatuses(r), models.PreloadStatus, models.MaybeExcludeReplies(r))
+	query = query.Preload("Actor")
+	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
+	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ID)
+	if err := query.Order("id desc").Find(&statuses, "actor_id = ?", chi.URLParam(r, "id")).Error; err != nil {
 		return err
 	}
 
 	if len(statuses) > 0 {
-		w.Header().Add("Link", fmt.Sprintf(`<https://%s/api/v1/statuses?min_id=%d>; rel="prev"`, r.Host, statuses[len(statuses)-1].ID))
+		linkHeader(w, r, statuses[0].ID, statuses[len(statuses)-1].ID)
 	}
 	return to.JSON(w, algorithms.Map(statuses, serialiseStatus))
 }
