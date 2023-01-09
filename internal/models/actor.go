@@ -129,6 +129,28 @@ func MaybeExcludeReplies(r *http.Request) func(db *gorm.DB) *gorm.DB {
 	}
 }
 
+// MaybeExcludeReblogs returns a query that excludes reblogs if the request contains
+// the exclude_reblogs parameter.
+func MaybeExcludeReblogs(r *http.Request) func(db *gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		if excludeReblogs := parseBool(r, "exclude_reblogs"); excludeReblogs {
+			db = db.Where("reblog_of_id IS NULL")
+		}
+		return db
+	}
+}
+
+// MaybePinned returns a query that only includes pinned statuses if the request contains
+// the pinned parameter.
+func MaybePinned(r *http.Request) func(db *gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		if pinned := parseBool(r, "pinned"); pinned {
+			db = db.Joins("JOIN reactions ON reactions.status_id = statuses.id AND reactions.pinned = true AND reactions.actor_id = statuses.actor_id")
+		}
+		return db
+	}
+}
+
 // PreloadActor preloads all of an Actor's relations and associations.
 func PreloadActor(query *gorm.DB) *gorm.DB {
 	return query.Preload("Attributes")

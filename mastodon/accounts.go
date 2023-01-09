@@ -17,7 +17,7 @@ func AccountsShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	var actor models.Actor
-	if err := env.DB.Preload("Attributes").Take(&actor, chi.URLParam(r, "id")).Error; err != nil {
+	if err := env.DB.Scopes(models.PreloadActor).Take(&actor, chi.URLParam(r, "id")).Error; err != nil {
 		return httpx.Error(http.StatusNotFound, err)
 	}
 	return to.JSON(w, serialiseAccount(&actor))
@@ -38,11 +38,17 @@ func AccountsStatusesShow(env *Env, w http.ResponseWriter, r *http.Request) erro
 	}
 
 	var statuses []*models.Status
-	query := env.DB.Scopes(models.PaginateStatuses(r), models.PreloadStatus, models.MaybeExcludeReplies(r))
+	query := env.DB.Scopes(
+		models.PaginateStatuses(r),
+		models.PreloadStatus,
+		models.MaybeExcludeReplies(r),
+		models.MaybeExcludeReblogs(r),
+		models.MaybePinned(r),
+	)
 	query = query.Preload("Actor")
-	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
-	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ID)
-	if err := query.Order("id desc").Find(&statuses, "actor_id = ?", chi.URLParam(r, "id")).Error; err != nil {
+	query = query.Preload("Reaction", &models.Reaction{ActorID: user.Actor.ID}) // reactions
+	query = query.Preload("Reblog.Reaction", &models.Reaction{ActorID: user.Actor.ID})
+	if err := query.Find(&statuses, "statuses.actor_id = ?", chi.URLParam(r, "id")).Error; err != nil {
 		return err
 	}
 
