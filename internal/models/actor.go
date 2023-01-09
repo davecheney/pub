@@ -116,3 +116,8 @@ func (a *Actors) FindByURI(uri string) (*Actor, error) {
 	}
 	return &actors[0], nil
 }
+
+// PreloadActor preloads all of an Actor's relations and associations.
+func PreloadActor(query *gorm.DB) *gorm.DB {
+	return query.Preload("Attributes")
+}

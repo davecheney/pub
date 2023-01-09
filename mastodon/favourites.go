@@ -70,22 +70,3 @@ func FavouritesIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	}
 	return to.JSON(w, algorithms.Map(favourited, serialiseStatus))
 }
-
-func FavouritesShow(env *Env, w http.ResponseWriter, r *http.Request) error {
-	_, err := env.authenticate(r)
-	if err != nil {
-		return err
-	}
-
-	var favouriters []*models.Actor
-	query := env.DB.Joins("JOIN reactions ON reactions.actor_id = actors.id and reactions.status_id = ? and reactions.favourited = ?", chi.URLParam(r, "id"), true)
-	if err := query.Order("id desc").Find(&favouriters).Error; err != nil {
-		return err
-	}
-
-	if len(favouriters) > 0 {
-		linkHeader(w, r, favouriters[0].ID, favouriters[len(favouriters)-1].ID)
-	}
-
-	return to.JSON(w, algorithms.Map(favouriters, serialiseAccount))
-}

@@ -132,6 +132,46 @@ func StatusesHistoryShow(env *Env, w http.ResponseWriter, r *http.Request) error
 	return to.JSON(w, []any{serialiseStatusEdit(&status)})
 }
 
+func StatusesFavouritesShow(env *Env, w http.ResponseWriter, r *http.Request) error {
+	_, err := env.authenticate(r)
+	if err != nil {
+		return err
+	}
+
+	var favouriters []*models.Actor
+	query := env.DB.Joins("JOIN reactions ON reactions.actor_id = actors.id and reactions.status_id = ? and reactions.favourited = ?", chi.URLParam(r, "id"), true)
+	query = query.Scopes(models.PreloadActor, models.PaginateActors(r))
+	if err := query.Order("id desc").Find(&favouriters).Error; err != nil {
+		return err
+	}
+
+	if len(favouriters) > 0 {
+		linkHeader(w, r, favouriters[0].ID, favouriters[len(favouriters)-1].ID)
+	}
+
+	return to.JSON(w, algorithms.Map(favouriters, serialiseAccount))
+}
+
+func StatusesReblogsShow(env *Env, w http.ResponseWriter, r *http.Request) error {
+	_, err := env.authenticate(r)
+	if err != nil {
+		return err
+	}
+
+	var rebloggers []*models.Actor
+	query := env.DB.Joins("JOIN statuses ON statuses.actor_id = actors.id and statuses.reblog_id = ?", chi.URLParam(r, "id"))
+	query = query.Scopes(models.PreloadActor, models.PaginateActors(r))
+	if err := query.Order("id desc").Find(&rebloggers).Error; err != nil {
+		return err
+	}
+
+	if len(rebloggers) > 0 {
+		linkHeader(w, r, rebloggers[0].ID, rebloggers[len(rebloggers)-1].ID)
+	}
+
+	return to.JSON(w, algorithms.Map(rebloggers, serialiseAccount))
+}
+
 func StatusesContextsShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	user, err := env.authenticate(r)
 	if err != nil {
@@ -139,9 +179,7 @@ func StatusesContextsShow(env *Env, w http.ResponseWriter, r *http.Request) erro
 	}
 
 	var status models.Status
-	query := env.DB.Joins("Actor").Scopes(models.PreloadStatus)
-	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
-	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ID)
+	query := env.DB.Joins("Actor") // don't need to preload everything, just the actor to prove it exists
 	if err := query.Take(&status, chi.URLParam(r, "id")).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return httpx.Error(http.StatusNotFound, err)
