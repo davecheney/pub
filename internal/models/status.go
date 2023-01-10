@@ -162,6 +162,9 @@ func (s *Statuses) FindOrCreate(uri string, createFn func(string) (*Status, erro
 }
 
 func (s *Statuses) FindByURI(uri string) (*Status, error) {
+	if uri == "" {
+		return nil, errors.New("Statuses.FindByURI: uri is empty")
+	}
 	// use find to avoid the not found error on empty result
 	var status []Status
 	query := s.db.Joins("Actor").Scopes(PreloadStatus)

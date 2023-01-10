@@ -14,6 +14,7 @@ import (
 	"github.com/go-fed/httpsig"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func InboxCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -59,8 +60,14 @@ type inboxProcessor struct {
 // blocking, it is handled immediately. If the activity requires blocking, it is
 // queued for later processing.
 func (i *inboxProcessor) processActivity(body map[string]any) error {
-	fmt.Println("processActivity: type:", stringFromAny(body["type"]), "id:", stringFromAny(body["id"]))
 	typ := stringFromAny(body["type"])
+	id := stringFromAny(body["id"])
+	fmt.Println("processActivity: type:", typ, "id:", id)
+	if typ == "" {
+		x, _ := marshalIndent(body)
+		fmt.Println("processActivity: body:", string(x))
+		return httpx.Error(http.StatusBadRequest, errors.New("missing type"))
+	}
 	switch typ {
 	case "Delete":
 		// Delete is a special case, as we may not have the actor in our database.
@@ -185,6 +192,23 @@ func (i *inboxProcessor) processAnnounce(obj map[string]any) error {
 }
 
 func (i *inboxProcessor) processAdd(act map[string]any) error {
+	switch obj := act["object"].(type) {
+	case map[string]any:
+		return i.processAddObject(act, obj)
+	case string:
+		return i.processAddPin(act)
+	default:
+		return fmt.Errorf("processAdd: unknown object type: %T", obj)
+	}
+}
+
+func (i *inboxProcessor) processAddObject(act map[string]any, obj map[string]any) error {
+	x, _ := marshalIndent(act)
+	fmt.Println("processAddObject:", string(x))
+	return errors.New("not implemented")
+}
+
+func (i *inboxProcessor) processAddPin(act map[string]any) error {
 	target := stringFromAny(act["target"])
 	switch target {
 	case stringFromAny(act["actor"]) + "/collections/featured":
@@ -199,17 +223,33 @@ func (i *inboxProcessor) processAdd(act map[string]any) error {
 		if status.ActorID != actor.ID {
 			return errors.New("actor is not the author of the status")
 		}
-		reactions := models.NewReactions(i.db)
-		_, err = reactions.Pin(status, actor)
+		_, err = models.NewReactions(i.db).Pin(status, actor)
 		return err
 	default:
 		x, _ := marshalIndent(act)
-		fmt.Println("processAdd:", string(x))
+		fmt.Println("processAddPin:", string(x))
 		return errors.New("not implemented")
 	}
 }
 
 func (i *inboxProcessor) processRemove(act map[string]any) error {
+	switch obj := act["object"].(type) {
+	case map[string]any:
+		return i.processRemoveObject(act, obj)
+	case string:
+		return i.processRemovePin(act)
+	default:
+		return fmt.Errorf("processRemove: unknown type: %T", obj)
+	}
+}
+
+func (i *inboxProcessor) processRemoveObject(act, obj map[string]any) error {
+	x, _ := marshalIndent(act)
+	fmt.Println("processRemoveObject:", string(x))
+	return errors.New("not implemented")
+}
+
+func (i *inboxProcessor) processRemovePin(act map[string]any) error {
 	target := stringFromAny(act["target"])
 	switch target {
 	case stringFromAny(act["actor"]) + "/collections/featured":
@@ -229,7 +269,7 @@ func (i *inboxProcessor) processRemove(act map[string]any) error {
 		return err
 	default:
 		x, _ := marshalIndent(act)
-		fmt.Println("processRemove:", string(x))
+		fmt.Println("processRemovePin:", string(x))
 		return errors.New("not implemented")
 	}
 }
@@ -267,7 +307,9 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 			remoteStatusFetcher := NewRemoteStatusFetcher(i.signAs, i.db)
 			inReplyTo, err = models.NewStatuses(i.db).FindOrCreate(inReplyToAtomUri, remoteStatusFetcher.Fetch)
 			if err != nil {
-				fmt.Println("inReplyToAtomUri:", inReplyToAtomUri, "err:", err)
+				if err := i.retry(uri, inReplyToAtomUri, err); err != nil {
+					return nil, err
+				}
 			}
 		}
 
@@ -336,6 +378,28 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 		fmt.Println("processCreate", string(b), err)
 	}
 	return err
+}
+
+// retry adds the uri and the parent to the retry queue.
+func (i *inboxProcessor) retry(uri, parent string, err error) error {
+	upsert := clause.OnConflict{
+		UpdateAll: true,
+	}
+	if err := i.db.Clauses(upsert).Create(&models.ActivitypubRefresh{
+		URI:         parent,
+		Attempts:    1,
+		LastAttempt: time.Now(),
+		LastResult:  err.Error(),
+	}).Error; err != nil {
+		return err
+	}
+	if err := i.db.Clauses(upsert).Create(&models.ActivitypubRefresh{
+		URI:       uri,
+		DependsOn: parent,
+	}).Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 // publishedAndUpdated returns the published and updated times for the given object.

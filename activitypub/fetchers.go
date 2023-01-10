@@ -11,6 +11,7 @@ import (
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type RemoteActorFetcher struct {
@@ -148,7 +149,9 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 	if inReplyToURI := stringFromAny(obj["inReplyTo"]); inReplyToURI != "" {
 		inReplyTo, err = models.NewStatuses(f.db).FindOrCreate(inReplyToURI, f.Fetch)
 		if err != nil {
-			fmt.Println("inReplyToURI", inReplyToURI, err)
+			if err := f.retry(uri, inReplyToURI, err); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -222,6 +225,28 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 	}
 
 	return st, nil
+}
+
+// retry adds the uri and the parent to the retry queue.
+func (f *RemoteStatusFetcher) retry(uri, parent string, err error) error {
+	upsert := clause.OnConflict{
+		UpdateAll: true,
+	}
+	if err := f.db.Clauses(upsert).Create(&models.ActivitypubRefresh{
+		URI:         parent,
+		Attempts:    1,
+		LastAttempt: time.Now(),
+		LastResult:  err.Error(),
+	}).Error; err != nil {
+		return err
+	}
+	if err := f.db.Clauses(upsert).Create(&models.ActivitypubRefresh{
+		URI:       uri,
+		DependsOn: parent,
+	}).Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 func attachmentsToStatusAttachments(attachments []any) []*models.StatusAttachment {
