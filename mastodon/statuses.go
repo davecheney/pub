@@ -74,6 +74,46 @@ func StatusesCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	return to.JSON(w, serialiseStatus(&status))
 }
 
+func StatusesReblogCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
+	user, err := env.authenticate(r)
+	if err != nil {
+		return err
+	}
+	var status models.Status
+	if err := env.DB.Joins("Actor").Scopes(models.PreloadStatus).Take(&status, chi.URLParam(r, "id")).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return httpx.Error(http.StatusNotFound, err)
+		}
+		return err
+	}
+
+	reblog, err := models.NewReactions(env.DB).Reblog(&status, user.Actor)
+	if err != nil {
+		return err
+	}
+	return to.JSON(w, serialiseStatus(reblog))
+}
+
+func StatusesReblogDestroy(env *Env, w http.ResponseWriter, r *http.Request) error {
+	user, err := env.authenticate(r)
+	if err != nil {
+		return err
+	}
+	var status models.Status
+	if err := env.DB.Joins("Actor").Scopes(models.PreloadStatus).Take(&status, chi.URLParam(r, "id")).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return httpx.Error(http.StatusNotFound, err)
+		}
+		return err
+	}
+
+	unblogged, err := models.NewReactions(env.DB).Unreblog(&status, user.Actor)
+	if err != nil {
+		return err
+	}
+	return to.JSON(w, serialiseStatus(unblogged))
+}
+
 func StatusesDestroy(env *Env, w http.ResponseWriter, r *http.Request) error {
 	account, err := env.authenticate(r)
 	if err != nil {

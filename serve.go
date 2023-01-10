@@ -112,6 +112,8 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Post("/statuses/{id}/unfavourite", httpx.HandlerFunc(envFn, mastodon.FavouritesDestroy))
 			r.Post("/statuses/{id}/bookmark", httpx.HandlerFunc(envFn, mastodon.BookmarksCreate))
 			r.Post("/statuses/{id}/unbookmark", httpx.HandlerFunc(envFn, mastodon.BookmarksDestroy))
+			r.Post("/statuses/{id}/reblog", httpx.HandlerFunc(envFn, mastodon.StatusesReblogCreate))
+			r.Post("/statuses/{id}/unreblog", httpx.HandlerFunc(envFn, mastodon.StatusesReblogDestroy))
 			r.Get("/statuses/{id}", httpx.HandlerFunc(envFn, mastodon.StatusesShow))
 			r.Delete("/statuses/{id}", httpx.HandlerFunc(envFn, mastodon.StatusesDestroy))
 			r.Route("/timelines", func(r chi.Router) {

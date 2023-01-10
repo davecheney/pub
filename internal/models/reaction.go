@@ -171,6 +171,86 @@ func (r *Reactions) Unbookmark(status *Status, actor *Actor) (*Reaction, error) 
 	return reaction, err
 }
 
+// Reblog creates a new status that is a reblog of the given status.
+func (r *Reactions) Reblog(status *Status, actor *Actor) (*Status, error) {
+	return withTransaction(r.db, func(tx *gorm.DB) (*Status, error) {
+		conv := Conversation{
+			Visibility: "public",
+		}
+		if err := r.db.Create(&conv).Error; err != nil {
+			return nil, err
+		}
+
+		reaction, err := r.findOrCreate(status, actor)
+		if err != nil {
+			return nil, err
+		}
+		reaction.Reblogged = true
+		err = r.db.Model(reaction).Update("reblogged", true).Error
+		if err != nil {
+			return nil, err
+		}
+
+		id := snowflake.Now()
+		reblog := Status{
+			ID:             id,
+			ActorID:        actor.ID,
+			Actor:          actor,
+			ConversationID: conv.ID,
+			Visibility:     conv.Visibility,
+			ReblogID:       &status.ID,
+			Reblog:         status,
+			URI:            fmt.Sprintf("%s/statuses/%d", actor.URL(), id),
+			Reaction:       reaction,
+		}
+		if err := r.db.Create(&reblog).Error; err != nil {
+			return nil, err
+		}
+		return &reblog, nil
+	})
+}
+
+// Unreblog removes the reblog of the given status with the given actor.
+func (r *Reactions) Unreblog(status *Status, actor *Actor) (*Status, error) {
+	return withTransaction(r.db, func(tx *gorm.DB) (*Status, error) {
+		reaction, err := r.findOrCreate(status, actor)
+		if err != nil {
+			return nil, err
+		}
+		reaction.Reblogged = false
+		err = r.db.Model(reaction).Update("reblogged", false).Error
+		if err != nil {
+			return nil, err
+		}
+		status.Reaction = reaction
+		var reblog Status
+		if err := r.db.Where("reblog_id = ? AND actor_id = ?", status.ID, actor.ID).First(&reblog).Error; err != nil {
+			return nil, err
+		}
+		if err := r.db.Delete(&reblog).Error; err != nil {
+			return nil, err
+		}
+		return status, nil
+	})
+}
+
+func withTransaction[P *T, T any](db *gorm.DB, fn func(tx *gorm.DB) (P, error)) (P, error) {
+	tx := db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			panic(r)
+		}
+	}()
+	result, err := fn(tx)
+	if tx.Error != nil || err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	tx.Commit()
+	return result, nil
+}
+
 func (r *Reactions) findOrCreate(status *Status, actor *Actor) (*Reaction, error) {
 	var reaction Reaction
 	if err := r.db.FirstOrCreate(&reaction, Reaction{StatusID: status.ID, ActorID: actor.ID}).Error; err != nil {
