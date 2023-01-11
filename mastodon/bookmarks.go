@@ -1,7 +1,6 @@
 package mastodon
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/davecheney/pub/internal/algorithms"
@@ -21,12 +20,14 @@ func BookmarksIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var bookmarked []*models.Status
 	query := env.DB.Joins("JOIN reactions ON reactions.status_id = statuses.id and reactions.actor_id = ? and reactions.bookmarked = ?", user.Actor.ID, true)
 	query = query.Preload("Actor")
-	query = query.Scopes(models.PreloadStatus, models.PreloadReaction(user.Actor))
+	query = query.Scopes(models.PreloadStatus, models.PreloadReaction(user.Actor), models.PaginateStatuses(r))
 	if err := query.Find(&bookmarked).Error; err != nil {
 		return err
 	}
 
-	w.Header().Add("Link", fmt.Sprintf(`<https://%s/api/v1/bookmarks?min_id=%d>; rel="prev"`, r.Host, bookmarked[len(bookmarked)-1].ID))
+	if len(bookmarked) > 0 {
+		linkHeader(w, r, bookmarked[0].ID, bookmarked[len(bookmarked)-1].ID)
+	}
 	return to.JSON(w, algorithms.Map(bookmarked, serialiseStatus))
 }
 
