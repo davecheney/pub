@@ -12,7 +12,7 @@ import (
 
 func UsersShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var actor models.Actor
-	if err := env.DB.First(&actor, "name = ? and domain = ?", chi.URLParam(r, "username"), r.Host).Error; err != nil {
+	if err := env.DB.First(&actor, "name = ? and domain = ?", chi.URLParam(r, "name"), r.Host).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return httpx.Error(http.StatusNotFound, err)
 		}
