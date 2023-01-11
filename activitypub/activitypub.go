@@ -64,7 +64,7 @@ func trimKeyId(id string) string {
 func Followers(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var followers []*models.Relationship
 	query := env.DB.Joins("JOIN actors ON actors.id = relationships.target_id and actors.name = ? and actors.domain = ?", chi.URLParam(r, "name"), r.Host)
-	if err := query.Model(&models.Relationship{}).Preload("Actor").Find(&followers).Error; err != nil {
+	if err := query.Model(&models.Relationship{}).Preload("Actor").Find(&followers, "following = true").Error; err != nil {
 		return err
 	}
 	return to.JSON(w, map[string]any{
@@ -84,7 +84,7 @@ func Followers(env *Env, w http.ResponseWriter, r *http.Request) error {
 func Following(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var following []*models.Relationship
 	query := env.DB.Joins("JOIN actors ON actors.id = relationships.actor_id and actors.name = ? and actors.domain = ?", chi.URLParam(r, "name"), r.Host)
-	if err := query.Model(&models.Relationship{}).Preload("Target").Find(&following).Error; err != nil {
+	if err := query.Model(&models.Relationship{}).Preload("Target").Find(&following, "following = true").Error; err != nil {
 		return err
 	}
 	return to.JSON(w, map[string]any{
