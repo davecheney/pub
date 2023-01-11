@@ -152,7 +152,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		r.Get("/outbox", httpx.HandlerFunc(envFn, activitypub.Outbox))
 		r.Get("/followers", httpx.HandlerFunc(envFn, activitypub.Followers))
 		r.Get("/following", httpx.HandlerFunc(envFn, activitypub.Following))
-		r.Get("/collections/{collection}", activitypub.CollectionsShow)
+		r.Get("/collections/{collection}", httpx.HandlerFunc(envFn, activitypub.CollectionsShow))
 	})
 
 	r.Route("/.well-known", func(r chi.Router) {

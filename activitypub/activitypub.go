@@ -11,10 +11,12 @@ import (
 	"time"
 
 	"github.com/davecheney/pub/internal/algorithms"
+	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/to"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-json-experiment/json"
+	"gorm.io/gorm"
 )
 
 type Env struct {
@@ -101,10 +103,18 @@ func Following(env *Env, w http.ResponseWriter, r *http.Request) error {
 	})
 }
 
-func CollectionsShow(w http.ResponseWriter, r *http.Request) {
-	to.JSON(w, map[string]any{
+func CollectionsShow(env *Env, w http.ResponseWriter, r *http.Request) error {
+	var actor models.Actor
+	if err := env.DB.Take(&actor, "name = ? and domain = ?", chi.URLParam(r, "name"), r.Host).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return httpx.Error(http.StatusNotFound, err)
+		}
+		return err
+	}
+
+	return to.JSON(w, map[string]any{
 		"@context":     "https://www.w3.org/ns/activitystreams",
-		"id":           fmt.Sprintf("https://%s/users/%s/collections/%s", r.Host, chi.URLParam(r, "username"), chi.URLParam(r, "collection")),
+		"id":           fmt.Sprintf("https://%s%s", r.Host, r.URL.Path),
 		"type":         "OrderedCollection",
 		"totalItems":   0,
 		"orderedItems": []any{},
