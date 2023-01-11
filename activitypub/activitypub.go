@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/to"
 	"github.com/go-chi/chi/v5"
@@ -60,23 +61,43 @@ func trimKeyId(id string) string {
 	return id
 }
 
-func FollowersIndex(w http.ResponseWriter, r *http.Request) {
-	to.JSON(w, map[string]any{
-		"@context":     "https://www.w3.org/ns/activitystreams",
-		"id":           fmt.Sprintf("https://%s/users/%s/followers", r.Host, chi.URLParam(r, "username")),
-		"type":         "OrderedCollection",
-		"totalItems":   0,
-		"orderedItems": []any{},
+func Followers(env *Env, w http.ResponseWriter, r *http.Request) error {
+	var followers []*models.Relationship
+	query := env.DB.Joins("JOIN actors ON actors.id = relationships.target_id and actors.name = ? and actors.domain = ?", chi.URLParam(r, "name"), r.Host)
+	if err := query.Model(&models.Relationship{}).Preload("Actor").Find(&followers).Error; err != nil {
+		return err
+	}
+	return to.JSON(w, map[string]any{
+		"@context":   "https://www.w3.org/ns/activitystreams",
+		"id":         fmt.Sprintf("https://%s%s", r.Host, r.URL.Path),
+		"type":       "OrderedCollection",
+		"totalItems": len(followers),
+		"orderedItems": algorithms.Map(
+			followers,
+			func(r *models.Relationship) string {
+				return r.Actor.URI
+			},
+		),
 	})
 }
 
-func FollowingIndex(w http.ResponseWriter, r *http.Request) {
-	to.JSON(w, map[string]any{
-		"@context":     "https://www.w3.org/ns/activitystreams",
-		"id":           fmt.Sprintf("https://%s/users/%s/following", r.Host, chi.URLParam(r, "username")),
-		"type":         "OrderedCollection",
-		"totalItems":   0,
-		"orderedItems": []any{},
+func Following(env *Env, w http.ResponseWriter, r *http.Request) error {
+	var following []*models.Relationship
+	query := env.DB.Joins("JOIN actors ON actors.id = relationships.actor_id and actors.name = ? and actors.domain = ?", chi.URLParam(r, "name"), r.Host)
+	if err := query.Model(&models.Relationship{}).Preload("Target").Find(&following).Error; err != nil {
+		return err
+	}
+	return to.JSON(w, map[string]any{
+		"@context":   "https://www.w3.org/ns/activitystreams",
+		"id":         fmt.Sprintf("https://%s%s", r.Host, r.URL.Path),
+		"type":       "OrderedCollection",
+		"totalItems": len(following),
+		"orderedItems": algorithms.Map(
+			following,
+			func(r *models.Relationship) string {
+				return r.Target.URI
+			},
+		),
 	})
 }
 
