@@ -200,7 +200,7 @@ func (r *Reactions) Reblog(status *Status, actor *Actor) (*Status, error) {
 			Visibility:     conv.Visibility,
 			ReblogID:       &status.ID,
 			Reblog:         status,
-			URI:            fmt.Sprintf("%s/statuses/%d", actor.URL(), id),
+			URI:            fmt.Sprintf("%s/statuses/%d", actor.URI, id),
 			Reaction:       reaction,
 		}
 		if err := r.db.Create(&reblog).Error; err != nil {
@@ -222,7 +222,6 @@ func (r *Reactions) Unreblog(status *Status, actor *Actor) (*Status, error) {
 		if err != nil {
 			return nil, err
 		}
-		status.Reaction = reaction
 		var reblog Status
 		if err := r.db.Where("reblog_id = ? AND actor_id = ?", status.ID, actor.ID).First(&reblog).Error; err != nil {
 			return nil, err
@@ -232,23 +231,6 @@ func (r *Reactions) Unreblog(status *Status, actor *Actor) (*Status, error) {
 		}
 		return status, nil
 	})
-}
-
-func withTransaction[P *T, T any](db *gorm.DB, fn func(tx *gorm.DB) (P, error)) (P, error) {
-	tx := db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
-		}
-	}()
-	result, err := fn(tx)
-	if tx.Error != nil || err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-	tx.Commit()
-	return result, nil
 }
 
 func (r *Reactions) findOrCreate(status *Status, actor *Actor) (*Reaction, error) {

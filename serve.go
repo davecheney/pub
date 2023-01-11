@@ -146,10 +146,10 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		r.Post("/revoke", httpx.HandlerFunc(envFn, oauth.TokenDestroy))
 	})
 
-	r.Route("/u/{username}", func(r chi.Router) {
+	r.Route("/u/{name}", func(r chi.Router) {
 		r.Get("/", httpx.HandlerFunc(envFn, activitypub.UsersShow))
 		r.Post("/inbox", httpx.HandlerFunc(envFn, activitypub.InboxCreate))
-		r.Get("/outbox", activitypub.OutboxIndex)
+		r.Get("/outbox", httpx.HandlerFunc(envFn, activitypub.Outbox))
 		r.Get("/followers", activitypub.FollowersIndex)
 		r.Get("/following", activitypub.FollowingIndex)
 		r.Get("/collections/{collection}", activitypub.CollectionsShow)

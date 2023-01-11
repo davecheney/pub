@@ -154,3 +154,15 @@ func marshalIndent(v any) ([]byte, error) {
 	}, v)
 	return b, err
 }
+
+// parseBool parses a boolean value from a request parameter.
+// If the parameter is not present, it returns false.
+// If the parameter is present but cannot be parsed, it returns false
+func parseBool(r *http.Request, key string) bool {
+	switch r.URL.Query().Get(key) {
+	case "true", "1":
+		return true
+	default:
+		return false
+	}
+}
