@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httputil"
+	"strings"
 	"time"
 
 	"github.com/davecheney/pub/internal/algorithms"
@@ -21,7 +23,7 @@ func StatusesCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	actor := user.Actor
+
 	var toot struct {
 		Status      string        `json:"status"`
 		InReplyToID *snowflake.ID `json:"in_reply_to_id,string"`
@@ -31,9 +33,40 @@ func StatusesCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 		Language    string        `json:"language"`
 		ScheduledAt *time.Time    `json:"scheduled_at,omitempty"`
 	}
-	if err := json.UnmarshalFull(r.Body, &toot); err != nil {
-		return httpx.Error(http.StatusBadRequest, err)
+	switch strings.Split(r.Header.Get("Content-Type"), ";")[0] {
+	case "multipart/form-data":
+		toot.Status = r.FormValue("status")
+		inReplyToID := r.FormValue("in_reply_to_id")
+		if inReplyToID != "" {
+			replyToID, err := snowflake.Parse(inReplyToID)
+			if err != nil {
+				return httpx.Error(http.StatusBadRequest, err)
+			}
+			toot.InReplyToID = &replyToID
+		}
+		toot.Sensitive = r.FormValue("sensitive") == "true"
+		toot.SpoilerText = r.FormValue("spoiler_text")
+		toot.Visibility = r.FormValue("visibility")
+		toot.Language = r.FormValue("language")
+		scheduledAt := r.FormValue("scheduled_at")
+		if scheduledAt != "" {
+			t, err := time.Parse(time.RFC3339, scheduledAt)
+			if err != nil {
+				return httpx.Error(http.StatusBadRequest, err)
+			}
+			toot.ScheduledAt = &t
+		}
+	case "application/json":
+		if err := json.UnmarshalFull(r.Body, &toot); err != nil {
+			return httpx.Error(http.StatusBadRequest, err)
+		}
+	default:
+		buf, _ := httputil.DumpRequest(r, true)
+		fmt.Println(string(buf))
+		return httpx.Error(http.StatusUnsupportedMediaType, fmt.Errorf("unsupported media type"))
 	}
+
+	actor := user.Actor
 
 	var conv *models.Conversation
 	if toot.InReplyToID != nil {
