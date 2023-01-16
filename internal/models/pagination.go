@@ -79,17 +79,17 @@ func PaginateRelationship(r *http.Request) func(db *gorm.DB) *gorm.DB {
 
 		sinceID, _ := strconv.Atoi(r.URL.Query().Get("since_id"))
 		if sinceID > 0 {
-			db = db.Where("target_id > ?", sinceID)
+			db = db.Where("relationships.target_id > ?", sinceID)
 		}
 		minID, _ := strconv.Atoi(r.URL.Query().Get("min_id"))
 		if minID > 0 {
-			db = db.Where("target_id > ?", minID)
+			db = db.Where("relationships.target_id > ?", minID)
 		}
 		maxID, _ := strconv.Atoi(r.URL.Query().Get("max_id"))
 		if maxID > 0 {
-			db = db.Where("target_id < ?", maxID)
+			db = db.Where("relationships.target_id < ?", maxID)
 		}
-		return db.Order("target_id desc")
+		return db.Order("relationships.target_id desc")
 	}
 }
 
