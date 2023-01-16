@@ -548,7 +548,8 @@ func serialiseList(l *models.AccountList) *List {
 type Application struct {
 	ID           snowflake.ID `json:"id,string"`
 	Name         string       `json:"name"`
-	Website      any          `json:"website,omitempty"` // string or null
+	Website      any          `json:"website"` // string or null
+	RedirectURI  string       `json:"redirect_uri,omitempty"`
 	VapidKey     string       `json:"vapid_key"`
 	ClientID     string       `json:"client_id,omitempty"`
 	ClientSecret string       `json:"client_secret,omitempty"`
@@ -558,7 +559,8 @@ func serialiseApplication(a *models.Application) *Application {
 	return &Application{
 		ID:           a.ID,
 		Name:         a.Name,
-		Website:      a.Website,
+		Website:      nilIfEmpty(a.Website),
+		RedirectURI:  a.RedirectURI,
 		VapidKey:     a.VapidKey,
 		ClientID:     a.ClientID,
 		ClientSecret: a.ClientSecret,

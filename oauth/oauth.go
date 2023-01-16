@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -15,6 +16,7 @@ import (
 	"github.com/go-json-experiment/json"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 func AuthorizeNew(env *activitypub.Env, w http.ResponseWriter, r *http.Request) error {
@@ -26,6 +28,15 @@ func AuthorizeNew(env *activitypub.Env, w http.ResponseWriter, r *http.Request) 
 	if redirectURI == "" {
 		return httpx.Error(http.StatusBadRequest, fmt.Errorf("redirect_uri is required"))
 	}
+
+	var app models.Application
+	if err := env.DB.Where("client_id = ?", clientID).First(&app).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return httpx.Error(http.StatusUnauthorized, fmt.Errorf("client_id not found"))
+		}
+		return err
+	}
+
 	w.Header().Set("Content-Type", "text/html")
 	_, err := io.WriteString(w, `
 		<!DOCTYPE html>

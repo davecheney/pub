@@ -15,15 +15,15 @@ import (
 
 func AppsCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var params struct {
-		ClientName   string  `json:"client_name"`
-		Website      *string `json:"website"`
-		RedirectURIs string  `json:"redirect_uris"`
-		Scopes       string  `json:"scopes"`
+		ClientName   string `json:"client_name"`
+		Website      string `json:"website"`
+		RedirectURIs string `json:"redirect_uris"`
+		Scopes       string `json:"scopes"`
 	}
 	switch mt := mime.MediaType(r); mt {
 	case "application/x-www-form-urlencoded", "multipart/form-data":
 		params.ClientName = r.PostFormValue("client_name")
-		params.Website = ptr(r.PostFormValue("website"))
+		params.Website = r.PostFormValue("website")
 		params.RedirectURIs = r.PostFormValue("redirect_uris")
 		params.Scopes = r.PostFormValue("scopes")
 	case "application/json":
@@ -48,6 +48,7 @@ func AppsCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 		ClientSecret: uuid.New().String(),
 		RedirectURI:  params.RedirectURIs,
 		VapidKey:     "BCk-QqERU0q-CfYZjcuB6lnyyOYfJ2AifKqfeGIm7Z-HiTU5T9eTG5GxVA0_OH5mMlI4UkkDTpaZwozy0TzdZ2M=",
+		Scopes:       params.Scopes,
 	}
 	if err := env.DB.Create(app).Error; err != nil {
 		return err
