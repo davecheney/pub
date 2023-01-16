@@ -71,7 +71,6 @@ func attachmentsToActorAttributes(attachments []any) []*models.ActorAttribute {
 }
 
 func objToActorAttribute(obj map[string]any) *models.ActorAttribute {
-	fmt.Println("RemoteActorFetcher.Fetch: attachment:", obj)
 	return &models.ActorAttribute{
 		Name:  stringFromAny(obj["name"]),
 		Value: stringFromAny(obj["value"]),

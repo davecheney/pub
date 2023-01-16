@@ -12,7 +12,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/davecheney/pub/internal/httpsig"
 	"github.com/davecheney/pub/internal/models"
@@ -25,6 +24,7 @@ import (
 type Client struct {
 	keyID      string
 	privateKey crypto.PrivateKey
+	ctx        context.Context
 }
 
 // NewClient returns a new ActivityPub client.
@@ -50,6 +50,7 @@ func NewClient(ctx context.Context, signAs *models.Account) (*Client, error) {
 	return &Client{
 		keyID:      signAs.Actor.PublicKeyID(),
 		privateKey: privateKey,
+		ctx:        ctx,
 	}, nil
 }
 
@@ -186,11 +187,7 @@ func (c *Client) Get(uri string) (map[string]any, error) {
 	if err := httpsig.Sign(req, c.keyID, c.privateKey, nil); err != nil {
 		return nil, fmt.Errorf("failed to sign request: %w", err)
 	}
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	req = req.WithContext(ctx)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req.WithContext(c.ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +209,7 @@ func (c *Client) Post(url string, obj map[string]any) error {
 	if err := httpsig.Sign(req, c.keyID, c.privateKey, body); err != nil {
 		return fmt.Errorf("failed to sign request: %w", err)
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req.WithContext(c.ctx))
 	if err != nil {
 		return err
 	}
