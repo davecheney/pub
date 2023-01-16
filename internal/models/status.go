@@ -41,9 +41,9 @@ type Status struct {
 
 // URL returns a link to the status’s HTML representation or nil if the status
 // is a reblog.
-func (st *Status) URL() any {
+func (st *Status) URL() string {
 	if st.ReblogID != nil {
-		return nil
+		return st.URI
 	}
 	return fmt.Sprintf("https://%s/@%s/%d", st.Actor.Domain, st.Actor.Name, st.ID)
 }

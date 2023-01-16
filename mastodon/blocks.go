@@ -17,8 +17,13 @@ func BlocksIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	var blocks []*models.Relationship
-	if err := env.DB.Joins("Target").Find(&blocks, "actor_id = ? and blocking = true", user.Actor.ID).Error; err != nil {
+	query := env.DB.Joins("Target").Scopes(models.PaginateRelationship(r))
+	if err := query.Find(&blocks, "actor_id = ? and blocking = true", user.Actor.ID).Error; err != nil {
 		return err
+	}
+
+	if len(blocks) > 0 {
+		linkHeader(w, r, blocks[0].Target.ID, blocks[len(blocks)-1].Target.ID)
 	}
 
 	return to.JSON(w, algorithms.Map(algorithms.Map(blocks, relationshipTarget), serialiseAccount))

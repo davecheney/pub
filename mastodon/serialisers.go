@@ -182,7 +182,7 @@ type Status struct {
 	Sensitive          bool               `json:"sensitive"`
 	SpoilerText        string             `json:"spoiler_text"`
 	Visibility         string             `json:"visibility"`
-	Language           string             `json:"language"`
+	Language           any                `json:"language"`
 	URI                string             `json:"uri"`
 	URL                any                `json:"url"`
 	RepliesCount       int                `json:"replies_count"`
@@ -196,6 +196,7 @@ type Status struct {
 	Content            string             `json:"content"`
 	Filtered           []any              `json:"filtered"`
 	Reblog             *Status            `json:"reblog"`
+	Application        any                `json:"application,omitempty"`
 	Account            *Account           `json:"account"`
 	MediaAttachments   []*MediaAttachment `json:"media_attachments"`
 	Mentions           []*Mention         `json:"mentions"`
@@ -203,7 +204,6 @@ type Status struct {
 	Emojis             []any              `json:"emojis"`
 	Card               any                `json:"card"`
 	Poll               *Poll              `json:"poll"`
-	// Application        any                `json:"application"`
 }
 
 func serialiseStatus(s *models.Status) *Status {
@@ -220,7 +220,7 @@ func serialiseStatus(s *models.Status) *Status {
 		Sensitive:          s.Sensitive,
 		SpoilerText:        s.SpoilerText,
 		Visibility:         s.Visibility,
-		Language:           s.Language,
+		Language:           nilIfEmpty(s.Language),
 		URI:                s.URI,
 		URL:                s.URL(),
 		RepliesCount:       s.RepliesCount,
@@ -235,17 +235,27 @@ func serialiseStatus(s *models.Status) *Status {
 		Account:            serialiseAccount(s.Actor),
 		MediaAttachments:   statusAttachmentsToMediaAttachments(s.Attachments),
 		Mentions:           algorithms.Map(algorithms.Map(s.Mentions, statusMentionToActor), serialiseMention),
-		Tags: algorithms.Map(algorithms.Map(s.Tags, statusTagToTag), func(t *models.Tag) *Tag {
-			return &Tag{
-				Name: t.Name,
-				URL:  fmt.Sprintf("/tags/%s", t.Name), // todo, this URL should be absolute to the instance
-			}
-		}),
-		Emojis: []any{},
-		Card:   nil,
-		Poll:   serialisePoll(s.Poll),
+		Tags:               algorithms.Map(algorithms.Map(s.Tags, statusTagToTag), serialiseTag),
+		// Emojis:             []any{},
+		// Card:               nil,
+		Poll: serialisePoll(s.Poll),
 	}
 	return st
+}
+
+func serialiseTag(t *models.Tag) *Tag {
+	return &Tag{
+		Name: t.Name,
+		URL:  fmt.Sprintf("/tags/%s", t.Name), // todo, this URL should be absolute to the instance
+	}
+}
+
+// nilIfEmpty returns nil if the string is empty, otherwise returns the string.
+func nilIfEmpty(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
 }
 
 // maybeEditedAt returns a string representation of the time the status was edited, or null if it was not edited.
