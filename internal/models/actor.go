@@ -134,7 +134,7 @@ func MaybeExcludeReplies(r *http.Request) func(db *gorm.DB) *gorm.DB {
 func MaybeExcludeReblogs(r *http.Request) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if excludeReblogs := parseBool(r, "exclude_reblogs"); excludeReblogs {
-			db = db.Where("reblog_of_id IS NULL")
+			db = db.Where("reblog_id IS NULL")
 		}
 		return db
 	}
