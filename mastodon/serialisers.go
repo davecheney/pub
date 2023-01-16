@@ -194,7 +194,7 @@ type Status struct {
 	Muted              bool               `json:"muted"`
 	Bookmarked         bool               `json:"bookmarked"`
 	Content            string             `json:"content"`
-	Filtered           []any              `json:"filtered"`
+	Filtered           []any              `json:"filtered,omitempty"`
 	Reblog             *Status            `json:"reblog"`
 	Application        any                `json:"application,omitempty"`
 	Account            *Account           `json:"account"`
@@ -246,7 +246,7 @@ func serialiseStatus(s *models.Status) *Status {
 func serialiseTag(t *models.Tag) *Tag {
 	return &Tag{
 		Name: t.Name,
-		URL:  fmt.Sprintf("/tags/%s", t.Name), // todo, this URL should be absolute to the instance
+		URL:  fmt.Sprintf("https://example.com/tags/%s", t.Name), // todo, this URL should be absolute to the instance
 	}
 }
 
