@@ -76,9 +76,10 @@ func searchAccounts(env *Env, w http.ResponseWriter, r *http.Request, q string) 
 		return httpx.Error(http.StatusInternalServerError, err)
 	}
 
+	serialise := Serialiser{req: r}
 	var resp = map[string]any{
 		"accounts": []any{
-			serialiseAccount(actor),
+			serialise.Account(actor),
 		},
 		"hashtags": []any{},
 		"statuses": []any{},
@@ -104,11 +105,12 @@ func searchStatuses(env *Env, w http.ResponseWriter, r *http.Request, q string) 
 	if err != nil {
 		return httpx.Error(http.StatusInternalServerError, err)
 	}
+	serialise := Serialiser{req: r}
 	var resp = map[string]any{
 		"accounts": []any{},
 		"hashtags": []any{},
 		"statuses": []any{
-			serialiseStatus(status),
+			serialise.Status(status),
 		},
 	}
 	return to.JSON(w, resp)

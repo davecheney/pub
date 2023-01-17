@@ -28,7 +28,8 @@ func FavouritesCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	return to.JSON(w, serialiseStatus(reaction.Status))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, serialise.Status(reaction.Status))
 }
 
 func FavouritesDestroy(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -48,7 +49,8 @@ func FavouritesDestroy(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	return to.JSON(w, serialiseStatus(reaction.Status))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, serialise.Status(reaction.Status))
 }
 
 func FavouritesIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -68,5 +70,6 @@ func FavouritesIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if len(favourited) > 0 {
 		linkHeader(w, r, favourited[0].ID, favourited[len(favourited)-1].ID)
 	}
-	return to.JSON(w, algorithms.Map(favourited, serialiseStatus))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, algorithms.Map(favourited, serialise.Status))
 }

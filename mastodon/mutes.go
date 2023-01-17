@@ -25,8 +25,8 @@ func MutesIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if len(mutes) > 0 {
 		linkHeader(w, r, mutes[0].Target.ID, mutes[len(mutes)-1].Target.ID)
 	}
-
-	return to.JSON(w, algorithms.Map(algorithms.Map(mutes, relationshipTarget), serialiseAccount))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, algorithms.Map(algorithms.Map(mutes, relationshipTarget), serialise.Account))
 }
 
 func MutesCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -45,7 +45,8 @@ func MutesCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	return to.JSON(w, serialiseRelationship(rel))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, serialise.Relationship(rel))
 }
 
 func MutesDestroy(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -64,5 +65,6 @@ func MutesDestroy(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	return to.JSON(w, serialiseRelationship(rel))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, serialise.Relationship(rel))
 }

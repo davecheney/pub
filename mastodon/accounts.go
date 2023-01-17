@@ -20,7 +20,8 @@ func AccountsShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err := env.DB.Scopes(models.PreloadActor).Take(&actor, chi.URLParam(r, "id")).Error; err != nil {
 		return httpx.Error(http.StatusNotFound, err)
 	}
-	return to.JSON(w, serialiseAccount(&actor))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, serialise.Account(&actor))
 }
 
 func AccountsVerifyCredentials(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -28,7 +29,8 @@ func AccountsVerifyCredentials(env *Env, w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		return err
 	}
-	return to.JSON(w, serialiseCredentialAccount(user))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, serialise.CredentialAccount(user))
 }
 
 func AccountsStatusesShow(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -55,7 +57,8 @@ func AccountsStatusesShow(env *Env, w http.ResponseWriter, r *http.Request) erro
 	if len(statuses) > 0 {
 		linkHeader(w, r, statuses[0].ID, statuses[len(statuses)-1].ID)
 	}
-	return to.JSON(w, algorithms.Map(statuses, serialiseStatus))
+	seralise := Serialiser{req: r}
+	return to.JSON(w, algorithms.Map(statuses, seralise.Status))
 }
 
 func AccountsFollowersShow(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -72,7 +75,8 @@ func AccountsFollowersShow(env *Env, w http.ResponseWriter, r *http.Request) err
 	if len(followers) > 0 {
 		linkHeader(w, r, followers[0].TargetID, followers[len(followers)-1].TargetID)
 	}
-	return to.JSON(w, algorithms.Map(algorithms.Map(followers, relationshipTarget), serialiseAccount))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, algorithms.Map(algorithms.Map(followers, relationshipTarget), serialise.Account))
 }
 
 func relationshipTarget(rel *models.Relationship) *models.Actor {
@@ -92,7 +96,8 @@ func AccountsFollowingShow(env *Env, w http.ResponseWriter, r *http.Request) err
 	if len(following) > 0 {
 		linkHeader(w, r, following[0].TargetID, following[len(following)-1].TargetID)
 	}
-	return to.JSON(w, algorithms.Map(algorithms.Map(following, relationshipTarget), serialiseAccount))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, algorithms.Map(algorithms.Map(following, relationshipTarget), serialise.Account))
 }
 
 func AccountsUpdateCredentials(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -115,7 +120,8 @@ func AccountsUpdateCredentials(env *Env, w http.ResponseWriter, r *http.Request)
 	if err := env.DB.Save(account).Error; err != nil {
 		return err
 	}
-	return to.JSON(w, serialiseAccount(account.Actor))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, serialise.Account(account.Actor))
 }
 
 func AccountsShowListMembership(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -134,6 +140,6 @@ func AccountsShowListMembership(env *Env, w http.ResponseWriter, r *http.Request
 	if err := env.DB.Where("id IN (?)", accountLists).Find(&lists).Error; err != nil {
 		return err
 	}
-
-	return to.JSON(w, algorithms.Map(lists, serialiseList))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, algorithms.Map(lists, serialise.List))
 }

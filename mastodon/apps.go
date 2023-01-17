@@ -53,8 +53,8 @@ func AppsCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err := env.DB.Create(app).Error; err != nil {
 		return err
 	}
-
-	return to.JSON(w, serialiseApplication(app))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, serialise.Application(app))
 }
 
 func ptr[T any](v T) *T {

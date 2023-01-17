@@ -24,8 +24,8 @@ func MarkersIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err := env.DB.Model(user).Association("Markers").Find(&markers, "name in (?)", names); err != nil {
 		return err
 	}
-
-	return to.JSON(w, algorithms.Map(markers, seraliseMarker))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, algorithms.Map(markers, serialise.Marker))
 }
 
 func MarkersCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -63,8 +63,9 @@ func MarkersCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 	resp := make(map[string]any)
+	serialise := Serialiser{req: r}
 	for name, marker := range markers {
-		resp[name] = seraliseMarker(marker)
+		resp[name] = serialise.Marker(marker)
 	}
 
 	return to.JSON(w, resp)

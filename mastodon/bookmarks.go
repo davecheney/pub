@@ -28,7 +28,8 @@ func BookmarksIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if len(bookmarked) > 0 {
 		linkHeader(w, r, bookmarked[0].ID, bookmarked[len(bookmarked)-1].ID)
 	}
-	return to.JSON(w, algorithms.Map(bookmarked, serialiseStatus))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, algorithms.Map(bookmarked, serialise.Status))
 }
 
 func BookmarksCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -48,7 +49,8 @@ func BookmarksCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	return to.JSON(w, serialiseStatus(reaction.Status))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, serialise.Status(reaction.Status))
 }
 
 func BookmarksDestroy(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -68,5 +70,6 @@ func BookmarksDestroy(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	return to.JSON(w, serialiseStatus(reaction.Status))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, serialise.Status(reaction.Status))
 }

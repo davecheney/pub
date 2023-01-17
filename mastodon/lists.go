@@ -24,8 +24,8 @@ func ListsIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err := env.DB.Model(user).Association("Lists").Find(&lists); err != nil {
 		return err
 	}
-
-	return to.JSON(w, algorithms.Map(lists, serialiseList))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, algorithms.Map(lists, serialise.List))
 }
 
 func ListsShow(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -38,7 +38,8 @@ func ListsShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err := env.DB.Model(user).Association("Lists").Find(&list, chi.URLParam(r, "id")); err != nil {
 		return err
 	}
-	return to.JSON(w, serialiseList(&list))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, serialise.List(&list))
 }
 
 func ListsCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -70,8 +71,8 @@ func ListsCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err := env.DB.Model(user).Association("Lists").Append(&list); err != nil {
 		return err
 	}
-
-	return to.JSON(w, serialiseList(&list))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, serialise.List(&list))
 }
 
 func ListsAddMembers(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -173,8 +174,8 @@ func ListsViewMembers(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err := env.DB.Joins("Member").Find(&members, "account_list_id", chi.URLParam(r, "id")).Error; err != nil {
 		return err
 	}
-
-	return to.JSON(w, algorithms.Map(algorithms.Map(members, listMember), serialiseAccount))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, algorithms.Map(algorithms.Map(members, listMember), serialise.Account))
 }
 
 func listMember(list *models.AccountListMember) *models.Actor {

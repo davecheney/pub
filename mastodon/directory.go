@@ -15,8 +15,8 @@ func DirectoryIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err := query.Find(&actors).Error; err != nil {
 		return err
 	}
-
-	return to.JSON(w, algorithms.Map(actors, serialiseAccount))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, algorithms.Map(actors, serialise.Account))
 }
 
 func isLocal(r *http.Request) func(db *gorm.DB) *gorm.DB {

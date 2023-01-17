@@ -104,7 +104,8 @@ func StatusesCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err := env.DB.Create(&status).Error; err != nil {
 		return err
 	}
-	return to.JSON(w, serialiseStatus(&status))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, serialise.Status(&status))
 }
 
 func StatusesReblogCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -124,7 +125,8 @@ func StatusesReblogCreate(env *Env, w http.ResponseWriter, r *http.Request) erro
 	if err != nil {
 		return err
 	}
-	return to.JSON(w, serialiseStatus(reblog))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, serialise.Status(reblog))
 }
 
 func StatusesReblogDestroy(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -144,7 +146,8 @@ func StatusesReblogDestroy(env *Env, w http.ResponseWriter, r *http.Request) err
 	if err != nil {
 		return err
 	}
-	return to.JSON(w, serialiseStatus(unblogged))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, serialise.Status(unblogged))
 }
 
 func StatusesDestroy(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -166,7 +169,8 @@ func StatusesDestroy(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err := env.DB.Delete(&status).Error; err != nil {
 		return err
 	}
-	return to.JSON(w, serialiseStatus(&status))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, serialise.Status(&status))
 }
 
 func StatusesShow(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -184,7 +188,8 @@ func StatusesShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 		}
 		return err
 	}
-	return to.JSON(w, serialiseStatus(&status))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, serialise.Status(&status))
 }
 
 func StatusesHistoryShow(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -202,7 +207,8 @@ func StatusesHistoryShow(env *Env, w http.ResponseWriter, r *http.Request) error
 		}
 		return err
 	}
-	return to.JSON(w, []any{serialiseStatusEdit(&status)})
+	serialise := Serialiser{req: r}
+	return to.JSON(w, []any{serialise.StatusEdit(&status)})
 }
 
 func StatusesFavouritesShow(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -221,8 +227,8 @@ func StatusesFavouritesShow(env *Env, w http.ResponseWriter, r *http.Request) er
 	if len(favouriters) > 0 {
 		linkHeader(w, r, favouriters[0].ID, favouriters[len(favouriters)-1].ID)
 	}
-
-	return to.JSON(w, algorithms.Map(favouriters, serialiseAccount))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, algorithms.Map(favouriters, serialise.Account))
 }
 
 func StatusesReblogsShow(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -241,8 +247,8 @@ func StatusesReblogsShow(env *Env, w http.ResponseWriter, r *http.Request) error
 	if len(rebloggers) > 0 {
 		linkHeader(w, r, rebloggers[0].ID, rebloggers[len(rebloggers)-1].ID)
 	}
-
-	return to.JSON(w, algorithms.Map(rebloggers, serialiseAccount))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, algorithms.Map(rebloggers, serialise.Account))
 }
 
 func StatusesContextsShow(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -270,12 +276,13 @@ func StatusesContextsShow(env *Env, w http.ResponseWriter, r *http.Request) erro
 	}
 
 	ancestors, descendants := thread(status.ID, statuses)
+	serialise := Serialiser{req: r}
 	return to.JSON(w, struct {
 		Ancestors   []*Status `json:"ancestors"`
 		Descendants []*Status `json:"descendants"`
 	}{
-		Ancestors:   algorithms.Map(ancestors, serialiseStatus),
-		Descendants: algorithms.Map(descendants, serialiseStatus),
+		Ancestors:   algorithms.Map(ancestors, serialise.Status),
+		Descendants: algorithms.Map(descendants, serialise.Status),
 	})
 }
 

@@ -32,7 +32,8 @@ func TimelinesHome(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if len(statuses) > 0 {
 		linkHeader(w, r, statuses[0].ID, statuses[len(statuses)-1].ID)
 	}
-	return to.JSON(w, algorithms.Map(statuses, serialiseStatus))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, algorithms.Map(statuses, serialise.Status))
 }
 
 func TimelinesPublic(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -53,7 +54,8 @@ func TimelinesPublic(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if len(statuses) > 0 {
 		linkHeader(w, r, statuses[0].ID, statuses[len(statuses)-1].ID)
 	}
-	return to.JSON(w, algorithms.Map(statuses, serialiseStatus))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, algorithms.Map(statuses, serialise.Status))
 }
 
 // localOnly returns a scope that filters statuses to those that are local
@@ -92,7 +94,8 @@ func TimelinesListShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if len(statuses) > 0 {
 		linkHeader(w, r, statuses[0].ID, statuses[len(statuses)-1].ID)
 	}
-	return to.JSON(w, algorithms.Map(statuses, serialiseStatus))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, algorithms.Map(statuses, serialise.Status))
 }
 
 func TimelinesTagShow(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -117,7 +120,8 @@ func TimelinesTagShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if len(statuses) > 0 {
 		linkHeader(w, r, statuses[0].ID, statuses[len(statuses)-1].ID)
 	}
-	return to.JSON(w, algorithms.Map(statuses, serialiseStatus))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, algorithms.Map(statuses, serialise.Status))
 }
 
 // publicStatuses returns a scope that only returns public statuses which are not replies or reblogs.

@@ -25,8 +25,8 @@ func BlocksIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if len(blocks) > 0 {
 		linkHeader(w, r, blocks[0].Target.ID, blocks[len(blocks)-1].Target.ID)
 	}
-
-	return to.JSON(w, algorithms.Map(algorithms.Map(blocks, relationshipTarget), serialiseAccount))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, algorithms.Map(algorithms.Map(blocks, relationshipTarget), serialise.Account))
 }
 
 func BlocksCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -45,7 +45,8 @@ func BlocksCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	return to.JSON(w, serialiseRelationship(rel))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, serialise.Relationship(rel))
 }
 
 func BlocksDestroy(env *Env, w http.ResponseWriter, r *http.Request) error {
@@ -64,5 +65,6 @@ func BlocksDestroy(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	return to.JSON(w, serialiseRelationship(rel))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, serialise.Relationship(rel))
 }

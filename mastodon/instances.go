@@ -10,14 +10,16 @@ import (
 )
 
 func InstancesIndexV1(env *Env, w http.ResponseWriter, r *http.Request) error {
-	return instancesIndex(env, w, r, serialiseInstanceV1)
+	serialise := Serialiser{req: r}
+	return instancesIndex(env, w, r, serialise.InstanceV1)
 }
 
 func InstancesIndexV2(env *Env, w http.ResponseWriter, r *http.Request) error {
-	return instancesIndex(env, w, r, serialiseInstanceV2)
+	serialise := Serialiser{req: r}
+	return instancesIndex(env, w, r, serialise.InstanceV2)
 }
 
-func instancesIndex(env *Env, w http.ResponseWriter, r *http.Request, seraliser func(*models.Instance) map[string]any) error {
+func instancesIndex(env *Env, w http.ResponseWriter, r *http.Request, serialiser func(*models.Instance) map[string]any) error {
 	var instance models.Instance
 	if err := env.DB.Where("domain = ?", r.Host).Preload("Admin").Preload("Admin.Actor").Preload("Rules").Take(&instance).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -25,7 +27,7 @@ func instancesIndex(env *Env, w http.ResponseWriter, r *http.Request, seraliser 
 		}
 		return err
 	}
-	return to.JSON(w, seraliser(&instance))
+	return to.JSON(w, serialiser(&instance))
 }
 
 func InstancesPeersShow(env *Env, w http.ResponseWriter, r *http.Request) error {

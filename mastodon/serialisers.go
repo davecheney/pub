@@ -2,6 +2,7 @@ package mastodon
 
 import (
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/davecheney/pub/internal/algorithms"
@@ -10,7 +11,11 @@ import (
 	"github.com/davecheney/pub/media"
 )
 
-// serialisers for various mastodon API responses.
+// Seraliser contains methods to seralise various Mastodon REST API
+// responses.
+type Serialiser struct {
+	req *http.Request
+}
 
 type Account struct {
 	ID             snowflake.ID `json:"id,string"`
@@ -49,17 +54,6 @@ type CredentialAccount struct {
 	Role   *Role  `json:"role,omitempty"`
 }
 
-type Role struct {
-	ID          uint32 `json:"id"`
-	Name        string `json:"name"`
-	Color       string `json:"color"`
-	Position    int32  `json:"position"`
-	Permissions uint32 `json:"permissions"`
-	Highlighted bool   `json:"highlighted"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
-}
-
 type Source struct {
 	Privacy             string           `json:"privacy"`
 	Sensitive           bool             `json:"sensitive"`
@@ -69,7 +63,7 @@ type Source struct {
 	Fields              []map[string]any `json:"fields"`
 }
 
-func serialiseAccount(a *models.Actor) *Account {
+func (s *Serialiser) Account(a *models.Actor) *Account {
 	return &Account{
 		ID:             a.ID,
 		Username:       a.Name,
@@ -106,29 +100,44 @@ func serialiseAccount(a *models.Actor) *Account {
 	}
 }
 
-func serialiseCredentialAccount(a *models.Account) *CredentialAccount {
-	ca := CredentialAccount{
-		Account: serialiseAccount(a.Actor),
+func (s *Serialiser) CredentialAccount(a *models.Account) *CredentialAccount {
+	return &CredentialAccount{
+		Account: s.Account(a.Actor),
 		Source: Source{
 			Privacy:   "public",
 			Sensitive: false,
 			Language:  "en",
 			Note:      a.Actor.Note,
 		},
+		Role: s.Role(a.Role),
 	}
-	if a.Role != nil {
-		ca.Role = &Role{
-			ID:          a.Role.ID,
-			Name:        a.Role.Name,
-			Color:       a.Role.Color,
-			Position:    a.Role.Position,
-			Permissions: a.Role.Permissions,
-			Highlighted: a.Role.Highlighted,
-			CreatedAt:   a.Role.CreatedAt.Format("2006-01-02T15:04:05.006Z"),
-			UpdatedAt:   a.Role.UpdatedAt.Format("2006-01-02T15:04:05.006Z"),
-		}
+}
+
+type Role struct {
+	ID          uint32 `json:"id"`
+	Name        string `json:"name"`
+	Color       string `json:"color"`
+	Position    int32  `json:"position"`
+	Permissions uint32 `json:"permissions"`
+	Highlighted bool   `json:"highlighted"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+}
+
+func (s *Serialiser) Role(ar *models.AccountRole) *Role {
+	if ar == nil {
+		return nil
 	}
-	return &ca
+	return &Role{
+		ID:          ar.ID,
+		Name:        ar.Name,
+		Color:       ar.Color,
+		Position:    ar.Position,
+		Permissions: ar.Permissions,
+		Highlighted: ar.Highlighted,
+		CreatedAt:   ar.CreatedAt.Format("2006-01-02T15:04:05.006Z"),
+		UpdatedAt:   ar.UpdatedAt.Format("2006-01-02T15:04:05.006Z"),
+	}
 }
 
 type Relationship struct {
@@ -147,7 +156,7 @@ type Relationship struct {
 	Note                string       `json:"note"`
 }
 
-func serialiseRelationship(rel *models.Relationship) *Relationship {
+func (s *Serialiser) Relationship(rel *models.Relationship) *Relationship {
 	return &Relationship{
 		ID:                  rel.TargetID,
 		Following:           rel.Following,
@@ -206,48 +215,80 @@ type Status struct {
 	Poll               *Poll              `json:"poll"`
 }
 
-func serialiseStatus(s *models.Status) *Status {
-	if s == nil {
+func (s *Serialiser) Status(st *models.Status) *Status {
+	if st == nil {
 		return nil
 	}
-	createdAt := s.ID.ToTime()
-	st := &Status{
-		ID:                 s.ID,
+	createdAt := st.ID.ToTime()
+	return &Status{
+		ID:                 st.ID,
 		CreatedAt:          createdAt.Round(time.Second).Format("2006-01-02T15:04:05.000Z"),
-		EditedAt:           maybeEditedAt(createdAt, s.UpdatedAt),
-		InReplyToID:        s.InReplyToID,
-		InReplyToAccountID: s.InReplyToActorID,
-		Sensitive:          s.Sensitive,
-		SpoilerText:        s.SpoilerText,
-		Visibility:         s.Visibility,
-		Language:           nilIfEmpty(s.Language),
-		URI:                s.URI,
-		URL:                s.URL(),
-		RepliesCount:       s.RepliesCount,
-		ReblogsCount:       s.ReblogsCount,
-		FavouritesCount:    s.FavouritesCount,
-		Favourited:         s.Reaction != nil && s.Reaction.Favourited,
-		Reblogged:          s.Reaction != nil && s.Reaction.Reblogged,
-		Muted:              s.Reaction != nil && s.Reaction.Muted,
-		Bookmarked:         s.Reaction != nil && s.Reaction.Bookmarked,
-		Content:            s.Note,
-		Reblog:             serialiseStatus(s.Reblog),
-		Account:            serialiseAccount(s.Actor),
-		MediaAttachments:   statusAttachmentsToMediaAttachments(s.Attachments),
-		Mentions:           algorithms.Map(algorithms.Map(s.Mentions, statusMentionToActor), serialiseMention),
-		Tags:               algorithms.Map(algorithms.Map(s.Tags, statusTagToTag), serialiseTag),
+		EditedAt:           maybeEditedAt(createdAt, st.UpdatedAt),
+		InReplyToID:        st.InReplyToID,
+		InReplyToAccountID: st.InReplyToActorID,
+		Sensitive:          st.Sensitive,
+		SpoilerText:        st.SpoilerText,
+		Visibility:         st.Visibility,
+		Language:           nilIfEmpty(st.Language),
+		URI:                st.URI,
+		URL:                st.URL(),
+		RepliesCount:       st.RepliesCount,
+		ReblogsCount:       st.ReblogsCount,
+		FavouritesCount:    st.FavouritesCount,
+		Favourited:         st.Reaction != nil && st.Reaction.Favourited,
+		Reblogged:          st.Reaction != nil && st.Reaction.Reblogged,
+		Muted:              st.Reaction != nil && st.Reaction.Muted,
+		Bookmarked:         st.Reaction != nil && st.Reaction.Bookmarked,
+		Content:            st.Note,
+		Reblog:             s.Status(st.Reblog),
+		Account:            s.Account(st.Actor),
+		MediaAttachments:   s.MediaAttachments(st.Attachments),
+		Mentions:           s.Mentions(st.Mentions),
+		Tags:               s.Tags(st.Tags),
 		// Emojis:             []any{},
 		// Card:               nil,
-		Poll: serialisePoll(s.Poll),
+		Poll: s.Poll(st.Poll),
 	}
-	return st
 }
 
-func serialiseTag(t *models.Tag) *Tag {
-	return &Tag{
-		Name: t.Name,
-		URL:  fmt.Sprintf("https://example.com/tags/%s", t.Name), // todo, this URL should be absolute to the instance
-	}
+func (s *Serialiser) Tags(tags []models.StatusTag) []*Tag {
+	return algorithms.Map(
+		algorithms.Map(
+			tags,
+			func(st models.StatusTag) *models.Tag {
+				return st.Tag
+			},
+		),
+		func(t *models.Tag) *Tag {
+			return &Tag{
+				Name: t.Name,
+				URL:  s.urlFor("/tags/" + t.Name),
+			}
+		},
+	)
+}
+
+func (s *Serialiser) Mentions(mentions []models.StatusMention) []*Mention {
+	return algorithms.Map(
+		algorithms.Map(
+			mentions,
+			func(sm models.StatusMention) *models.Actor {
+				return sm.Actor
+			},
+		),
+		func(a *models.Actor) *Mention {
+			return &Mention{
+				ID:       a.ID,
+				URL:      a.URL(),
+				Acct:     a.Acct(),
+				Username: a.Name,
+			}
+		},
+	)
+}
+
+func (s *Serialiser) urlFor(path string) string {
+	return fmt.Sprintf("https://%s%s", s.req.Host, path)
 }
 
 // nilIfEmpty returns nil if the string is empty, otherwise returns the string.
@@ -277,48 +318,6 @@ type MediaAttachment struct {
 	Blurhash    string         `json:"blurhash"`
 }
 
-func statusAttachmentToAttachment(sa *models.StatusAttachment) *models.Attachment {
-	return &sa.Attachment
-}
-
-func statusMentionToActor(sm models.StatusMention) *models.Actor {
-	return sm.Actor
-}
-
-func statusTagToTag(st models.StatusTag) *models.Tag {
-	return st.Tag
-}
-
-func serialiseAttachment(att *models.Attachment) *MediaAttachment {
-	return &MediaAttachment{
-		ID:         att.ID,
-		Type:       attachmentType(att),
-		URL:        att.URL,
-		PreviewURL: att.URL,
-		RemoteURL:  nil,
-		Meta: map[string]any{
-			"original": map[string]any{
-				"width":  att.Width,
-				"height": att.Height,
-				"size":   fmt.Sprintf("%dx%d", att.Width, att.Height),
-				"aspect": float64(att.Width) / float64(att.Height),
-			},
-			// "small": map[string]any{
-			// 	"width":  att.Width,
-			// 	"height": att.Height,
-			// 	"size":   fmt.Sprintf("%dx%d", att.Attachment.Width, att.Attachment.Height),
-			// 	"aspect": float64(att.Attachment.Width) / float64(att.Attachment.Height),
-			// },
-			// "focus": map[string]any{
-			// 	"x": 0.0,
-			// 	"y": 0.0,
-			// },
-		},
-		Description: att.Name,
-		Blurhash:    att.Blurhash,
-	}
-}
-
 func attachmentType(att *models.Attachment) string {
 	switch att.MediaType {
 	case "image/jpeg":
@@ -340,7 +339,7 @@ func attachmentType(att *models.Attachment) string {
 	}
 }
 
-func serialiseInstanceV1(i *models.Instance) map[string]any {
+func (s *Serialiser) InstanceV1(i *models.Instance) map[string]any {
 	return map[string]any{
 		"uri":               i.Domain,
 		"title":             i.Title,
@@ -411,12 +410,12 @@ func serialiseInstanceV1(i *models.Instance) map[string]any {
 				"max_expiration":            2629746,
 			},
 		},
-		"contact_account": serialiseAccount(i.Admin.Actor),
-		"rules":           serialiseRules(i),
+		"contact_account": s.Account(i.Admin.Actor),
+		"rules":           s.Rules(i),
 	}
 }
 
-func serialiseInstanceV2(i *models.Instance) map[string]any {
+func (s *Serialiser) InstanceV2(i *models.Instance) map[string]any {
 	return map[string]any{
 		"domain":      i.Domain,
 		"title":       i.Title,
@@ -493,9 +492,9 @@ func serialiseInstanceV2(i *models.Instance) map[string]any {
 			},
 			"contact": map[string]any{
 				"email":   i.Admin.Email,
-				"account": serialiseAccount(i.Admin.Actor),
+				"account": s.Account(i.Admin.Actor),
 			},
-			"rules": serialiseRules(i),
+			"rules": s.Rules(i),
 		},
 	}
 }
@@ -505,7 +504,7 @@ type Rule struct {
 	Text string `json:"text"`
 }
 
-func serialiseRules(i *models.Instance) []Rule {
+func (s *Serialiser) Rules(i *models.Instance) []Rule {
 	rules := []Rule{}
 	for _, rule := range i.Rules {
 		rules = append(rules, Rule{
@@ -523,7 +522,7 @@ type Marker struct {
 	UpdatedAt  string
 }
 
-func seraliseMarker(m *models.AccountMarker) *Marker {
+func (s *Serialiser) Marker(m *models.AccountMarker) *Marker {
 	return &Marker{
 		LastReadID: m.LastReadID,
 		Version:    m.Version,
@@ -537,7 +536,7 @@ type List struct {
 	RepliesPolicy string       `json:"replies_policy"`
 }
 
-func serialiseList(l *models.AccountList) *List {
+func (s *Serialiser) List(l *models.AccountList) *List {
 	return &List{
 		ID:            l.ID,
 		Title:         l.Title,
@@ -555,7 +554,7 @@ type Application struct {
 	ClientSecret string       `json:"client_secret,omitempty"`
 }
 
-func serialiseApplication(a *models.Application) *Application {
+func (s *Serialiser) Application(a *models.Application) *Application {
 	return &Application{
 		ID:           a.ID,
 		Name:         a.Name,
@@ -574,15 +573,6 @@ type Mention struct {
 	URL      string       `json:"url"`
 	Acct     string       `json:"acct"`
 	Username string       `json:"username"`
-}
-
-func serialiseMention(a *models.Actor) *Mention {
-	return &Mention{
-		ID:       a.ID,
-		URL:      a.URL(),
-		Acct:     a.Acct(),
-		Username: a.Name,
-	}
 }
 
 // Tag represents a hashtag in the context of a status.
@@ -611,7 +601,7 @@ type PollOption struct {
 	VotesCount int    `json:"votes_count"`
 }
 
-func serialisePoll(p *models.StatusPoll) *Poll {
+func (s *Serialiser) Poll(p *models.StatusPoll) *Poll {
 	if p == nil {
 		return nil
 	}
@@ -623,20 +613,16 @@ func serialisePoll(p *models.StatusPoll) *Poll {
 		VotesCount:  p.VotesCount,
 		VotersCount: nil,
 		Voted:       false,
-		Options:     serialisePollOptions(p.Options),
-		Emojies:     nil,
+		Options: algorithms.Map(
+			p.Options,
+			func(option models.StatusPollOption) PollOption {
+				return PollOption{
+					Title:      option.Title,
+					VotesCount: option.Count,
+				}
+			},
+		),
 	}
-}
-
-func serialisePollOptions(options []models.StatusPollOption) []PollOption {
-	pollOptions := []PollOption{}
-	for _, option := range options {
-		pollOptions = append(pollOptions, PollOption{
-			Title:      option.Title,
-			VotesCount: option.Count,
-		})
-	}
-	return pollOptions
 }
 
 // https://docs.joinmastodon.org/entities/StatusEdit/
@@ -651,25 +637,60 @@ type StatusEdit struct {
 	Emojies          []any              `json:"emojies"`
 }
 
-func serialiseStatusEdit(s *models.Status) *StatusEdit {
+func (s *Serialiser) StatusEdit(st *models.Status) *StatusEdit {
 	return &StatusEdit{
-		Content:     s.Note,
-		SpoilerText: s.SpoilerText,
-		Sensitive:   s.Sensitive,
+		Content:     st.Note,
+		SpoilerText: st.SpoilerText,
+		Sensitive:   st.Sensitive,
 		CreatedAt: func() time.Time {
-			createdAt := s.ID.ToTime()
-			if s.UpdatedAt.After(createdAt) {
-				return s.UpdatedAt
+			createdAt := st.ID.ToTime()
+			if st.UpdatedAt.After(createdAt) {
+				return st.UpdatedAt
 			}
 			return createdAt
 		}().Format("2006-01-02T15:04:05.006Z"),
-		Account:          serialiseAccount(s.Actor),
-		Poll:             serialisePoll(s.Poll),
-		MediaAttachments: statusAttachmentsToMediaAttachments(s.Attachments),
+		Account:          s.Account(st.Actor),
+		Poll:             s.Poll(st.Poll),
+		MediaAttachments: s.MediaAttachments(st.Attachments),
 		Emojies:          nil,
 	}
 }
 
-func statusAttachmentsToMediaAttachments(attachments []*models.StatusAttachment) []*MediaAttachment {
-	return algorithms.Map(algorithms.Map(attachments, statusAttachmentToAttachment), serialiseAttachment)
+func (s *Serialiser) MediaAttachments(attachments []*models.StatusAttachment) []*MediaAttachment {
+	return algorithms.Map(
+		algorithms.Map(
+			attachments,
+			func(sa *models.StatusAttachment) *models.Attachment {
+				return &sa.Attachment
+			},
+		), func(att *models.Attachment) *MediaAttachment {
+			return &MediaAttachment{
+				ID:         att.ID,
+				Type:       attachmentType(att),
+				URL:        att.URL,
+				PreviewURL: att.URL,
+				RemoteURL:  nil,
+				Meta: map[string]any{
+					"original": map[string]any{
+						"width":  att.Width,
+						"height": att.Height,
+						"size":   fmt.Sprintf("%dx%d", att.Width, att.Height),
+						"aspect": float64(att.Width) / float64(att.Height),
+					},
+					// "small": map[string]any{
+					// 	"width":  att.Width,
+					// 	"height": att.Height,
+					// 	"size":   fmt.Sprintf("%dx%d", att.Attachment.Width, att.Attachment.Height),
+					// 	"aspect": float64(att.Attachment.Width) / float64(att.Attachment.Height),
+					// },
+					// "focus": map[string]any{
+					// 	"x": 0.0,
+					// 	"y": 0.0,
+					// },
+				},
+				Description: att.Name,
+				Blurhash:    att.Blurhash,
+			}
+		},
+	)
 }

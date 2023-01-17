@@ -19,6 +19,7 @@ func RelationshipsShow(env *Env, w http.ResponseWriter, req *http.Request) error
 	}
 	targets := req.URL.Query()["id"]
 	targets = append(targets, req.URL.Query()["id[]"]...)
+	serialise := Serialiser{req: req}
 	var resp []any
 	for _, target := range targets {
 		id, err := strconv.ParseUint(target, 10, 64)
@@ -33,7 +34,7 @@ func RelationshipsShow(env *Env, w http.ResponseWriter, req *http.Request) error
 			}
 			return err
 		}
-		resp = append(resp, serialiseRelationship(&rel))
+		resp = append(resp, serialise.Relationship(&rel))
 	}
 	return to.JSON(w, resp)
 }
@@ -55,7 +56,8 @@ func RelationshipsCreate(env *Env, w http.ResponseWriter, req *http.Request) err
 		return err
 
 	}
-	return to.JSON(w, serialiseRelationship(rel))
+	serialise := Serialiser{req: req}
+	return to.JSON(w, serialise.Relationship(rel))
 }
 
 func RelationshipsDestroy(env *Env, w http.ResponseWriter, req *http.Request) error {
@@ -74,5 +76,6 @@ func RelationshipsDestroy(env *Env, w http.ResponseWriter, req *http.Request) er
 	if err != nil {
 		return err
 	}
-	return to.JSON(w, serialiseRelationship(rel))
+	serialise := Serialiser{req: req}
+	return to.JSON(w, serialise.Relationship(rel))
 }

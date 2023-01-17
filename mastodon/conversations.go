@@ -31,5 +31,6 @@ func ConversationsIndex(env *Env, w http.ResponseWriter, r *http.Request) error 
 	if len(statuses) > 0 {
 		w.Header().Set("Link", fmt.Sprintf("<https://%s/api/v1/timelines/public?max_id=%d>; rel=\"next\", <https://%s/api/v1/timelines/public?min_id=%d>; rel=\"prev\"", r.Host, statuses[len(statuses)-1].ID, r.Host, statuses[0].ID))
 	}
-	return to.JSON(w, algorithms.Map(statuses, serialiseStatus))
+	serialise := Serialiser{req: r}
+	return to.JSON(w, algorithms.Map(statuses, serialise.Status))
 }
