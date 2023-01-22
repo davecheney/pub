@@ -308,14 +308,47 @@ func maybeEditedAt(createdAt, updatedAt time.Time) any {
 }
 
 type MediaAttachment struct {
-	ID          snowflake.ID   `json:"id,string"`
-	Type        string         `json:"type"`
-	URL         string         `json:"url"`
-	PreviewURL  string         `json:"preview_url"`
-	RemoteURL   any            `json:"remote_url"`
-	Meta        map[string]any `json:"meta"`
-	Description string         `json:"description"`
-	Blurhash    string         `json:"blurhash"`
+	ID               snowflake.ID `json:"id,string"`
+	Type             string       `json:"type"`
+	URL              string       `json:"url"`
+	PreviewURL       string       `json:"preview_url"`
+	RemoteURL        any          `json:"remote_url"`
+	PreviewRemoteURL any          `json:"preview_remote_url"`
+	TextURL          any          `json:"text_url"`
+	Meta             Meta         `json:"meta"`
+	Description      string       `json:"description"`
+	Blurhash         string       `json:"blurhash"`
+}
+
+type Meta struct {
+	Original      *MetaFormat `json:"original,omitempty"`
+	Small         *MetaFormat `json:"small,omitempty"`
+	Focus         *MetaFocus  `json:"focus,omitempty"`
+	Length        string      `json:"length,omitempty"`
+	Duration      float64     `json:"duration,omitempty"`
+	FPS           int         `json:"fps,omitempty"`
+	Size          string      `json:"size,omitempty"`
+	Width         int         `json:"width,omitempty"`
+	Height        int         `json:"height,omitempty"`
+	Aspect        float64     `json:"aspect,omitempty"`
+	AudioEncode   string      `json:"audio_encode,omitempty"`
+	AudioBitrate  string      `json:"audio_bitrate,omitempty"`
+	AudioChannels string      `json:"audio_channels,omitempty"`
+}
+
+type MetaFocus struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
+
+type MetaFormat struct {
+	Width     int     `json:"width"`
+	Height    int     `json:"height"`
+	Size      string  `json:"size"`
+	Aspect    float64 `json:"aspect"`
+	FrameRate string  `json:"frame_rate"`
+	Duration  float64 `json:"duration"`
+	Bitrate   string  `json:"bitrate"`
 }
 
 func attachmentType(att *models.Attachment) string {
@@ -664,33 +697,29 @@ func (s *Serialiser) MediaAttachments(attachments []*models.StatusAttachment) []
 				return &sa.Attachment
 			},
 		), func(att *models.Attachment) *MediaAttachment {
-			return &MediaAttachment{
+			at := &MediaAttachment{
 				ID:         att.ID,
 				Type:       attachmentType(att),
 				URL:        att.URL,
 				PreviewURL: att.URL,
 				RemoteURL:  nil,
-				Meta: map[string]any{
-					"original": map[string]any{
-						"width":  att.Width,
-						"height": att.Height,
-						"size":   fmt.Sprintf("%dx%d", att.Width, att.Height),
-						"aspect": float64(att.Width) / float64(att.Height),
-					},
-					// "small": map[string]any{
-					// 	"width":  att.Width,
-					// 	"height": att.Height,
-					// 	"size":   fmt.Sprintf("%dx%d", att.Attachment.Width, att.Attachment.Height),
-					// 	"aspect": float64(att.Attachment.Width) / float64(att.Attachment.Height),
-					// },
-					// "focus": map[string]any{
-					// 	"x": 0.0,
-					// 	"y": 0.0,
-					// },
+				Meta: Meta{
+					Original: func() *MetaFormat {
+						if att.Width > 0 && att.Height > 0 {
+							return &MetaFormat{
+								Width:  att.Width,
+								Height: att.Height,
+								Size:   fmt.Sprintf("%dx%d", att.Width, att.Height),
+								Aspect: float64(att.Width) / float64(att.Height),
+							}
+						}
+						return nil
+					}(),
 				},
 				Description: att.Name,
 				Blurhash:    att.Blurhash,
 			}
+			return at
 		},
 	)
 }
