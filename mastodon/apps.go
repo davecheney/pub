@@ -26,6 +26,12 @@ func AppsCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 		params.Website = r.PostFormValue("website")
 		params.RedirectURIs = r.PostFormValue("redirect_uris")
 		params.Scopes = r.PostFormValue("scopes")
+	case "application/octet-stream":
+		// ice cubes uses url parameters :picard_facepalm:
+		params.ClientName = r.FormValue("client_name")
+		params.Website = r.FormValue("website")
+		params.RedirectURIs = r.FormValue("redirect_uris")
+		params.Scopes = r.FormValue("scopes")
 	case "application/json":
 		if err := json.UnmarshalFull(r.Body, &params); err != nil {
 			return httpx.Error(http.StatusBadRequest, err)

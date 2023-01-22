@@ -109,6 +109,13 @@ func TokenCreate(env *activitypub.Env, w http.ResponseWriter, r *http.Request) e
 	}
 	switch strings.Split(r.Header.Get("Content-Type"), ";")[0] {
 	case "application/x-www-form-urlencoded":
+		params.ClientID = r.PostFormValue("client_id")
+		params.ClientSecret = r.PostFormValue("client_secret")
+		params.GrantType = r.PostFormValue("grant_type")
+		params.Code = r.PostFormValue("code")
+		params.RedirectURI = r.FormValue("redirect_uri")
+	case "":
+		// ice cubes, why you gotta do me like this?
 		params.ClientID = r.FormValue("client_id")
 		params.ClientSecret = r.FormValue("client_secret")
 		params.GrantType = r.FormValue("grant_type")
@@ -133,7 +140,7 @@ func TokenCreate(env *activitypub.Env, w http.ResponseWriter, r *http.Request) e
 	default:
 		buf, _ := httputil.DumpRequest(r, true)
 		fmt.Println(string(buf))
-		return httpx.Error(http.StatusUnsupportedMediaType, fmt.Errorf("unsupported media type"))
+		return httpx.Error(http.StatusUnsupportedMediaType, fmt.Errorf("unsupported media type: %s", r.Header.Get("Content-Type")))
 	}
 	var token models.Token
 	if err := env.DB.Where("authorization_code = ?", params.Code).First(&token).Error; err != nil {
