@@ -41,11 +41,11 @@ type Status struct {
 
 // URL returns a link to the status’s HTML representation or nil if the status
 // is a reblog.
-func (st *Status) URL() string {
+func (st *Status) URL() any {
 	if st.ReblogID != nil {
 		return st.URI
 	}
-	return fmt.Sprintf("https://%s/@%s/%d", st.Actor.Domain, st.Actor.Name, st.ID)
+	return nil
 }
 
 func (st *Status) AfterCreate(tx *gorm.DB) error {
