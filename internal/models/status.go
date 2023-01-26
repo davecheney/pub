@@ -39,15 +39,6 @@ type Status struct {
 	Poll             *StatusPoll         `gorm:"constraint:OnDelete:CASCADE;"`
 }
 
-// URL returns a link to the status’s HTML representation or nil if the status
-// is a reblog.
-func (st *Status) URL() any {
-	if st.ReblogID != nil {
-		return st.URI
-	}
-	return nil
-}
-
 func (st *Status) AfterCreate(tx *gorm.DB) error {
 	return forEach(tx, st.updateStatusCount, st.updateRepliesCount, st.updateReblogsCount)
 }

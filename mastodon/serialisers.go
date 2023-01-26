@@ -231,7 +231,7 @@ func (s *Serialiser) Status(st *models.Status) *Status {
 		Visibility:         st.Visibility,
 		Language:           nilIfEmpty(st.Language),
 		URI:                st.URI,
-		URL:                st.URL(),
+		URL:                nil, // no web representation
 		RepliesCount:       st.RepliesCount,
 		ReblogsCount:       st.ReblogsCount,
 		FavouritesCount:    st.FavouritesCount,
@@ -245,9 +245,9 @@ func (s *Serialiser) Status(st *models.Status) *Status {
 		MediaAttachments:   s.MediaAttachments(st.Attachments),
 		Mentions:           s.Mentions(st.Mentions),
 		Tags:               s.Tags(st.Tags),
-		// Emojis:             []any{},
-		// Card:               nil,
-		Poll: s.Poll(st.Poll),
+		Emojis:             []any{},
+		Card:               nil,
+		Poll:               s.Poll(st.Poll),
 	}
 }
 
@@ -345,10 +345,10 @@ type MetaFormat struct {
 	Width     int     `json:"width"`
 	Height    int     `json:"height"`
 	Size      string  `json:"size"`
-	Aspect    float64 `json:"aspect"`
-	FrameRate string  `json:"frame_rate"`
-	Duration  float64 `json:"duration"`
-	Bitrate   string  `json:"bitrate"`
+	Aspect    float64 `json:"aspect,omitempty"`
+	FrameRate string  `json:"frame_rate,omitempty"`
+	Duration  float64 `json:"duration,omitempty"`
+	Bitrate   string  `json:"bitrate,omitempty"`
 }
 
 func attachmentType(att *models.Attachment) string {
@@ -702,18 +702,33 @@ func (s *Serialiser) MediaAttachments(attachments []*models.StatusAttachment) []
 				Type:       attachmentType(att),
 				URL:        att.URL,
 				PreviewURL: att.URL,
-				RemoteURL:  nil,
+				RemoteURL:  att.URL,
 				Meta: Meta{
+					Focus: &MetaFocus{
+						X: 0.5,
+						Y: 0.5,
+					},
 					Original: func() *MetaFormat {
-						if att.Width > 0 && att.Height > 0 {
-							return &MetaFormat{
-								Width:  att.Width,
-								Height: att.Height,
-								Size:   fmt.Sprintf("%dx%d", att.Width, att.Height),
-								Aspect: float64(att.Width) / float64(att.Height),
-							}
+						f := &MetaFormat{
+							Width:  att.Width,
+							Height: att.Height,
+							Size:   fmt.Sprintf("%dx%d", att.Width, att.Height),
 						}
-						return nil
+						if att.Width > 0 && att.Height > 0 {
+							f.Aspect = float64(att.Width) / float64(att.Height)
+						}
+						return f
+					}(),
+					Small: func() *MetaFormat {
+						f := &MetaFormat{
+							Width:  att.Width,
+							Height: att.Height,
+							Size:   fmt.Sprintf("%dx%d", att.Width, att.Height),
+						}
+						if att.Width > 0 && att.Height > 0 {
+							f.Aspect = float64(att.Width) / float64(att.Height)
+						}
+						return f
 					}(),
 				},
 				Description: att.Name,
