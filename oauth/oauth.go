@@ -108,7 +108,7 @@ func TokenCreate(env *activitypub.Env, w http.ResponseWriter, r *http.Request) e
 		RedirectURI  string `json:"redirect_uri"`
 	}
 	switch strings.Split(r.Header.Get("Content-Type"), ";")[0] {
-	case "application/x-www-form-urlencoded":
+	case "application/x-www-form-urlencoded", "multipart/form-data":
 		params.ClientID = r.PostFormValue("client_id")
 		params.ClientSecret = r.PostFormValue("client_secret")
 		params.GrantType = r.PostFormValue("grant_type")
@@ -170,7 +170,7 @@ func TokenDestroy(env *activitypub.Env, w http.ResponseWriter, r *http.Request) 
 		Token        string `json:"token"`
 	}
 	switch strings.Split(r.Header.Get("Content-Type"), ";")[0] {
-	case "application/x-www-form-urlencoded":
+	case "application/x-www-form-urlencoded", "multipart/form-data":
 		params.ClientID = r.FormValue("client_id")
 		params.ClientSecret = r.FormValue("client_secret")
 		params.Token = r.FormValue("token")
