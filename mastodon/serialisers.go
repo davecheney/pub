@@ -323,14 +323,14 @@ type MediaAttachment struct {
 type Meta struct {
 	Original      *MetaFormat `json:"original,omitempty"`
 	Small         *MetaFormat `json:"small,omitempty"`
-	Focus         *MetaFocus  `json:"focus,omitempty"`
+	Focus         MetaFocus   `json:"focus,omitempty"`
 	Length        string      `json:"length,omitempty"`
-	Duration      float64     `json:"duration,omitempty"`
-	FPS           int         `json:"fps,omitempty"`
+	Duration      float64     `json:"duration,omitzero"`
+	FPS           int         `json:"fps,omitzero"`
 	Size          string      `json:"size,omitempty"`
-	Width         int         `json:"width,omitempty"`
-	Height        int         `json:"height,omitempty"`
-	Aspect        float64     `json:"aspect,omitempty"`
+	Width         int         `json:"width,omitzero"`
+	Height        int         `json:"height,omitzero"`
+	Aspect        float64     `json:"aspect,omitzero"`
 	AudioEncode   string      `json:"audio_encode,omitempty"`
 	AudioBitrate  string      `json:"audio_bitrate,omitempty"`
 	AudioChannels string      `json:"audio_channels,omitempty"`
@@ -344,10 +344,10 @@ type MetaFocus struct {
 type MetaFormat struct {
 	Width     int     `json:"width"`
 	Height    int     `json:"height"`
-	Size      string  `json:"size"`
-	Aspect    float64 `json:"aspect,omitempty"`
+	Size      string  `json:"size,omitempty"`
+	Aspect    float64 `json:"aspect,omitzero"`
 	FrameRate string  `json:"frame_rate,omitempty"`
-	Duration  float64 `json:"duration,omitempty"`
+	Duration  float64 `json:"duration,omitzero"`
 	Bitrate   string  `json:"bitrate,omitempty"`
 }
 
@@ -704,9 +704,9 @@ func (s *Serialiser) MediaAttachments(attachments []*models.StatusAttachment) []
 				PreviewURL: att.URL,
 				RemoteURL:  att.URL,
 				Meta: Meta{
-					Focus: &MetaFocus{
-						X: 0.5,
-						Y: 0.5,
+					Focus: MetaFocus{
+						X: 0.0, // always centered
+						Y: 0.0,
 					},
 					Original: func() *MetaFormat {
 						f := &MetaFormat{
