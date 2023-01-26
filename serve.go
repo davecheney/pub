@@ -15,6 +15,7 @@ import (
 	"github.com/davecheney/pub/internal/group"
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/streaming"
 	"github.com/davecheney/pub/mastodon"
 	"github.com/davecheney/pub/media"
 	"github.com/davecheney/pub/oauth"
@@ -48,12 +49,20 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		r.Use(middleware.Logger)
 	}
 
+	var mux streaming.Mux
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			ctx = context.WithValue(ctx, "mux", &mux)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	})
+
 	r.Route("/api", func(r chi.Router) {
 		envFn := func(r *http.Request) *mastodon.Env {
 			return &mastodon.Env{
-				Env: &models.Env{
-					DB: db.WithContext(r.Context()),
-				},
+				DB:  db.WithContext(r.Context()),
+				Mux: &mux,
 			}
 		}
 		r.Route("/v1", func(r chi.Router) {
@@ -116,6 +125,12 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Post("/statuses/{id}/unreblog", httpx.HandlerFunc(envFn, mastodon.StatusesReblogDestroy))
 			r.Get("/statuses/{id}", httpx.HandlerFunc(envFn, mastodon.StatusesShow))
 			r.Delete("/statuses/{id}", httpx.HandlerFunc(envFn, mastodon.StatusesDestroy))
+
+			r.Route("/streaming", func(r chi.Router) {
+				r.Get("/health", httpx.HandlerFunc(envFn, mastodon.StreamingHealth))
+				r.Get("/public", httpx.HandlerFunc(envFn, mastodon.StreamingPublic))
+			})
+
 			r.Route("/timelines", func(r chi.Router) {
 				r.Get("/home", httpx.HandlerFunc(envFn, mastodon.TimelinesHome))
 				r.Get("/public", httpx.HandlerFunc(envFn, mastodon.TimelinesPublic))
@@ -132,9 +147,8 @@ func (s *ServeCmd) Run(ctx *Context) error {
 
 	envFn := func(r *http.Request) *activitypub.Env {
 		return &activitypub.Env{
-			Env: &models.Env{
-				DB: db.WithContext(r.Context()),
-			},
+			DB:  db.WithContext(r.Context()),
+			Mux: &mux,
 		}
 	}
 	r.Post("/inbox", httpx.HandlerFunc(envFn, activitypub.InboxCreate))

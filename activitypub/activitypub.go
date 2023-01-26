@@ -13,6 +13,7 @@ import (
 	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/internal/streaming"
 	"github.com/davecheney/pub/internal/to"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-json-experiment/json"
@@ -20,7 +21,8 @@ import (
 )
 
 type Env struct {
-	*models.Env
+	*gorm.DB
+	*streaming.Mux
 }
 
 func (e *Env) GetKey(keyID string) (crypto.PublicKey, error) {

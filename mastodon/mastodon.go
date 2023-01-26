@@ -10,11 +10,13 @@ import (
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
+	"github.com/davecheney/pub/internal/streaming"
 	"gorm.io/gorm"
 )
 
 type Env struct {
-	*models.Env
+	*gorm.DB
+	*streaming.Mux
 }
 
 // authenticate authenticates the bearer token attached to the request and, if

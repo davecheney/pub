@@ -35,7 +35,8 @@ func (se *StatusError) Status() int {
 // HandlerFunc adapts a function that returns an error to an http.HandlerFunc.
 func HandlerFunc[E any](envFn func(r *http.Request) *E, fn func(*E, http.ResponseWriter, *http.Request) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		err := fn(envFn(r), w, r)
+		env := envFn(r)
+		err := fn(env, w, r)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
 			if se := new(StatusError); errors.As(err, &se) {

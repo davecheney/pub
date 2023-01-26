@@ -329,6 +329,7 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 			ID:               snowflake.TimeToID(publishedAt),
 			UpdatedAt:        updatedAt,
 			ActorID:          actor.ID,
+			Actor:            actor,
 			ConversationID:   conversationID,
 			URI:              uri,
 			InReplyToID:      inReplyToID(inReplyTo),
@@ -352,6 +353,7 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 				st.Mentions = append(st.Mentions, models.StatusMention{
 					StatusID: st.ID,
 					ActorID:  mention.ID,
+					Actor:    mention,
 				})
 			case "Hashtag":
 				st.Tags = append(st.Tags, models.StatusTag{
