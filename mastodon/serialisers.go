@@ -203,7 +203,7 @@ type Status struct {
 	Muted              bool               `json:"muted"`
 	Bookmarked         bool               `json:"bookmarked"`
 	Content            string             `json:"content"`
-	Filtered           []any              `json:"filtered,omitempty"`
+	Filtered           []any              `json:"filtered"`
 	Reblog             *Status            `json:"reblog"`
 	Application        any                `json:"application,omitempty"`
 	Account            *Account           `json:"account"`
@@ -229,25 +229,38 @@ func (s *Serialiser) Status(st *models.Status) *Status {
 		Sensitive:          st.Sensitive,
 		SpoilerText:        st.SpoilerText,
 		Visibility:         st.Visibility,
-		Language:           nilIfEmpty(st.Language),
-		URI:                st.URI,
-		URL:                nil, // no web representation
-		RepliesCount:       st.RepliesCount,
-		ReblogsCount:       st.ReblogsCount,
-		FavouritesCount:    st.FavouritesCount,
-		Favourited:         st.Reaction != nil && st.Reaction.Favourited,
-		Reblogged:          st.Reaction != nil && st.Reaction.Reblogged,
-		Muted:              st.Reaction != nil && st.Reaction.Muted,
-		Bookmarked:         st.Reaction != nil && st.Reaction.Bookmarked,
-		Content:            st.Note,
-		Reblog:             s.Status(st.Reblog),
-		Account:            s.Account(st.Actor),
-		MediaAttachments:   s.MediaAttachments(st.Attachments),
-		Mentions:           s.Mentions(st.Mentions),
-		Tags:               s.Tags(st.Tags),
-		Emojis:             []any{},
-		Card:               nil,
-		Poll:               s.Poll(st.Poll),
+		Language: func() any {
+			if st.Reblog != nil {
+				return nil
+			}
+			if st.Language == "" {
+				return "en"
+			}
+			return st.Language
+		}(),
+		URI: st.URI,
+		URL: func() any {
+			if st.Reblog != nil {
+				return nil
+			}
+			return st.URI
+		}(),
+		RepliesCount:     st.RepliesCount,
+		ReblogsCount:     st.ReblogsCount,
+		FavouritesCount:  st.FavouritesCount,
+		Favourited:       st.Reaction != nil && st.Reaction.Favourited,
+		Reblogged:        st.Reaction != nil && st.Reaction.Reblogged,
+		Muted:            st.Reaction != nil && st.Reaction.Muted,
+		Bookmarked:       st.Reaction != nil && st.Reaction.Bookmarked,
+		Content:          st.Note,
+		Reblog:           s.Status(st.Reblog),
+		Account:          s.Account(st.Actor),
+		MediaAttachments: s.MediaAttachments(st.Attachments),
+		Mentions:         s.Mentions(st.Mentions),
+		Tags:             s.Tags(st.Tags),
+		Emojis:           nil,
+		Card:             nil,
+		Poll:             s.Poll(st.Poll),
 	}
 }
 
@@ -368,7 +381,7 @@ func attachmentType(att *models.Attachment) string {
 	case "audio/ogg":
 		return "audio"
 	default:
-		return "unknown" // todo YOLO
+		return "image" // todo YOLO
 	}
 }
 
@@ -702,7 +715,7 @@ func (s *Serialiser) MediaAttachments(attachments []*models.StatusAttachment) []
 				Type:       attachmentType(att),
 				URL:        att.URL,
 				PreviewURL: att.URL,
-				RemoteURL:  att.URL,
+				// RemoteURL:  att.URL,
 				Meta: Meta{
 					Focus: MetaFocus{
 						X: 0.0, // always centered
