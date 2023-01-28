@@ -751,3 +751,21 @@ func (s *Serialiser) MediaAttachments(attachments []*models.StatusAttachment) []
 		},
 	)
 }
+
+type Preferences struct {
+	PostingDefaultVisibility string `json:"posting:default:visibility"`
+	PostingDefaultSensitive  bool   `json:"posting:default:sensitive"`
+	PostingDefaultLanguage   any    `json:"posting:default:language"`
+	ReadingExpandMedia       string `json:"reading:expand:media"`
+	ReadingExpandSpoilers    bool   `json:"reading:expand:spoilers"`
+}
+
+func (s *Serialiser) Preferences(prefs *models.AccountPreferences) *Preferences {
+	return &Preferences{
+		PostingDefaultVisibility: prefs.PostingDefaultVisibility,
+		PostingDefaultSensitive:  prefs.PostingDefaultSensitive,
+		PostingDefaultLanguage:   nilIfEmpty(prefs.PostingDefaultLanguage),
+		ReadingExpandMedia:       prefs.ReadingExpandMedia,
+		ReadingExpandSpoilers:    prefs.ReadingExpandSpoilers,
+	}
+}

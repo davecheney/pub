@@ -19,7 +19,7 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 	return db.AutoMigrate(
 		&models.ActivitypubRefresh{},
 		&models.Actor{}, &models.ActorAttribute{},
-		&models.Account{}, &models.AccountList{}, &models.AccountListMember{}, &models.AccountRole{}, &models.AccountMarker{},
+		&models.Account{}, &models.AccountList{}, &models.AccountListMember{}, &models.AccountRole{}, &models.AccountMarker{}, &models.AccountPreferences{},
 		&models.Application{},
 		&models.Conversation{},
 		&models.Instance{}, &models.InstanceRule{},

@@ -109,7 +109,7 @@ func (a *Actors) FindOrCreate(uri string, createFn func(string) (*Actor, error))
 func (a *Actors) FindByURI(uri string) (*Actor, error) {
 	// use find to avoid record not found error in case of empty result
 	var actors []Actor
-	if err := a.db.Where(&Actor{URI: uri}).Find(&actors).Error; err != nil {
+	if err := a.db.Limit(1).Find(&actors, "uri = ?", uri).Error; err != nil {
 		return nil, err
 	}
 	if len(actors) == 0 {

@@ -111,7 +111,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Post("/markers", httpx.HandlerFunc(envFn, mastodon.MarkersCreate))
 			r.Get("/mutes", httpx.HandlerFunc(envFn, mastodon.MutesIndex))
 			r.Get("/notifications", httpx.HandlerFunc(envFn, mastodon.NotificationsIndex))
-
+			r.Get("/preferences", httpx.HandlerFunc(envFn, mastodon.PreferencesShow))
 			r.Post("/statuses", httpx.HandlerFunc(envFn, mastodon.StatusesCreate))
 			r.Get("/statuses/{id}/context", httpx.HandlerFunc(envFn, mastodon.StatusesContextsShow))
 			r.Get("/statuses/{id}/history", httpx.HandlerFunc(envFn, mastodon.StatusesHistoryShow))

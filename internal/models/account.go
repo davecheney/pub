@@ -84,3 +84,12 @@ func (a *Accounts) AccountForActor(actor *Actor) (*Account, error) {
 	}
 	return &account, nil
 }
+
+type AccountPreferences struct {
+	AccountID                snowflake.ID `gorm:"primarykey;autoIncrement:false"`
+	PostingDefaultVisibility string       `gorm:"enum('public', 'unlisted', 'private', 'direct');not null;default:'public'"`
+	PostingDefaultSensitive  bool         `gorm:"not null;default:false"`
+	PostingDefaultLanguage   string       `gorm:"size:8;"`
+	ReadingExpandMedia       string       `gorm:"enum('default','show_all','hide_all');not null;default:'default'"`
+	ReadingExpandSpoilers    bool         `gorm:"not null;default:false"`
+}
