@@ -68,9 +68,9 @@ func StatusesCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 
 	actor := user.Actor
 
+	var parent models.Status
 	var conv *models.Conversation
 	if toot.InReplyToID != nil {
-		var parent models.Status
 		if err := env.DB.Take(&parent, *toot.InReplyToID).Error; err != nil {
 			return httpx.Error(http.StatusBadRequest, err)
 		}
@@ -93,13 +93,26 @@ func StatusesCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 		ActorID:        actor.ID,
 		Actor:          actor,
 		ConversationID: conv.ID,
-		InReplyToID:    toot.InReplyToID,
-		URI:            fmt.Sprintf("https://%s/users/%s/%d", actor.Domain, actor.Name, id),
-		Sensitive:      toot.Sensitive,
-		SpoilerText:    toot.SpoilerText,
-		Visibility:     toot.Visibility,
-		Language:       toot.Language,
-		Note:           toot.Status,
+		InReplyToID: func() *snowflake.ID {
+			if parent.ID != 0 {
+				return &parent.ID
+			} else {
+				return nil
+			}
+		}(),
+		InReplyToActorID: func() *snowflake.ID {
+			if parent.ActorID != 0 {
+				return &parent.ActorID
+			} else {
+				return nil
+			}
+		}(),
+		URI:         fmt.Sprintf("https://%s/users/%s/%d", actor.Domain, actor.Name, id),
+		Sensitive:   toot.Sensitive,
+		SpoilerText: toot.SpoilerText,
+		Visibility:  toot.Visibility,
+		Language:    toot.Language,
+		Note:        toot.Status,
 	}
 	if err := env.DB.Create(&status).Error; err != nil {
 		return err

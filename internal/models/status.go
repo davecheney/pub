@@ -213,6 +213,15 @@ func (s *Statuses) FindByURI(uri string) (*Status, error) {
 	return &status[0], nil
 }
 
+func (s *Statuses) FindByID(id snowflake.ID) (*Status, error) {
+	var status Status
+	query := s.db.Joins("Actor").Scopes(PreloadStatus)
+	if err := query.First(&status, id).Error; err != nil {
+		return nil, err
+	}
+	return &status, nil
+}
+
 // PreloadStatus preloads all of a Status' relations and associations.
 func PreloadStatus(query *gorm.DB) *gorm.DB {
 	return query.Preload("Attachments").

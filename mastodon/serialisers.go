@@ -228,7 +228,12 @@ func (s *Serialiser) Status(st *models.Status) *Status {
 		InReplyToAccountID: st.InReplyToActorID,
 		Sensitive:          st.Sensitive,
 		SpoilerText:        st.SpoilerText,
-		Visibility:         st.Visibility,
+		Visibility: func() string {
+			if st.Visibility == "limited" {
+				return "private"
+			}
+			return st.Visibility
+		}(),
 		Language: func() any {
 			if st.Reblog != nil {
 				return nil
