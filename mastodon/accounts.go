@@ -17,7 +17,7 @@ func AccountsShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	var actor models.Actor
-	if err := env.DB.Scopes(models.PreloadActor).Take(&actor, chi.URLParam(r, "id")).Error; err != nil {
+	if err := env.DB.Scopes(models.PreloadActor).Take(&actor, "id = ? ", chi.URLParam(r, "id")).Error; err != nil {
 		return httpx.Error(http.StatusNotFound, err)
 	}
 	serialise := Serialiser{req: r}
@@ -142,4 +142,31 @@ func AccountsShowListMembership(env *Env, w http.ResponseWriter, r *http.Request
 	}
 	serialise := Serialiser{req: r}
 	return to.JSON(w, algorithms.Map(lists, serialise.List))
+}
+
+func AccountsFamiliarFollowersShow(env *Env, w http.ResponseWriter, req *http.Request) error {
+	_, err := env.authenticate(req)
+	if err != nil {
+		return err
+	}
+	ids := req.URL.Query()["id"]
+	ids = append(ids, req.URL.Query()["id[]"]...)
+	// serialise := Serialiser{req: req}
+
+	type ff struct {
+		ID       snowflake.ID `json:"id"`
+		Accounts []any        `json:"accounts"`
+	}
+
+	var resp []any
+	for _, i := range ids {
+		id, err := snowflake.Parse(i)
+		if err != nil {
+			return httpx.Error(http.StatusBadRequest, err)
+		}
+		resp = append(resp, &ff{
+			ID: id,
+		})
+	}
+	return to.JSON(w, resp)
 }

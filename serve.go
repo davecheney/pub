@@ -71,6 +71,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 				r.Get("/verify_credentials", httpx.HandlerFunc(envFn, mastodon.AccountsVerifyCredentials))
 				r.Patch("/update_credentials", httpx.HandlerFunc(envFn, mastodon.AccountsUpdateCredentials))
 				r.Get("/relationships", httpx.HandlerFunc(envFn, mastodon.RelationshipsShow))
+				r.Get("/familiar_followers", httpx.HandlerFunc(envFn, mastodon.AccountsFamiliarFollowersShow))
 				r.Get("/{id}", httpx.HandlerFunc(envFn, mastodon.AccountsShow))
 				r.Get("/{id}/lists", httpx.HandlerFunc(envFn, mastodon.AccountsShowListMembership)) // todo
 				r.Get("/{id}/statuses", httpx.HandlerFunc(envFn, mastodon.AccountsStatusesShow))

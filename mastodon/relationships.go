@@ -2,7 +2,6 @@ package mastodon
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
@@ -22,11 +21,10 @@ func RelationshipsShow(env *Env, w http.ResponseWriter, req *http.Request) error
 	serialise := Serialiser{req: req}
 	var resp []any
 	for _, target := range targets {
-		id, err := strconv.ParseUint(target, 10, 64)
+		tid, err := snowflake.Parse(target)
 		if err != nil {
 			return httpx.Error(http.StatusBadRequest, err)
 		}
-		tid := snowflake.ID(id)
 		var rel models.Relationship
 		if err := env.DB.Preload("Target").FirstOrCreate(&rel, models.Relationship{ActorID: user.Actor.ID, TargetID: tid}).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
