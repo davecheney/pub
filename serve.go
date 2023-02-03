@@ -75,6 +75,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 				r.Get("/{id}", httpx.HandlerFunc(envFn, mastodon.AccountsShow))
 				r.Get("/{id}/lists", httpx.HandlerFunc(envFn, mastodon.AccountsShowListMembership)) // todo
 				r.Get("/{id}/statuses", httpx.HandlerFunc(envFn, mastodon.AccountsStatusesShow))
+				r.Get("/{id}/featured_tags", httpx.HandlerFunc(envFn, mastodon.AccountsFeaturedTagsShow))
 				r.Post("/{id}/follow", httpx.HandlerFunc(envFn, mastodon.RelationshipsCreate))
 				r.Get("/{id}/followers", httpx.HandlerFunc(envFn, mastodon.AccountsFollowersShow))
 				r.Get("/{id}/following", httpx.HandlerFunc(envFn, mastodon.AccountsFollowingShow))

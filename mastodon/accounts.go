@@ -170,3 +170,11 @@ func AccountsFamiliarFollowersShow(env *Env, w http.ResponseWriter, req *http.Re
 	}
 	return to.JSON(w, resp)
 }
+
+func AccountsFeaturedTagsShow(env *Env, w http.ResponseWriter, r *http.Request) error {
+	_, err := env.authenticate(r)
+	if err != nil {
+		return err
+	}
+	return to.JSON(w, []any{})
+}
