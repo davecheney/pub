@@ -27,7 +27,13 @@ func (c *CreateInstanceCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	passwd, err := bcrypt.GenerateFromPassword(kp.privateKey, bcrypt.DefaultCost)
+	// use the first 72 bytes of the private key as the bcrypt password
+	passwd := kp.privateKey
+	if len(passwd) > 72 {
+		passwd = passwd[:72]
+	}
+
+	encrypted, err := bcrypt.GenerateFromPassword(passwd, bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
@@ -82,7 +88,7 @@ func (c *CreateInstanceCmd) Run(ctx *Context) error {
 			InstanceID:        instance.ID,
 			ActorID:           admin.ID,
 			Email:             c.AdminEmail,
-			EncryptedPassword: passwd,
+			EncryptedPassword: encrypted,
 			PrivateKey:        kp.privateKey,
 			RoleID:            adminRole.ID,
 		}
