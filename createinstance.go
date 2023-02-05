@@ -28,10 +28,7 @@ func (c *CreateInstanceCmd) Run(ctx *Context) error {
 	}
 
 	// use the first 72 bytes of the private key as the bcrypt password
-	passwd := kp.privateKey
-	if len(passwd) > 72 {
-		passwd = passwd[:72]
-	}
+	passwd := trim(kp.privateKey, 72)
 
 	encrypted, err := bcrypt.GenerateFromPassword(passwd, bcrypt.DefaultCost)
 	if err != nil {
@@ -98,6 +95,18 @@ func (c *CreateInstanceCmd) Run(ctx *Context) error {
 
 		return tx.Model(&instance).Update("admin_id", adminAccount.ID).Error
 	})
+}
+
+// trim trims the first n bytes from the given byte slice
+func trim[S []T, T any](s S, n int) S {
+	return s[:min(len(s), n)]
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func withTransaction(db *gorm.DB, fn func(*gorm.DB) error) error {
