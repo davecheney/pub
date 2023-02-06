@@ -174,7 +174,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	r.Route("/.well-known", func(r chi.Router) {
 		r.Get("/webfinger", httpx.HandlerFunc(envFn, wellknown.WebfingerShow))
 		r.Get("/host-meta", httpx.HandlerFunc(envFn, wellknown.HostMetaIndex))
-		r.Get("/nodeinfo", httpx.HandlerFunc(envFn, wellknown.NodeInfoShow))
+		r.Get("/nodeinfo", httpx.HandlerFunc(envFn, wellknown.NodeInfoIndex))
 	})
 	r.Get("/nodeinfo/2.0", httpx.HandlerFunc(envFn, wellknown.NodeInfoShow))
 
