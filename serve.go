@@ -176,7 +176,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		r.Get("/host-meta", httpx.HandlerFunc(envFn, wellknown.HostMetaIndex))
 		r.Get("/nodeinfo", httpx.HandlerFunc(envFn, wellknown.NodeInfoIndex))
 	})
-	r.Get("/api/nodeinfo/2.0", httpx.HandlerFunc(envFn, wellknown.NodeInfoShow))
+	r.Get("/nodeinfo/2.0", httpx.HandlerFunc(envFn, wellknown.NodeInfoShow))
 
 	modelEnvFn := func(r *http.Request) *models.Env {
 		return &models.Env{

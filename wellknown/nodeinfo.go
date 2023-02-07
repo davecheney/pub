@@ -16,7 +16,7 @@ func NodeInfoIndex(env *activitypub.Env, w http.ResponseWriter, r *http.Request)
 		"links": []map[string]any{
 			{
 				"rel":  "http://nodeinfo.diaspora.software/ns/schema/2.0",
-				"href": fmt.Sprintf("https://%s/api/nodeinfo/2.0", r.Host),
+				"href": fmt.Sprintf("https://%s/nodeinfo/2.0", r.Host),
 			},
 		},
 	})
