@@ -22,17 +22,18 @@ jobs:
         uses: ankane/setup-mariadb@v1
         with:
           database: test
-        env:
-          dsn: 'runner@/test'
+       run: |
+          export PUB_DSN='runner@/test'
+          echo "::set-env name=PUB_DSN::$PUB_DSN"
       - name: Install pub
         run: go install -v --tags ${{ matrix.database }} github.com/davecheney/pub
       - name: Init database
         run: |
-          pub --log-sql --dsn ${{ env.dsn }} auto-migrate
+          pub --log-sql --dsn $PUB_DSN auto-migrate
       - name: Create instance
         run: |
-          pub --log-sql --dsn ${{ env.dsn }} create-instance --domain example.com --title "Example" --description "An example domain" --admin-email admin@example.com
+          pub --log-sql --dsn $PUB_DSN create-instance --domain example.com --title "Example" --description "An example domain" --admin-email admin@example.com
       - name: Create test account
         run: |
-          pub --log-sql --dsn ${{ env.dsn }} create-account --name test --domain example.com --email test@example.com --password password
+          pub --log-sql --dsn $PUB_DSN create-account --name test --domain example.com --email test@example.com --password password
         
