@@ -13,7 +13,7 @@ import (
 type Actor struct {
 	snowflake.ID   `gorm:"primarykey;autoIncrement:false"`
 	UpdatedAt      time.Time
-	Type           string `gorm:"type:enum('Person', 'Application', 'Service', 'Group', 'Organization', 'LocalPerson');default:'Person';not null"`
+	Type           string `gorm:"type:enum('Person', 'Application', 'Service', 'Group', 'Organization', 'LocalPerson', 'LocalService');default:'Person';not null"`
 	URI            string `gorm:"uniqueIndex;size:128;not null"`
 	Name           string `gorm:"size:64;uniqueIndex:idx_actor_name_domain;not null"`
 	Domain         string `gorm:"size:64;uniqueIndex:idx_actor_name_domain;not null"`

@@ -16,7 +16,7 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	return db.AutoMigrate(
+	err = db.AutoMigrate(
 		&models.ActivitypubRefresh{},
 		&models.Actor{}, &models.ActorAttribute{},
 		&models.Account{}, &models.AccountList{}, &models.AccountListMember{}, &models.AccountRole{}, &models.AccountMarker{}, &models.AccountPreferences{},
@@ -30,4 +30,12 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 		&models.Tag{},
 		&models.Token{},
 	)
+	if err != nil {
+		return err
+	}
+
+	// post migration fixups
+
+	// convert the admin account to a LocalService
+	return db.Model(&models.Actor{}).Where("type = ? and name = ?", "Service", "admin").Update("type", "LocalService").Error
 }

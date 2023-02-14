@@ -39,7 +39,7 @@ func (c *CreateInstanceCmd) Run(ctx *Context) error {
 
 		admin := models.Actor{
 			ID:          snowflake.Now(),
-			Type:        "Service",
+			Type:        "LocalService",
 			URI:         fmt.Sprintf("https://%s/u/%s", c.Domain, "admin"),
 			Name:        "admin",
 			Domain:      c.Domain,
