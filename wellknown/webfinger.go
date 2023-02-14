@@ -28,7 +28,6 @@ func WebfingerShow(env *activitypub.Env, w http.ResponseWriter, r *http.Request)
 	return to.JSON(w, map[string]any{
 		"subject": acct.String(),
 		"aliases": []string{
-			fmt.Sprintf("https://%s/@%s", actor.Domain, actor.Name),
 			self,
 		},
 		"links": []map[string]any{
