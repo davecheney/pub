@@ -7,6 +7,8 @@ jobs:
   test:
     strategy:
       fail-fast: false
+      matrix:
+        database: [mariadb]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -14,11 +16,13 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: stable
-      - uses: ankane/setup-mariadb@v1
+      - name: Install database 
+        if: ${{ matrix.database == 'mariadb' }}
+        uses: ankane/setup-mariadb@v1
         with:
           database: test
-      - name: install
-        run: go install -v github.com/davecheney/pub
+      - name: Install pub
+        run: go install -v --tags ${{ matrix.database }} github.com/davecheney/pub
       - name: Init database
         run: |
           pub --log-sql --dsn runner@/test auto-migrate
