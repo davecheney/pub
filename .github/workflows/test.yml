@@ -17,19 +17,22 @@ jobs:
         with:
           go-version: stable
       - name: Install database 
+        id: db
         if: ${{ matrix.database == 'mariadb' }}
         uses: ankane/setup-mariadb@v1
         with:
           database: test
+        outputs:
+          dsn: 'runner@/test'
       - name: Install pub
         run: go install -v --tags ${{ matrix.database }} github.com/davecheney/pub
       - name: Init database
         run: |
-          pub --log-sql --dsn runner@/test auto-migrate
+          pub --log-sql --dsn ${{ steps.db.outputs.dsn }} auto-migrate
       - name: Create instance
         run: |
-          pub --log-sql --dsn runner@/test create-instance --domain example.com --title "Example" --description "An example domain" --admin-email admin@example.com
+          pub --log-sql --dsn ${{ steps.db.outputs.dsn }} create-instance --domain example.com --title "Example" --description "An example domain" --admin-email admin@example.com
       - name: Create test account
         run: |
-          pub --log-sql --dsn runner@/test create-account --name test --domain example.com --email test@example.com --password password
+          pub --log-sql --dsn ${{ steps.db.outputs.dsn }} create-account --name test --domain example.com --email test@example.com --password password
         
