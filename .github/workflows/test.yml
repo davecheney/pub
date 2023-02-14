@@ -8,7 +8,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        database: [mariadb]
+        database: [mariadb, sqlite]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -25,6 +25,10 @@ jobs:
         if: ${{ matrix.database == 'mariadb' }}
         run: |
           echo "dsn=runner@/test" >> $GITHUB_ENV
+      - name: Set database DSN
+        if: ${{ matrix.database == 'sqlite' }}
+        run: |
+          echo "dsn=pub.db" >> $GITHUB_ENV
       - name: Install pub
         run: go install -v --tags ${{ matrix.database }} github.com/davecheney/pub
       - name: Init database
@@ -36,4 +40,3 @@ jobs:
       - name: Create test account
         run: |
           pub --log-sql --dsn ${{ env.dsn }} create-account --name test --domain example.com --email test@example.com --password password
-        
