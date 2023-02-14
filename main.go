@@ -1,14 +1,9 @@
 package main
 
 import (
-	"strings"
-
 	"github.com/alecthomas/kong"
-	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-
-	_ "github.com/go-sql-driver/mysql"
 )
 
 type Context struct {
@@ -43,22 +38,7 @@ func main() {
 				return logger.Warn
 			}()),
 		},
-		Dialector: mysql.New(mysql.Config{
-			DSN:                       mergeOptions(cli.DSN, "charset=utf8mb4&parseTime=True&loc=Local"),
-			SkipInitializeWithVersion: false, // auto configure based on currently MySQL version
-
-		}),
+		Dialector: newDialector(cli.DSN),
 	})
 	ctx.FatalIfErrorf(err)
-}
-
-// merge options appends the options to the DSN if they are not already present.
-func mergeOptions(dsn, options string) string {
-	if options == "" {
-		return dsn
-	}
-	if strings.Contains(dsn, "?") {
-		return dsn + "&" + options
-	}
-	return dsn + "?" + options
 }
