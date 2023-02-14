@@ -17,12 +17,11 @@ jobs:
         with:
           go-version: stable
       - name: Install database 
-        id: db
         if: ${{ matrix.database == 'mariadb' }}
         uses: ankane/setup-mariadb@v1
         with:
           database: test
-       run: |
+        run: |
           export PUB_DSN='runner@/test'
           echo "::set-env name=PUB_DSN::$PUB_DSN"
       - name: Install pub
