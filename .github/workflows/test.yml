@@ -21,6 +21,7 @@ jobs:
         uses: ankane/setup-mariadb@v1
         with:
           database: test
+      - name: Set database DSN
         run: |
           export PUB_DSN='runner@/test'
           echo "::set-env name=PUB_DSN::$PUB_DSN"
