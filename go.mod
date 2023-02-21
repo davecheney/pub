@@ -7,7 +7,7 @@ require (
 	github.com/carlmjohnson/requests v0.23.2
 	github.com/go-chi/chi/v5 v5.0.8
 	github.com/go-fed/httpsig v1.1.0
-	github.com/go-json-experiment/json v0.0.0-20230216065249-540f01442424
+	github.com/go-json-experiment/json v0.0.0-20230220224205-a1af9bb85f02
 	github.com/google/uuid v1.3.0
 	github.com/stretchr/testify v1.8.1
 	golang.org/x/crypto v0.6.0
