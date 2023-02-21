@@ -31,6 +31,7 @@ func (TokenType) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 		return "enum('Bearer')"
 	case "sqlite":
 		return "TEXT"
+	default:
+		return ""
 	}
-	return ""
 }

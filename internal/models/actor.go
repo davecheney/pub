@@ -8,26 +8,40 @@ import (
 
 	"github.com/davecheney/pub/internal/snowflake"
 	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
 type Actor struct {
-	snowflake.ID `gorm:"primarykey;autoIncrement:false"`
-	UpdatedAt    time.Time
-	ActorType
-	URI            string `gorm:"uniqueIndex;size:128;not null"`
-	Name           string `gorm:"size:64;uniqueIndex:idx_actor_name_domain;not null"`
-	Domain         string `gorm:"size:64;uniqueIndex:idx_actor_name_domain;not null"`
-	DisplayName    string `gorm:"size:128;not null"`
-	Locked         bool   `gorm:"default:false;not null"`
-	Note           string `gorm:"type:text"` // max 2^16
-	FollowersCount int32  `gorm:"default:0;not null"`
-	FollowingCount int32  `gorm:"default:0;not null"`
-	StatusesCount  int32  `gorm:"default:0;not null"`
+	snowflake.ID   `gorm:"primarykey;autoIncrement:false"`
+	UpdatedAt      time.Time
+	Type           ActorType `gorm:"default:'Person';not null"`
+	URI            string    `gorm:"uniqueIndex;size:128;not null"`
+	Name           string    `gorm:"size:64;uniqueIndex:idx_actor_name_domain;not null"`
+	Domain         string    `gorm:"size:64;uniqueIndex:idx_actor_name_domain;not null"`
+	DisplayName    string    `gorm:"size:128;not null"`
+	Locked         bool      `gorm:"default:false;not null"`
+	Note           string    `gorm:"type:text"` // max 2^16
+	FollowersCount int32     `gorm:"default:0;not null"`
+	FollowingCount int32     `gorm:"default:0;not null"`
+	StatusesCount  int32     `gorm:"default:0;not null"`
 	LastStatusAt   time.Time
 	Avatar         string            `gorm:"size:255"`
 	Header         string            `gorm:"size:255"`
 	PublicKey      []byte            `gorm:"type:blob;not null"`
 	Attributes     []*ActorAttribute `gorm:"constraint:OnDelete:CASCADE;"`
+}
+
+type ActorType string
+
+func (ActorType) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+	switch db.Dialector.Name() {
+	case "mysql", "postgres":
+		return "enum('Person', 'Application', 'Service', 'Group', 'Organization', 'LocalPerson', 'LocalService')"
+	case "sqlite":
+		return "TEXT"
+	default:
+		return ""
+	}
 }
 
 func (a *Actor) AfterCreate(tx *gorm.DB) error {
@@ -61,6 +75,17 @@ func (a *Actor) IsLocal() bool {
 
 func (a *Actor) IsGroup() bool {
 	return a.Type == "Group"
+}
+
+func (a *Actor) ActorType() string {
+	switch a.Type {
+	case "LocalPerson":
+		return "Person"
+	case "LocalService":
+		return "Service"
+	default:
+		return string(a.Type)
+	}
 }
 
 func (a *Actor) PublicKeyID() string {

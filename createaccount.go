@@ -44,13 +44,11 @@ func (c *CreateAccountCmd) Run(ctx *Context) error {
 		}
 
 		actor := models.Actor{
-			ID:     snowflake.Now(),
-			Name:   c.Name,
-			Domain: c.Domain,
-			URI:    fmt.Sprintf("https://%s/u/%s", c.Domain, c.Name),
-			ActorType: models.ActorType{
-				Type: "LocalPerson",
-			},
+			ID:          snowflake.Now(),
+			Name:        c.Name,
+			Domain:      c.Domain,
+			URI:         fmt.Sprintf("https://%s/u/%s", c.Domain, c.Name),
+			Type:        "LocalPerson",
 			DisplayName: c.Name,
 			Avatar:      "https://avatars.githubusercontent.com/u/1024?v=4",
 			Header:      "https://avatars.githubusercontent.com/u/1024?v=4",
