@@ -81,10 +81,12 @@ func AuthorizeCreate(env *activitypub.Env, w http.ResponseWriter, r *http.Reques
 	}
 
 	token := &models.Token{
-		AccessToken:       uuid.New().String(),
-		AccountID:         account.ID,
-		ApplicationID:     app.ID,
-		TokenType:         "Bearer",
+		AccessToken:   uuid.New().String(),
+		AccountID:     account.ID,
+		ApplicationID: app.ID,
+		TokenType: models.TokenType{
+			Type: "Bearer",
+		},
 		Scope:             "read write follow push",
 		AuthorizationCode: uuid.New().String(),
 	}
