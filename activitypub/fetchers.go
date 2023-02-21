@@ -159,9 +159,7 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 		conversationID = inReplyTo.ConversationID
 	} else {
 		conv := models.Conversation{
-			ConversationVisibility: models.ConversationVisibility{
-				Visibility: visibility,
-			},
+			Visibility: models.ConversationVisibility(visibility),
 		}
 		if err := f.db.Create(&conv).Error; err != nil {
 			return nil, err

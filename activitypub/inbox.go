@@ -165,9 +165,7 @@ func (i *inboxProcessor) processAnnounce(obj map[string]any) error {
 	}
 
 	conv := models.Conversation{
-		ConversationVisibility: models.ConversationVisibility{
-			Visibility: "public",
-		},
+		Visibility: "public",
 	}
 	if err := i.db.Create(&conv).Error; err != nil {
 		return err

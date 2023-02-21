@@ -189,9 +189,7 @@ func (r *Reactions) Unbookmark(status *Status, actor *Actor) (*Reaction, error) 
 func (r *Reactions) Reblog(status *Status, actor *Actor) (*Status, error) {
 	return withTransaction(r.db, func(tx *gorm.DB) (*Status, error) {
 		conv := Conversation{
-			ConversationVisibility: ConversationVisibility{
-				Visibility: "public",
-			},
+			Visibility: "public",
 		}
 		if err := r.db.Create(&conv).Error; err != nil {
 			return nil, err
@@ -214,7 +212,10 @@ func (r *Reactions) Reblog(status *Status, actor *Actor) (*Status, error) {
 			Actor:          actor,
 			ConversationID: conv.ID,
 			StatusVisibility: StatusVisibility{
-				Visibility: conv.Visibility,
+				// TODO ConversationVisibility and StatusVisibility be combined?
+				// In theory they are the same thing as a Status's visibility is
+				// a subset of the Conversation's visibility.
+				Visibility: string(conv.Visibility),
 			},
 			ReblogID: &status.ID,
 			Reblog:   status,
