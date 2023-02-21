@@ -7,6 +7,7 @@ import (
 	"github.com/davecheney/pub/internal/snowflake"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"gorm.io/gorm/schema"
 )
 
 // Reaction represents an an actors reaction to a status.
@@ -43,18 +44,14 @@ func (r *Reaction) BeforeUpdate(tx *gorm.DB) error {
 		return tx.Create(&ReactionRequest{
 			ActorID:  r.ActorID,
 			TargetID: r.StatusID,
-			ReactionRequestAction: ReactionRequestAction{
-				Action: "unlike",
-			},
+			Action:   "unlike",
 		}).Error
 	case !original.Favourited && r.Favourited:
 		// like
 		return tx.Create(&ReactionRequest{
 			ActorID:  r.ActorID,
 			TargetID: r.StatusID,
-			ReactionRequestAction: ReactionRequestAction{
-				Action: "like",
-			},
+			Action:   "like",
 		}).Error
 	default:
 		return nil
@@ -91,14 +88,27 @@ type ReactionRequest struct {
 	TargetID snowflake.ID `gorm:"uniqueIndex:uidx_reaction_requests_actor_id_target_id;not null;"`
 	// Target is the status that is being reacted to.
 	Target *Status `gorm:"constraint:OnDelete:CASCADE;"`
-	// ReactionRequestAction is the action to perform, either follow or unfollow.
-	ReactionRequestAction
+	// Action is the action to perform, either follow or unfollow.
+	Action ReactionRequestAction `gorm:"not null"`
 	// Attempts is the number of times the request has been attempted.
 	Attempts uint32 `gorm:"not null;default:0"`
 	// LastAttempt is the time the request was last attempted.
 	LastAttempt time.Time
 	// LastResult is the result of the last attempt if it failed.
 	LastResult string `gorm:"size:255;not null;default:''"`
+}
+
+type ReactionRequestAction string
+
+func (ReactionRequestAction) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+	switch db.Dialector.Name() {
+	case "mysql", "postgres":
+		return "enum('like', 'unlike')"
+	case "sqlite":
+		return "TEXT"
+	default:
+		return ""
+	}
 }
 
 type Reactions struct {
