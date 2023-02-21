@@ -49,7 +49,7 @@ func (r *Relationship) BeforeUpdate(tx *gorm.DB) error {
 	case !original.Following && r.Following:
 		// follow
 		return tx.Create(&RelationshipRequest{
-			ActorID: r.ActorID,
+			ActorID:  r.ActorID,
 			TargetID: r.TargetID,
 			RelationshipRequestAction: RelationshipRequestAction{
 				Action: "follow",
@@ -92,10 +92,10 @@ type RelationshipRequest struct {
 	CreatedAt time.Time
 	// UpdatedAt is the time the request was last updated.
 	UpdatedAt time.Time
-	ActorID   snowflake.ID `gorm:"uniqueIndex:idx_actor_id_target_id;not null;"`
+	ActorID   snowflake.ID `gorm:"uniqueIndex:uidx_relationship_requests_actor_id_target_id;not null;"`
 	// Actor is the actor that is requesting the relationship change.
 	Actor    *Actor       `gorm:"constraint:OnDelete:CASCADE;<-:false;"`
-	TargetID snowflake.ID `gorm:"uniqueIndex:idx_actor_id_target_id;not null;"`
+	TargetID snowflake.ID `gorm:"uniqueIndex:uidx_relationship_requests_actor_id_target_id;not null;"`
 	// Target is the actor that is being followed or unfollowed.
 	Target *Actor `gorm:"constraint:OnDelete:CASCADE;<-:false;"`
 	// RelationshipRequestAction is the action to perform, either follow or unfollow.
