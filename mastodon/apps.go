@@ -62,7 +62,3 @@ func AppsCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	serialise := Serialiser{req: r}
 	return to.JSON(w, serialise.Application(app))
 }
-
-func ptr[T any](v T) *T {
-	return &v
-}
