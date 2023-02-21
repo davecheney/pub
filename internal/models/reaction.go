@@ -43,14 +43,18 @@ func (r *Reaction) BeforeUpdate(tx *gorm.DB) error {
 		return tx.Create(&ReactionRequest{
 			ActorID:  r.ActorID,
 			TargetID: r.StatusID,
-			Action:   "unlike",
+			ReactionRequestAction: ReactionRequestAction{
+				Action: "unlike",
+			},
 		}).Error
 	case !original.Favourited && r.Favourited:
 		// like
 		return tx.Create(&ReactionRequest{
 			ActorID:  r.ActorID,
 			TargetID: r.StatusID,
-			Action:   "like",
+			ReactionRequestAction: ReactionRequestAction{
+				Action: "like",
+			},
 		}).Error
 	default:
 		return nil
@@ -87,8 +91,8 @@ type ReactionRequest struct {
 	TargetID snowflake.ID `gorm:"uniqueIndex:idx_actor_id_target_id;not null;"`
 	// Target is the status that is being reacted to.
 	Target *Status `gorm:"constraint:OnDelete:CASCADE;"`
-	// Action is the action to perform, either follow or unfollow.
-	Action string `gorm:"type:enum('like', 'unlike');not null"`
+	// ReactionRequestAction is the action to perform, either follow or unfollow.
+	ReactionRequestAction
 	// Attempts is the number of times the request has been attempted.
 	Attempts uint32 `gorm:"not null;default:0"`
 	// LastAttempt is the time the request was last attempted.
