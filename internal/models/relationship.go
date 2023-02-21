@@ -42,14 +42,18 @@ func (r *Relationship) BeforeUpdate(tx *gorm.DB) error {
 		return tx.Create(&RelationshipRequest{
 			ActorID:  r.ActorID,
 			TargetID: r.TargetID,
-			Action:   "unfollow",
+			RelationshipRequestAction: RelationshipRequestAction{
+				Action: "unfollow",
+			},
 		}).Error
 	case !original.Following && r.Following:
 		// follow
 		return tx.Create(&RelationshipRequest{
-			ActorID:  r.ActorID,
+			ActorID: r.ActorID,
 			TargetID: r.TargetID,
-			Action:   "follow",
+			RelationshipRequestAction: RelationshipRequestAction{
+				Action: "follow",
+			},
 		}).Error
 	default:
 		return nil
@@ -94,8 +98,8 @@ type RelationshipRequest struct {
 	TargetID snowflake.ID `gorm:"uniqueIndex:idx_actor_id_target_id;not null;"`
 	// Target is the actor that is being followed or unfollowed.
 	Target *Actor `gorm:"constraint:OnDelete:CASCADE;<-:false;"`
-	// Action is the action to perform, either follow or unfollow.
-	Action string `gorm:"type:enum('follow', 'unfollow');not null"`
+	// RelationshipRequestAction is the action to perform, either follow or unfollow.
+	RelationshipRequestAction
 	// Attempts is the number of times the request has been attempted.
 	Attempts uint32 `gorm:"not null;default:0"`
 	// LastAttempt is the time the request was last attempted.
