@@ -22,9 +22,9 @@ _Warning: `pub` is still in development, if it breaks, you can keep the pieces._
 ### Pre-requisites
 
 - [Go][go]
-- [MariaDB][mariadb]
+- [MariaDB][mariadb] (if you want to use MariaDB)
 
-### Installation
+### Installation (MySQL/MariaDB)
 
 Create a database and user for `pub`:
 
@@ -35,9 +35,18 @@ GRANT ALL PRIVILEGES ON pub.* TO 'pub'@'localhost';
 ```
 Install `pub`:
 
+#### For Mysql/MariaDB
+
 ```bash
-go install github.com/davecheney/pub@latest
+go install -tags mysql github.com/davecheney/pub@latest
 ```
+
+#### For Sqlite
+
+```bash
+go install -tags sqlite github.com/davecheney/pub@latest
+```
+
 Create/migrate the database:
 
 ```bash
