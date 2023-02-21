@@ -7,6 +7,7 @@ import (
 	"github.com/davecheney/pub/internal/snowflake"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"gorm.io/gorm/schema"
 )
 
 type Relationship struct {
@@ -42,18 +43,14 @@ func (r *Relationship) BeforeUpdate(tx *gorm.DB) error {
 		return tx.Create(&RelationshipRequest{
 			ActorID:  r.ActorID,
 			TargetID: r.TargetID,
-			RelationshipRequestAction: RelationshipRequestAction{
-				Action: "unfollow",
-			},
+			Action:   "unfollow",
 		}).Error
 	case !original.Following && r.Following:
 		// follow
 		return tx.Create(&RelationshipRequest{
 			ActorID:  r.ActorID,
 			TargetID: r.TargetID,
-			RelationshipRequestAction: RelationshipRequestAction{
-				Action: "follow",
-			},
+			Action:   "follow",
 		}).Error
 	default:
 		return nil
@@ -98,14 +95,27 @@ type RelationshipRequest struct {
 	TargetID snowflake.ID `gorm:"uniqueIndex:uidx_relationship_requests_actor_id_target_id;not null;"`
 	// Target is the actor that is being followed or unfollowed.
 	Target *Actor `gorm:"constraint:OnDelete:CASCADE;<-:false;"`
-	// RelationshipRequestAction is the action to perform, either follow or unfollow.
-	RelationshipRequestAction
+	// Action is the action to perform, either follow or unfollow.
+	Action RelationshipRequestAction `gorm:"not null"`
 	// Attempts is the number of times the request has been attempted.
 	Attempts uint32 `gorm:"not null;default:0"`
 	// LastAttempt is the time the request was last attempted.
 	LastAttempt time.Time
 	// LastResult is the result of the last attempt if it failed.
 	LastResult string `gorm:"size:255;not null;default:''"`
+}
+
+type RelationshipRequestAction string
+
+func (RelationshipRequestAction) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+	switch db.Dialector.Name() {
+	case "mysql", "postgres":
+		return "enum('follow', 'unfollow')"
+	case "sqlite":
+		return "TEXT"
+	default:
+		return ""
+	}
 }
 
 type Relationships struct {
