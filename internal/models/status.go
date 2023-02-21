@@ -25,21 +25,21 @@ type Status struct {
 	InReplyToID      *snowflake.ID
 	InReplyToActorID *snowflake.ID
 	Sensitive        bool
-	SpoilerText      string `gorm:"size:128"`
-	StatusVisibility
-	Language        string `gorm:"size:2"`
-	Note            string `gorm:"type:text"`
-	URI             string `gorm:"uniqueIndex;size:128"`
-	RepliesCount    int    `gorm:"not null;default:0"`
-	ReblogsCount    int    `gorm:"not null;default:0"`
-	FavouritesCount int    `gorm:"not null;default:0"`
-	ReblogID        *snowflake.ID
-	Reblog          *Status             `gorm:"<-:false;"` // don't update reblog on status update
-	Reaction        *Reaction           `gorm:"<-:false;"` // don't update reaction on status update
-	Attachments     []*StatusAttachment `gorm:"constraint:OnDelete:CASCADE;"`
-	Mentions        []StatusMention     `gorm:"constraint:OnDelete:CASCADE;"`
-	Tags            []StatusTag         `gorm:"constraint:OnDelete:CASCADE;"`
-	Poll            *StatusPoll         `gorm:"constraint:OnDelete:CASCADE;"`
+	SpoilerText      string     `gorm:"size:128"`
+	Visibility       Visibility `gorm:"not null"`
+	Language         string     `gorm:"size:2"`
+	Note             string     `gorm:"type:text"`
+	URI              string     `gorm:"uniqueIndex;size:128"`
+	RepliesCount     int        `gorm:"not null;default:0"`
+	ReblogsCount     int        `gorm:"not null;default:0"`
+	FavouritesCount  int        `gorm:"not null;default:0"`
+	ReblogID         *snowflake.ID
+	Reblog           *Status             `gorm:"<-:false;"` // don't update reblog on status update
+	Reaction         *Reaction           `gorm:"<-:false;"` // don't update reaction on status update
+	Attachments      []*StatusAttachment `gorm:"constraint:OnDelete:CASCADE;"`
+	Mentions         []StatusMention     `gorm:"constraint:OnDelete:CASCADE;"`
+	Tags             []StatusTag         `gorm:"constraint:OnDelete:CASCADE;"`
+	Poll             *StatusPoll         `gorm:"constraint:OnDelete:CASCADE;"`
 }
 
 func (st *Status) AfterCreate(tx *gorm.DB) error {

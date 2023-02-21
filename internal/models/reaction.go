@@ -211,12 +211,7 @@ func (r *Reactions) Reblog(status *Status, actor *Actor) (*Status, error) {
 			ActorID:        actor.ID,
 			Actor:          actor,
 			ConversationID: conv.ID,
-			StatusVisibility: StatusVisibility{
-				// TODO ConversationVisibility and StatusVisibility be combined?
-				// In theory they are the same thing as a Status's visibility is
-				// a subset of the Conversation's visibility.
-				Visibility: string(conv.Visibility),
-			},
+			Visibility: conv.Visibility,
 			ReblogID: &status.ID,
 			Reblog:   status,
 			URI:      fmt.Sprintf("%s/statuses/%d", actor.URI, id),

@@ -190,7 +190,7 @@ type Status struct {
 	InReplyToAccountID *snowflake.ID      `json:"in_reply_to_account_id,string"`
 	Sensitive          bool               `json:"sensitive"`
 	SpoilerText        string             `json:"spoiler_text"`
-	Visibility         string             `json:"visibility"`
+	Visibility         models.Visibility  `json:"visibility"`
 	Language           any                `json:"language"`
 	URI                string             `json:"uri"`
 	URL                any                `json:"url"`
@@ -228,7 +228,7 @@ func (s *Serialiser) Status(st *models.Status) *Status {
 		InReplyToAccountID: st.InReplyToActorID,
 		Sensitive:          st.Sensitive,
 		SpoilerText:        st.SpoilerText,
-		Visibility: func() string {
+		Visibility: func() models.Visibility {
 			if st.Visibility == "limited" {
 				return "private"
 			}
