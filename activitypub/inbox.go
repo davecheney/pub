@@ -165,7 +165,9 @@ func (i *inboxProcessor) processAnnounce(obj map[string]any) error {
 	}
 
 	conv := models.Conversation{
-		Visibility: "public",
+		ConversationVisibility: models.ConversationVisibility{
+			Visibility: "public",
+		},
 	}
 	if err := i.db.Create(&conv).Error; err != nil {
 		return err
@@ -182,10 +184,12 @@ func (i *inboxProcessor) processAnnounce(obj map[string]any) error {
 		InReplyToActorID: nil,
 		Sensitive:        false,
 		SpoilerText:      "",
-		Visibility:       "public",
-		Language:         "",
-		Note:             "",
-		ReblogID:         &original.ID,
+		StatusVisibility: models.StatusVisibility{
+			Visibility: "public",
+		},
+		Language: "",
+		Note:     "",
+		ReblogID: &original.ID,
 	}
 
 	return i.db.Create(status).Error
@@ -336,10 +340,12 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 			InReplyToActorID: inReplyToActorID(inReplyTo),
 			Sensitive:        boolFromAny(create["sensitive"]),
 			SpoilerText:      stringFromAny(create["summary"]),
-			Visibility:       vis,
-			Language:         "en",
-			Note:             stringFromAny(create["content"]),
-			Attachments:      attachmentsToStatusAttachments(anyToSlice(create["attachment"])),
+			StatusVisibility: models.StatusVisibility{
+				Visibility: vis,
+			},
+			Language:    "en",
+			Note:        stringFromAny(create["content"]),
+			Attachments: attachmentsToStatusAttachments(anyToSlice(create["attachment"])),
 		}
 		// and here
 		for _, tag := range anyToSlice(create["tag"]) {

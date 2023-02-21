@@ -161,7 +161,9 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 		conversationID = inReplyTo.ConversationID
 	} else {
 		conv := models.Conversation{
-			Visibility: visibility,
+			ConversationVisibility: models.ConversationVisibility{
+				Visibility: visibility,
+			},
 		}
 		if err := f.db.Create(&conv).Error; err != nil {
 			return nil, err
@@ -188,11 +190,13 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 		InReplyToActorID: inReplyToActorID(inReplyTo),
 		Sensitive:        boolFromAny(obj["sensitive"]),
 		SpoilerText:      stringFromAny(obj["summary"]),
-		Visibility:       "public",
-		Language:         stringFromAny(obj["language"]),
-		URI:              uri,
-		Note:             stringFromAny(obj["content"]),
-		Attachments:      attachmentsToStatusAttachments(anyToSlice(obj["attachment"])),
+		StatusVisibility: models.StatusVisibility{
+			Visibility: "public",
+		},
+		Language:    stringFromAny(obj["language"]),
+		URI:         uri,
+		Note:        stringFromAny(obj["content"]),
+		Attachments: attachmentsToStatusAttachments(anyToSlice(obj["attachment"])),
 	}
 
 	for _, tag := range anyToSlice(obj["tag"]) {

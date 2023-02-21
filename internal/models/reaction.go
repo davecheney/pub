@@ -175,7 +175,9 @@ func (r *Reactions) Unbookmark(status *Status, actor *Actor) (*Reaction, error) 
 func (r *Reactions) Reblog(status *Status, actor *Actor) (*Status, error) {
 	return withTransaction(r.db, func(tx *gorm.DB) (*Status, error) {
 		conv := Conversation{
-			Visibility: "public",
+			ConversationVisibility: ConversationVisibility{
+				Visibility: "public",
+			},
 		}
 		if err := r.db.Create(&conv).Error; err != nil {
 			return nil, err
@@ -197,11 +199,13 @@ func (r *Reactions) Reblog(status *Status, actor *Actor) (*Status, error) {
 			ActorID:        actor.ID,
 			Actor:          actor,
 			ConversationID: conv.ID,
-			Visibility:     conv.Visibility,
-			ReblogID:       &status.ID,
-			Reblog:         status,
-			URI:            fmt.Sprintf("%s/statuses/%d", actor.URI, id),
-			Reaction:       reaction,
+			StatusVisibility: StatusVisibility{
+				Visibility: conv.Visibility,
+			},
+			ReblogID: &status.ID,
+			Reblog:   status,
+			URI:      fmt.Sprintf("%s/statuses/%d", actor.URI, id),
+			Reaction: reaction,
 		}
 		if err := r.db.Create(&reblog).Error; err != nil {
 			return nil, err

@@ -110,9 +110,11 @@ func StatusesCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 		URI:         fmt.Sprintf("https://%s/users/%s/%d", actor.Domain, actor.Name, id),
 		Sensitive:   toot.Sensitive,
 		SpoilerText: toot.SpoilerText,
-		Visibility:  toot.Visibility,
-		Language:    toot.Language,
-		Note:        toot.Status,
+		StatusVisibility: models.StatusVisibility{
+			Visibility: toot.Visibility,
+		},
+		Language: toot.Language,
+		Note:     toot.Status,
 	}
 	if err := env.DB.Create(&status).Error; err != nil {
 		return err
