@@ -519,7 +519,10 @@ func (i *inboxProcessor) processUpdateStatus(update map[string]any) error {
 	}
 
 	// TODO handle attachments
-	return i.db.Save(&status).Error
+	upsert := clause.OnConflict{
+		UpdateAll: true,
+	}
+	return i.db.Clauses(upsert).Save(&status).Error
 }
 
 func objToStatusPoll(obj map[string]any) (*models.StatusPoll, error) {
