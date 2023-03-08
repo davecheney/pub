@@ -29,6 +29,8 @@ func TimelinesHome(env *Env, w http.ResponseWriter, r *http.Request) error {
 		return httpx.Error(http.StatusInternalServerError, err)
 	}
 
+	sortStatuses(statuses) // PaginateStatuses doesn't sort, so we have to do it ourselves.
+
 	if len(statuses) > 0 {
 		linkHeader(w, r, statuses[0].ID, statuses[len(statuses)-1].ID)
 	}
@@ -50,6 +52,8 @@ func TimelinesPublic(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err := query.Find(&statuses).Error; err != nil {
 		return httpx.Error(http.StatusInternalServerError, err)
 	}
+
+	sortStatuses(statuses) // PaginateStatuses doesn't sort, so we have to do it ourselves.
 
 	if len(statuses) > 0 {
 		linkHeader(w, r, statuses[0].ID, statuses[len(statuses)-1].ID)
@@ -91,6 +95,8 @@ func TimelinesListShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 		return httpx.Error(http.StatusInternalServerError, err)
 	}
 
+	sortStatuses(statuses) // PaginateStatuses doesn't sort, so we have to do it ourselves.
+
 	if len(statuses) > 0 {
 		linkHeader(w, r, statuses[0].ID, statuses[len(statuses)-1].ID)
 	}
@@ -116,6 +122,8 @@ func TimelinesTagShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	if err := query.Find(&statuses).Error; err != nil {
 		return httpx.Error(http.StatusInternalServerError, err)
 	}
+
+	sortStatuses(statuses) // PaginateStatuses doesn't sort, so we have to do it ourselves.
 
 	if len(statuses) > 0 {
 		linkHeader(w, r, statuses[0].ID, statuses[len(statuses)-1].ID)

@@ -54,6 +54,8 @@ func AccountsStatusesShow(env *Env, w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
+	sortStatuses(statuses) // PaginateStatuses doesn't sort, so we have to do it ourselves.
+
 	if len(statuses) > 0 {
 		linkHeader(w, r, statuses[0].ID, statuses[len(statuses)-1].ID)
 	}

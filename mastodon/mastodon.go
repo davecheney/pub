@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/davecheney/pub/internal/httpx"
@@ -46,4 +47,11 @@ func stringOrDefault(s string, def string) string {
 		return def
 	}
 	return s
+}
+
+// sortStatuses sorts the statuses by their ID, in descending order.
+func sortStatuses(statuses []*models.Status) {
+	sort.SliceStable(statuses, func(i, j int) bool {
+		return statuses[i].ID > statuses[j].ID
+	})
 }
