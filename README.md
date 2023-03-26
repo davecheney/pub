@@ -4,7 +4,7 @@
     
 ## What is pub?
 
-`pub` is an ActivityPub host indented for a single actor.
+`pub` is an ActivityPub host intended for a single actor.
 To interact with ActivityPub, `pub` implements the Mastodon[^tm] api for use with various apps. 
 
 `pub` is not intended to host an ActivityPub community, rather it is aimed at enabling someone who owns their own domain, and thus controls their identity, to participate in the fediverse. 
