@@ -2,6 +2,7 @@
 package media
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
@@ -21,6 +22,8 @@ func Show(env *models.Env, w http.ResponseWriter, r *http.Request) error {
 		return showAvatar(env, w, r)
 	case "header":
 		return showHeader(env, w, r)
+	case "original":
+		return showOriginal(env, w, r)
 	default:
 		return httpx.Error(http.StatusNotFound, fmt.Errorf("unknown kind %q", kind))
 	}
@@ -42,6 +45,15 @@ func showHeader(env *models.Env, w http.ResponseWriter, r *http.Request) error {
 	return fetch(w, stringOrDefault(actor.Header, "https://static.ma-cdn.net/headers/original/missing.png"))
 }
 
+func showOriginal(env *models.Env, w http.ResponseWriter, r *http.Request) error {
+	var att models.StatusAttachment
+	if err := env.DB.Take(&att, chi.URLParam(r, "id")).Error; err != nil {
+		fmt.Println(err)
+		return httpx.Error(http.StatusNotFound, err)
+	}
+	return fetch(w, att.URL)
+}
+
 func fetch(w http.ResponseWriter, url string) error {
 	resp, err := http.DefaultClient.Get(url)
 	if err != nil {
@@ -51,9 +63,16 @@ func fetch(w http.ResponseWriter, url string) error {
 	if resp.StatusCode != http.StatusOK {
 		return httpx.Error(http.StatusBadGateway, fmt.Errorf("unexpected status code %d", resp.StatusCode))
 	}
-	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
-	w.WriteHeader(http.StatusOK)
-	_, err = io.Copy(w, resp.Body)
+
+	// read the first 512 bytes to determine the content type.
+	buf := bufio.NewReader(resp.Body)
+	head, err := buf.Peek(512)
+	if err != nil && err != io.EOF {
+		return httpx.Error(http.StatusBadGateway, err)
+	}
+	contentType := http.DetectContentType(head)
+	w.Header().Set("Content-Type", contentType)
+	_, err = io.Copy(w, buf)
 	return err
 }
 

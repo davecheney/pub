@@ -185,6 +185,8 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	}
 
 	r.Get("/media/{kind}/{hash}/{id}", httpx.HandlerFunc(modelEnvFn, media.Show))
+	r.Get("/media/{kind}/{hash}/{id}.{ext}", httpx.HandlerFunc(modelEnvFn, media.Show))
+	r.Get("/media/{kind}/{id}.{ext}", httpx.HandlerFunc(modelEnvFn, media.Show))
 
 	if s.DebugPrintRoutes {
 		walkFunc := func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {

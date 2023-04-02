@@ -390,6 +390,27 @@ func attachmentType(att *models.Attachment) string {
 	}
 }
 
+func extension(att *models.Attachment) string {
+	switch att.MediaType {
+	case "image/jpeg":
+		return "jpg"
+	case "image/png":
+		return "png"
+	case "image/gif":
+		return "gif"
+	case "video/mp4":
+		return "mp4"
+	case "video/webm":
+		return "webm"
+	case "audio/mpeg":
+		return "mp3"
+	case "audio/ogg":
+		return "ogg"
+	default:
+		return "jpg" // todo YOLO
+	}
+}
+
 func (s *Serialiser) InstanceV1(i *models.Instance) map[string]any {
 	return map[string]any{
 		"uri":               i.Domain,
@@ -718,9 +739,9 @@ func (s *Serialiser) MediaAttachments(attachments []*models.StatusAttachment) []
 			at := &MediaAttachment{
 				ID:         att.ID,
 				Type:       attachmentType(att),
-				URL:        att.URL,
-				PreviewURL: att.URL,
-				// RemoteURL:  att.URL,
+				URL:        s.mediaOriginalURL(att),
+				PreviewURL: s.mediaPreviewURL(att),
+				RemoteURL:  att.URL,
 				Meta: Meta{
 					Focus: MetaFocus{
 						X: 0.0, // always centered
@@ -755,6 +776,14 @@ func (s *Serialiser) MediaAttachments(attachments []*models.StatusAttachment) []
 			return at
 		},
 	)
+}
+
+func (s *Serialiser) mediaOriginalURL(att *models.Attachment) string {
+	return s.urlFor(fmt.Sprintf("/media/original/%d.%s", att.ID, extension(att)))
+}
+
+func (s *Serialiser) mediaPreviewURL(att *models.Attachment) string {
+	return s.mediaOriginalURL(att)
 }
 
 type Preferences struct {
