@@ -97,12 +97,12 @@ See the [examples](examples) directory for sample configurations for [nginx](exa
 - [Requests][requests]
 
 
-## Contributions
+## Contribution policy
 
-`pub` is open source, but not open for contributions _just yet_.
-That may change in the future, but at the moment please do not send pull requests.
+`pub` is currently open to code contributions for bug fixes _only_.
+This may change in the future, but at the moment please do not send pull requests with new features.
 
-In the meantime, if you have a feature request, or a bug report, please open an issue.
+If you have a feature request, or a bug report, please open an [issue](https://github.com/davecheney/pub/issues/new).
 If you're _really_ adventurous, you can contact me via [`@dfc@cheney.net`](acct:dfc@cheney.net).
 
 Thank you in advance for your understanding.
