@@ -728,6 +728,11 @@ func (s *Serialiser) StatusEdit(st *models.Status) *StatusEdit {
 	}
 }
 
+const (
+	PREVIEW_MAX_WIDTH  = 560
+	PREVIEW_MAX_HEIGHT = 415
+)
+
 func (s *Serialiser) MediaAttachments(attachments []*models.StatusAttachment) []*MediaAttachment {
 	return algorithms.Map(
 		algorithms.Map(
@@ -771,7 +776,7 @@ func (s *Serialiser) originalMetaFormat(att *models.Attachment) *MetaFormat {
 }
 
 func (s *Serialiser) smallMetaFormat(att *models.Attachment) *MetaFormat {
-	if att.Width < 550 && att.Height < 415 {
+	if att.Width < PREVIEW_MAX_WIDTH && att.Height < PREVIEW_MAX_HEIGHT {
 		// no preview needed
 		return s.originalMetaFormat(att)
 	}
@@ -779,12 +784,12 @@ func (s *Serialiser) smallMetaFormat(att *models.Attachment) *MetaFormat {
 	case "image/jpeg", "image/png", "image/gif":
 		h := att.Height
 		w := att.Width
-		// resize to 550x415 retaining aspect ratio
+
 		if w > h {
-			h = int(float64(h) * (550.0 / float64(w)))
-			w = 550
+			h = int(float64(h) * (PREVIEW_MAX_WIDTH / float64(w)))
+			w = 560
 		} else {
-			w = int(float64(w) * (415.0 / float64(h)))
+			w = int(float64(w) * (PREVIEW_MAX_HEIGHT / float64(h)))
 			h = 415
 		}
 
@@ -815,9 +820,8 @@ func (s *Serialiser) mediaOriginalURL(att *models.Attachment) string {
 }
 
 func (s *Serialiser) mediaPreviewURL(att *models.Attachment) string {
-	if att.Width < 550 && att.Height < 415 {
+	if att.Width < PREVIEW_MAX_WIDTH || att.Height < PREVIEW_MAX_HEIGHT {
 		// no preview needed
-		fmt.Println("no preview needed, width:", att.Width, "height:", att.Height)
 		return ""
 	}
 	switch att.MediaType {
@@ -826,7 +830,6 @@ func (s *Serialiser) mediaPreviewURL(att *models.Attachment) string {
 		return s.urlFor(fmt.Sprintf("/media/preview/%d.%s", att.ID, extension(att)))
 	default:
 		// no preview available
-		fmt.Println("no preview available for media type:", att.MediaType)
 		return ""
 	}
 }

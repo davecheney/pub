@@ -44,6 +44,11 @@ func Original(env *models.Env, w http.ResponseWriter, r *http.Request) error {
 	return stream(w, att.URL)
 }
 
+const (
+	PREVIEW_MAX_WIDTH  = 560
+	PREVIEW_MAX_HEIGHT = 415
+)
+
 func Preview(env *models.Env, w http.ResponseWriter, r *http.Request) error {
 	var att models.StatusAttachment
 
@@ -65,10 +70,9 @@ func Preview(env *models.Env, w http.ResponseWriter, r *http.Request) error {
 		return httpx.Error(http.StatusBadGateway, err)
 	}
 
-	// resize img 560 x 415
 	b := img.Bounds()
-	if b.Dx() > 560 || b.Dy() > 415 {
-		img = resize.Thumbnail(560, 415, img, resize.Lanczos3)
+	if b.Dx() > PREVIEW_MAX_WIDTH || b.Dy() > PREVIEW_MAX_HEIGHT {
+		img = resize.Thumbnail(PREVIEW_MAX_WIDTH, PREVIEW_MAX_HEIGHT, img, resize.Lanczos3)
 	}
 	switch ext {
 	case "jpg":
