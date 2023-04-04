@@ -329,13 +329,13 @@ type MediaAttachment struct {
 	ID               snowflake.ID `json:"id,string"`
 	Type             string       `json:"type"`
 	URL              string       `json:"url"`
-	PreviewURL       string       `json:"preview_url"`
-	RemoteURL        any          `json:"remote_url"`
-	PreviewRemoteURL any          `json:"preview_remote_url"`
-	TextURL          any          `json:"text_url"`
+	PreviewURL       string       `json:"preview_url,omitempty"`
+	RemoteURL        any          `json:"remote_url,omitempty"`
+	PreviewRemoteURL any          `json:"preview_remote_url,omitempty"`
+	TextURL          any          `json:"text_url,omitempty"`
 	Meta             Meta         `json:"meta"`
-	Description      string       `json:"description"`
-	Blurhash         string       `json:"blurhash"`
+	Description      string       `json:"description,omitempty"`
+	Blurhash         string       `json:"blurhash,omitempty"`
 }
 
 type Meta struct {
@@ -360,8 +360,8 @@ type MetaFocus struct {
 }
 
 type MetaFormat struct {
-	Width     int     `json:"width"`
-	Height    int     `json:"height"`
+	Width     int     `json:"width,omitempty"`
+	Height    int     `json:"height,omitempty"`
 	Size      string  `json:"size,omitempty"`
 	Aspect    float64 `json:"aspect,omitzero"`
 	FrameRate string  `json:"frame_rate,omitempty"`
@@ -386,7 +386,7 @@ func attachmentType(att *models.Attachment) string {
 	case "audio/ogg":
 		return "audio"
 	default:
-		return "image" // todo YOLO
+		return "unknown"
 	}
 }
 
@@ -747,28 +747,8 @@ func (s *Serialiser) MediaAttachments(attachments []*models.StatusAttachment) []
 						X: 0.0, // always centered
 						Y: 0.0,
 					},
-					Original: func() *MetaFormat {
-						f := &MetaFormat{
-							Width:  att.Width,
-							Height: att.Height,
-							Size:   fmt.Sprintf("%dx%d", att.Width, att.Height),
-						}
-						if att.Width > 0 && att.Height > 0 {
-							f.Aspect = float64(att.Width) / float64(att.Height)
-						}
-						return f
-					}(),
-					Small: func() *MetaFormat {
-						f := &MetaFormat{
-							Width:  att.Width,
-							Height: att.Height,
-							Size:   fmt.Sprintf("%dx%d", att.Width, att.Height),
-						}
-						if att.Width > 0 && att.Height > 0 {
-							f.Aspect = float64(att.Width) / float64(att.Height)
-						}
-						return f
-					}(),
+					Original: s.originalMetaFormat(att),
+					Small:    s.smallMetaFormat(att),
 				},
 				Description: att.Name,
 				Blurhash:    att.Blurhash,
@@ -778,12 +758,77 @@ func (s *Serialiser) MediaAttachments(attachments []*models.StatusAttachment) []
 	)
 }
 
+func (s *Serialiser) originalMetaFormat(att *models.Attachment) *MetaFormat {
+	f := &MetaFormat{
+		Width:  att.Width,
+		Height: att.Height,
+		Size:   fmt.Sprintf("%dx%d", att.Width, att.Height),
+	}
+	if att.Width > 0 && att.Height > 0 {
+		f.Aspect = float64(att.Width) / float64(att.Height)
+	}
+	return f
+}
+
+func (s *Serialiser) smallMetaFormat(att *models.Attachment) *MetaFormat {
+	if att.Width < 550 && att.Height < 415 {
+		// no preview needed
+		return s.originalMetaFormat(att)
+	}
+	switch att.MediaType {
+	case "image/jpeg", "image/png", "image/gif":
+		h := att.Height
+		w := att.Width
+		// resize to 550x415 retaining aspect ratio
+		if w > h {
+			h = int(float64(h) * (550.0 / float64(w)))
+			w = 550
+		} else {
+			w = int(float64(w) * (415.0 / float64(h)))
+			h = 415
+		}
+
+		f := &MetaFormat{
+			Width:  w,
+			Height: h,
+			Size:   fmt.Sprintf("%dx%d", w, h),
+		}
+		if att.Width > 0 && att.Height > 0 {
+			f.Aspect = float64(att.Width) / float64(att.Height)
+		}
+		return f
+	default:
+		// no preview needed
+		return nil
+	}
+}
+
 func (s *Serialiser) mediaOriginalURL(att *models.Attachment) string {
-	return s.urlFor(fmt.Sprintf("/media/original/%d.%s", att.ID, extension(att)))
+	switch att.MediaType {
+	case "image/jpeg", "image/png", "image/gif":
+		// call through /media proxy to cache
+		return s.urlFor(fmt.Sprintf("/media/original/%d.%s", att.ID, extension(att)))
+	default:
+		// otherwise return the remote URL
+		return att.URL
+	}
 }
 
 func (s *Serialiser) mediaPreviewURL(att *models.Attachment) string {
-	return s.mediaOriginalURL(att)
+	if att.Width < 550 && att.Height < 415 {
+		// no preview needed
+		fmt.Println("no preview needed, width:", att.Width, "height:", att.Height)
+		return ""
+	}
+	switch att.MediaType {
+	case "image/jpeg", "image/png", "image/gif":
+		// call through /media proxy to cache
+		return s.urlFor(fmt.Sprintf("/media/preview/%d.%s", att.ID, extension(att)))
+	default:
+		// no preview available
+		fmt.Println("no preview available for media type:", att.MediaType)
+		return ""
+	}
 }
 
 type Preferences struct {
