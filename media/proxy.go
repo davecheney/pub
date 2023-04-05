@@ -3,14 +3,11 @@ package media
 
 import (
 	"bufio"
-	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
-	"hash"
 	"image"
 	"image/gif"
 	"image/jpeg"
-	"image/png"
+	_ "image/png"
 	"io"
 	"net/http"
 
@@ -25,7 +22,10 @@ func Avatar(env *models.Env, w http.ResponseWriter, r *http.Request) error {
 	if err := env.DB.Take(&actor, chi.URLParam(r, "id")).Error; err != nil {
 		return httpx.Error(http.StatusNotFound, err)
 	}
-	return stream(w, stringOrDefault(actor.Avatar, "https://avatars.githubusercontent.com/u/1024?v=4"))
+	if actor.Avatar == "" {
+		return httpx.Error(http.StatusNotFound, fmt.Errorf("no avatar for actor %q", actor.ID))
+	}
+	return stream(w, actor.Avatar)
 }
 
 func Header(env *models.Env, w http.ResponseWriter, r *http.Request) error {
@@ -33,7 +33,10 @@ func Header(env *models.Env, w http.ResponseWriter, r *http.Request) error {
 	if err := env.DB.Take(&actor, chi.URLParam(r, "id")).Error; err != nil {
 		return httpx.Error(http.StatusNotFound, err)
 	}
-	return stream(w, stringOrDefault(actor.Header, "https://static.ma-cdn.net/headers/original/missing.png"))
+	if actor.Header == "" {
+		return httpx.Error(http.StatusNotFound, fmt.Errorf("no header for actor %q", actor.ID))
+	}
+	return stream(w, actor.Header)
 }
 
 func Original(env *models.Env, w http.ResponseWriter, r *http.Request) error {
@@ -78,14 +81,14 @@ func Preview(env *models.Env, w http.ResponseWriter, r *http.Request) error {
 	case "jpg":
 		w.Header().Set("Content-Type", "image/jpeg")
 		return jpeg.Encode(w, img, nil)
-	case "png":
-		w.Header().Set("Content-Type", "image/png")
-		return png.Encode(w, img)
+	// case "png":
+	// 	w.Header().Set("Content-Type", "image/png")
+	// 	return png.Encode(w, img)
 	case "gif":
 		w.Header().Set("Content-Type", "image/gif")
 		return gif.Encode(w, img, nil)
 	default:
-		return httpx.Error(http.StatusNotFound, fmt.Errorf("unknown extension %q", ext))
+		return httpx.Error(http.StatusNotAcceptable, fmt.Errorf("unknown extension %q", ext))
 	}
 }
 
@@ -110,22 +113,6 @@ func stream(w http.ResponseWriter, url string) error {
 	w.Header().Set("Content-Type", contentType)
 	_, err = io.Copy(w, buf)
 	return err
-}
-
-func ProxyAvatarURL(actor *models.Actor) string {
-	url := stringOrDefault(actor.Avatar, "https://avatars.githubusercontent.com/u/1024?v=4")
-	return fmt.Sprintf("https://cheney.net/media/avatar/%s/%d", b64Hash(sha256.New(), url), actor.ID)
-}
-
-func ProxyHeaderURL(actor *models.Actor) string {
-	url := stringOrDefault(actor.Header, "https://avatars.githubusercontent.com/u/1024?v=4")
-	return fmt.Sprintf("https://cheney.net/media/header/%s/%d", b64Hash(sha256.New(), url), actor.ID)
-}
-
-func b64Hash(h hash.Hash, s string) string {
-	h.Reset()
-	io.WriteString(h, s)
-	return base64.RawURLEncoding.EncodeToString(h.Sum(nil))
 }
 
 func stringOrDefault(s string, def string) string {

@@ -8,7 +8,6 @@ import (
 	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
-	"github.com/davecheney/pub/media"
 )
 
 // Seraliser contains methods to seralise various Mastodon REST API
@@ -76,10 +75,10 @@ func (s *Serialiser) Account(a *models.Actor) *Account {
 		CreatedAt:      a.ID.ToTime().Round(time.Hour).Format("2006-01-02T00:00:00.000Z"),
 		Note:           a.Note,
 		URL:            fmt.Sprintf("https://%s/@%s", a.Domain, a.Name),
-		Avatar:         media.ProxyAvatarURL(a),
-		AvatarStatic:   media.ProxyAvatarURL(a),
-		Header:         media.ProxyHeaderURL(a),
-		HeaderStatic:   media.ProxyHeaderURL(a),
+		Avatar:         stringOrDefault(a.Avatar, s.urlFor("/avatar.jpg")),
+		AvatarStatic:   stringOrDefault(a.Avatar, s.urlFor("/avatar.jpg")),
+		Header:         stringOrDefault(a.Header, s.urlFor("/header.jpg")),
+		HeaderStatic:   stringOrDefault(a.Header, s.urlFor("/header.jpg")),
 		FollowersCount: a.FollowersCount,
 		FollowingCount: a.FollowingCount,
 		StatusesCount:  a.StatusesCount,
@@ -752,8 +751,8 @@ func (s *Serialiser) MediaAttachments(attachments []*models.StatusAttachment) []
 						X: 0.0, // always centered
 						Y: 0.0,
 					},
-					Original: s.originalMetaFormat(att),
-					Small:    s.smallMetaFormat(att),
+					Original: originalMetaFormat(att),
+					Small:    smallMetaFormat(att),
 				},
 				Description: att.Name,
 				Blurhash:    att.Blurhash,
@@ -763,25 +762,28 @@ func (s *Serialiser) MediaAttachments(attachments []*models.StatusAttachment) []
 	)
 }
 
-func (s *Serialiser) originalMetaFormat(att *models.Attachment) *MetaFormat {
-	f := &MetaFormat{
+func originalMetaFormat(att *models.Attachment) *MetaFormat {
+	if att.Width == 0 || att.Height == 0 {
+		return nil
+	}
+
+	return &MetaFormat{
 		Width:  att.Width,
 		Height: att.Height,
 		Size:   fmt.Sprintf("%dx%d", att.Width, att.Height),
+		Aspect: float64(att.Width) / float64(att.Height),
 	}
-	if att.Width > 0 && att.Height > 0 {
-		f.Aspect = float64(att.Width) / float64(att.Height)
-	}
-	return f
 }
 
-func (s *Serialiser) smallMetaFormat(att *models.Attachment) *MetaFormat {
+func smallMetaFormat(att *models.Attachment) *MetaFormat {
 	if att.Width < PREVIEW_MAX_WIDTH && att.Height < PREVIEW_MAX_HEIGHT {
 		// no preview needed
-		return s.originalMetaFormat(att)
+		return nil
 	}
 	switch att.MediaType {
-	case "image/jpeg", "image/png", "image/gif":
+	case "image/jpeg",
+		// "image/png",
+		"image/gif":
 		h := att.Height
 		w := att.Width
 
@@ -793,17 +795,14 @@ func (s *Serialiser) smallMetaFormat(att *models.Attachment) *MetaFormat {
 			h = 415
 		}
 
-		f := &MetaFormat{
+		return &MetaFormat{
 			Width:  w,
 			Height: h,
 			Size:   fmt.Sprintf("%dx%d", w, h),
+			Aspect: float64(att.Width) / float64(att.Height),
 		}
-		if att.Width > 0 && att.Height > 0 {
-			f.Aspect = float64(att.Width) / float64(att.Height)
-		}
-		return f
 	default:
-		// no preview needed
+		// no preview available
 		return nil
 	}
 }
@@ -825,7 +824,9 @@ func (s *Serialiser) mediaPreviewURL(att *models.Attachment) string {
 		return ""
 	}
 	switch att.MediaType {
-	case "image/jpeg", "image/png", "image/gif":
+	case "image/jpeg",
+		// "image/png",
+		"image/gif":
 		// call through /media proxy to cache
 		return s.urlFor(fmt.Sprintf("/media/preview/%d.%s", att.ID, extension(att)))
 	default:
