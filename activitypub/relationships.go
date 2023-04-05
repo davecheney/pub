@@ -53,9 +53,10 @@ func (rrp *RelationshipRequestProcessor) process() error {
 			if err := rrp.db.Save(request).Error; err != nil {
 				return err
 			}
-		}
-		if err := rrp.db.Delete(request).Error; err != nil {
-			return err
+		} else {
+			if err := rrp.db.Delete(request).Error; err != nil {
+				return err
+			}
 		}
 	}
 
