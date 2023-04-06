@@ -33,7 +33,13 @@ func (r *Relationship) BeforeUpdate(tx *gorm.DB) error {
 	// if there is a conflict; eg. a follow then an unfollow before the follow is processed
 	// update the existing row to reflect the new action.
 	tx = tx.Clauses(clause.OnConflict{
-		UpdateAll: true,
+		Columns: []clause.Column{{Name: "actor_id"}, {Name: "target_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{
+			"action",
+			"created_at",
+			"updated_at",
+			"attempts", // resets the attempts counter
+		}),
 	})
 
 	// what changed?
@@ -238,10 +244,10 @@ func (r *Relationships) pair(actor, target *Actor) (*Relationship, *Relationship
 }
 
 func (r *Relationships) findOrCreate(actor, target *Actor) (*Relationship, error) {
-	var rel Relationship
-	if err := r.db.FirstOrCreate(&rel, Relationship{ActorID: actor.ID, TargetID: target.ID}).Error; err != nil {
-		return nil, err
+	rel := Relationship{
+		ActorID:  actor.ID,
+		TargetID: target.ID,
+		Target:   target,
 	}
-	rel.Target = target
-	return &rel, nil
+	return &rel, r.db.FirstOrCreate(&rel).Error
 }

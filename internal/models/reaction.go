@@ -51,7 +51,7 @@ func (r *Reaction) createReactionRequest(tx *gorm.DB) error {
 	}
 	fmt.Printf("reaction changed from %+v to %+v\n", original, r)
 
-	// if there is a conflict; eg. a follow then an unfollow before the follow is processed
+	// if there is a conflict; eg. a like then an unlike before the follow is processed
 	// update the existing row to reflect the new action.
 	tx = tx.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "actor_id"}, {Name: "target_id"}},
@@ -131,7 +131,7 @@ func NewReactions(db *gorm.DB) *Reactions {
 }
 
 func (r *Reactions) Pin(status *Status, actor *Actor) (*Reaction, error) {
-	reaction, err := findOrCreate(r.db, status, actor)
+	reaction, err := findOrCreateReaction(r.db, status, actor)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func (r *Reactions) Pin(status *Status, actor *Actor) (*Reaction, error) {
 }
 
 func (r *Reactions) Unpin(status *Status, actor *Actor) (*Reaction, error) {
-	reaction, err := findOrCreate(r.db, status, actor)
+	reaction, err := findOrCreateReaction(r.db, status, actor)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func (r *Reactions) Unpin(status *Status, actor *Actor) (*Reaction, error) {
 }
 
 func (r *Reactions) Favourite(status *Status, actor *Actor) (*Reaction, error) {
-	reaction, err := findOrCreate(r.db, status, actor)
+	reaction, err := findOrCreateReaction(r.db, status, actor)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +159,7 @@ func (r *Reactions) Favourite(status *Status, actor *Actor) (*Reaction, error) {
 }
 
 func (r *Reactions) Unfavourite(status *Status, actor *Actor) (*Reaction, error) {
-	reaction, err := findOrCreate(r.db, status, actor)
+	reaction, err := findOrCreateReaction(r.db, status, actor)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func (r *Reactions) Unfavourite(status *Status, actor *Actor) (*Reaction, error)
 }
 
 func (r *Reactions) Bookmark(status *Status, actor *Actor) (*Reaction, error) {
-	reaction, err := findOrCreate(r.db, status, actor)
+	reaction, err := findOrCreateReaction(r.db, status, actor)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +178,7 @@ func (r *Reactions) Bookmark(status *Status, actor *Actor) (*Reaction, error) {
 }
 
 func (r *Reactions) Unbookmark(status *Status, actor *Actor) (*Reaction, error) {
-	reaction, err := findOrCreate(r.db, status, actor)
+	reaction, err := findOrCreateReaction(r.db, status, actor)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +197,7 @@ func (r *Reactions) Reblog(status *Status, actor *Actor) (*Status, error) {
 			return err
 		}
 
-		reaction, err := findOrCreate(tx, status, actor)
+		reaction, err := findOrCreateReaction(tx, status, actor)
 		if err != nil {
 			return err
 		}
@@ -227,7 +227,7 @@ func (r *Reactions) Reblog(status *Status, actor *Actor) (*Status, error) {
 func (r *Reactions) Unreblog(status *Status, actor *Actor) (*Status, error) {
 	var reblog Status
 	return &reblog, r.db.Transaction(func(tx *gorm.DB) error {
-		reaction, err := findOrCreate(tx, status, actor)
+		reaction, err := findOrCreateReaction(tx, status, actor)
 		if err != nil {
 			return err
 		}
@@ -244,7 +244,7 @@ func (r *Reactions) Unreblog(status *Status, actor *Actor) (*Status, error) {
 	})
 }
 
-func findOrCreate(tx *gorm.DB, status *Status, actor *Actor) (*Reaction, error) {
+func findOrCreateReaction(tx *gorm.DB, status *Status, actor *Actor) (*Reaction, error) {
 	status.Reaction = &Reaction{
 		StatusID: status.ID,
 		Status:   status,
