@@ -1,11 +1,8 @@
 package mastodon
 
 import (
-	"bufio"
-	"context"
 	"errors"
 	"fmt"
-	"image"
 	"net/http"
 	"net/http/httputil"
 	"strings"
@@ -350,107 +347,4 @@ func reverse[T any](a []T) {
 	for i, j := 0, len(a)-1; i < j; i, j = i+1, j-1 {
 		a[i], a[j] = a[j], a[i]
 	}
-}
-
-func NewStatusAttachmentRequestProcessor(db *gorm.DB) func(context.Context) error {
-	return func(ctx context.Context) error {
-		fmt.Println("StatusAttachmentRequestProcessor.Run started")
-		defer fmt.Println("StatusAttachmentRequestProcessor.Run stopped")
-
-		db := db.WithContext(ctx)
-		for {
-			if err := process(db, processRequest); err != nil {
-				return err
-			}
-			select {
-			case <-ctx.Done():
-				return nil
-			case <-time.After(30 * time.Second):
-				// continue
-			}
-		}
-	}
-}
-
-func process[T any](db *gorm.DB, fn func(*gorm.DB, T) error) error {
-	var requests []T
-	return db.Preload("StatusAttachment").Where("attempts < 3").FindInBatches(&requests, 100, func(db *gorm.DB, batch int) error {
-		return forEach(requests, func(request T) error {
-			start := time.Now()
-			if err := fn(db, request); err != nil {
-				return db.Model(request).Updates(map[string]interface{}{
-					"attempts":     gorm.Expr("attempts + 1"),
-					"last_attempt": start,
-					"last_result":  err.Error(),
-				}).Error
-			}
-			return db.Delete(request).Error
-		})
-	}).Error
-}
-
-func forEach[T any](a []T, fn func(T) error) error {
-	for _, v := range a {
-		if err := fn(v); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func processRequest(tx *gorm.DB, request *models.StatusAttachmentRequest) error {
-	fmt.Println("StatusAttachmentRequestProcessor.processRequest", request.StatusAttachment.URL)
-	ctx, cancel := context.WithTimeout(tx.Statement.Context, 10*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, request.StatusAttachment.URL, nil)
-	if err != nil {
-		return err
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	headerContentType := resp.Header.Get("Content-Type")
-
-	// read first 512 bytes to check the content type
-	br := bufio.NewReader(resp.Body)
-	head, err := br.Peek(512)
-	if err != nil {
-		return err
-	}
-	contentType := http.DetectContentType(head)
-	if !equal(headerContentType, contentType, request.StatusAttachment.MediaType) {
-		fmt.Println("StatusAttachmentRequestProcessor.processRequest", request.StatusAttachment.URL, "content type mismatch, header:", headerContentType, "detected:", contentType, "db:", request.StatusAttachment.MediaType)
-	}
-
-	img, format, err := image.Decode(br)
-	if err != nil {
-		return err
-	}
-	b := img.Bounds()
-	fmt.Println("StatusAttachmentRequestProcessor.processRequest", request.StatusAttachment.URL, "format", format, "bounds", b)
-	return tx.Model(request.StatusAttachment).
-		Updates(map[string]interface{}{
-			"media_type": contentType,
-			"width":      b.Dx(),
-			"height":     b.Dy(),
-		}).Error
-}
-
-func equal[T comparable](first, second T, rest ...T) bool {
-	if first != second {
-		return false
-	}
-	if len(rest) > 0 {
-		return equal(second, rest[0], rest[1:]...)
-	}
-	return true
 }

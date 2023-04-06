@@ -20,3 +20,14 @@ func Filter[T any](s []T, f func(T) bool) []T {
 	}
 	return r
 }
+
+// Equal returns true if all elements are equal.
+func Equal[T comparable](first, second T, rest ...T) bool {
+	if first != second {
+		return false
+	}
+	if len(rest) > 0 {
+		return Equal(second, rest[0], rest[1:]...)
+	}
+	return true
+}

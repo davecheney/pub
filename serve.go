@@ -18,6 +18,7 @@ import (
 	"github.com/davecheney/pub/mastodon"
 	"github.com/davecheney/pub/media"
 	"github.com/davecheney/pub/oauth"
+	"github.com/davecheney/pub/processors"
 	"github.com/davecheney/pub/wellknown"
 	"github.com/pkg/group"
 	"gorm.io/gorm"
@@ -219,9 +220,9 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		}()
 		return svr.ListenAndServe()
 	})
-	g.Add(activitypub.NewRelationshipRequestProcessor(db).Run)
-	g.Add(activitypub.NewReactionRequestProcessor(db).Run)
-	g.Add(mastodon.NewStatusAttachmentRequestProcessor(db))
+	g.Add(processors.NewRelationshipRequestProcessor(db))
+	g.Add(processors.NewReactionRequestProcessor(db))
+	g.Add(processors.NewStatusAttachmentRequestProcessor(db))
 
 	return g.Wait()
 }
