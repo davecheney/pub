@@ -16,22 +16,7 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	err = db.AutoMigrate(
-		&models.ActivitypubRefresh{},
-		&models.Actor{}, &models.ActorAttribute{},
-		&models.Account{}, &models.AccountList{}, &models.AccountListMember{}, &models.AccountRole{}, &models.AccountMarker{}, &models.AccountPreferences{},
-		&models.Application{},
-		&models.Conversation{},
-		&models.Instance{}, &models.InstanceRule{},
-		&models.Reaction{}, &models.ReactionRequest{},
-		&models.Relationship{}, &models.RelationshipRequest{},
-		// &models.Notification{},
-		&models.Status{}, &models.StatusPoll{}, &models.StatusPollOption{}, &models.StatusAttachment{}, &models.StatusMention{}, &models.StatusTag{},
-		&models.StatusAttachmentRequest{},
-		&models.Tag{},
-		&models.Token{},
-	)
-	if err != nil {
+	if err := db.AutoMigrate(models.AllTables()...); err != nil {
 		return err
 	}
 

@@ -1,12 +1,9 @@
 package main
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 
+	"github.com/davecheney/pub/internal/crypto"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
 	"golang.org/x/crypto/bcrypt"
@@ -33,7 +30,7 @@ func (c *CreateAccountCmd) Run(ctx *Context) error {
 			return err
 		}
 
-		keypair, err := generateRSAKeypair()
+		keypair, err := crypto.GenerateRSAKeypair()
 		if err != nil {
 			return err
 		}
@@ -52,7 +49,7 @@ func (c *CreateAccountCmd) Run(ctx *Context) error {
 			DisplayName: c.Name,
 			Avatar:      "https://avatars.githubusercontent.com/u/1024?v=4",
 			Header:      "https://avatars.githubusercontent.com/u/1024?v=4",
-			PublicKey:   keypair.publicKey,
+			PublicKey:   keypair.PublicKey,
 		}
 		if err := tx.Create(&actor).Error; err != nil {
 			return err
@@ -73,42 +70,10 @@ func (c *CreateAccountCmd) Run(ctx *Context) error {
 			ActorID:           actor.ID,
 			Email:             c.Email,
 			EncryptedPassword: passwd,
-			PrivateKey:        keypair.privateKey,
+			PrivateKey:        keypair.PrivateKey,
 			RoleID:            userRole.ID,
 		}
 		return tx.Create(&account).Error
 	})
 
-}
-
-type keypair struct {
-	publicKey  []byte
-	privateKey []byte
-}
-
-func generateRSAKeypair() (*keypair, error) {
-	privatekey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return nil, err
-	}
-	publickey := &privatekey.PublicKey
-	privateKeyBytes := x509.MarshalPKCS1PrivateKey(privatekey)
-	privateKeyBlock := &pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: privateKeyBytes,
-	}
-	privateKeyPem := pem.EncodeToMemory(privateKeyBlock)
-	publicKeyBytes, err := x509.MarshalPKIXPublicKey(publickey)
-	if err != nil {
-		return nil, err
-	}
-	publicKeyBlock := &pem.Block{
-		Type:  "PUBLIC KEY",
-		Bytes: publicKeyBytes,
-	}
-	publicKeyPem := pem.EncodeToMemory(publicKeyBlock)
-	return &keypair{
-		publicKey:  publicKeyPem,
-		privateKey: privateKeyPem,
-	}, nil
 }

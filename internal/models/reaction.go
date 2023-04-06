@@ -54,7 +54,13 @@ func (r *Reaction) createReactionRequest(tx *gorm.DB) error {
 	// if there is a conflict; eg. a follow then an unfollow before the follow is processed
 	// update the existing row to reflect the new action.
 	tx = tx.Clauses(clause.OnConflict{
-		UpdateAll: true,
+		Columns: []clause.Column{{Name: "actor_id"}, {Name: "target_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{
+			"action",
+			"created_at",
+			"updated_at",
+			"attempts",
+		}),
 	})
 
 	// what changed?
@@ -243,12 +249,11 @@ func (r *Reactions) Unreblog(status *Status, actor *Actor) (*Status, error) {
 }
 
 func (r *Reactions) findOrCreate(status *Status, actor *Actor) (*Reaction, error) {
-	var reaction Reaction
-	if err := r.db.FirstOrCreate(&reaction, Reaction{StatusID: status.ID, ActorID: actor.ID}).Error; err != nil {
-		return nil, err
+	status.Reaction = &Reaction{
+		StatusID: status.ID,
+		Status:   status,
+		ActorID:  actor.ID,
+		Actor:    actor,
 	}
-	status.Reaction = &reaction
-	reaction.Status = status
-	reaction.Actor = actor
-	return &reaction, nil
+	return status.Reaction, r.db.FirstOrCreate(status.Reaction).Error
 }

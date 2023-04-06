@@ -3,12 +3,9 @@ package models
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"time"
-	"unsafe"
 
 	"github.com/davecheney/pub/internal/snowflake"
-	"github.com/davecheney/pub/internal/streaming"
 	"gorm.io/gorm"
 )
 
@@ -47,7 +44,6 @@ func (st *Status) AfterCreate(tx *gorm.DB) error {
 		st.updateStatusCount,
 		st.updateRepliesCount,
 		st.updateReblogsCount,
-		st.sendUpdateEvent,
 	)
 }
 
@@ -90,43 +86,6 @@ func (st *Status) updateStatusCount(tx *gorm.DB) error {
 		"statuses_count": statusesCount,
 		"last_status_at": createdAt,
 	}).Error
-}
-
-// sendUpdateEvent sends an update event to the streaming mux.
-func (st *Status) sendUpdateEvent(tx *gorm.DB) error {
-	mux, ok := tx.Statement.Context.Value("mux").(*streaming.Mux)
-	if !ok {
-		printContextInternals(tx.Statement.Context, false)
-		return errors.New("no mux in context")
-	}
-	return mux.Publish("update", st)
-}
-
-func printContextInternals(ctx interface{}, inner bool) {
-	contextValues := reflect.ValueOf(ctx).Elem()
-	contextKeys := reflect.TypeOf(ctx).Elem()
-
-	if !inner {
-		fmt.Printf("\nFields for %s.%s\n", contextKeys.PkgPath(), contextKeys.Name())
-	}
-
-	if contextKeys.Kind() == reflect.Struct {
-		for i := 0; i < contextValues.NumField(); i++ {
-			reflectValue := contextValues.Field(i)
-			reflectValue = reflect.NewAt(reflectValue.Type(), unsafe.Pointer(reflectValue.UnsafeAddr())).Elem()
-
-			reflectField := contextKeys.Field(i)
-
-			if reflectField.Name == "Context" {
-				printContextInternals(reflectValue.Interface(), true)
-			} else {
-				fmt.Printf("field name: %+v\n", reflectField.Name)
-				fmt.Printf("value: %+v\n", reflectValue.Interface())
-			}
-		}
-	} else {
-		fmt.Printf("context is empty (int)\n")
-	}
 }
 
 type StatusPoll struct {

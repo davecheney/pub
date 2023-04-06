@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/davecheney/pub/internal/crypto"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
 	"golang.org/x/crypto/bcrypt"
@@ -22,13 +23,13 @@ func (c *CreateInstanceCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	kp, err := generateRSAKeypair()
+	kp, err := crypto.GenerateRSAKeypair()
 	if err != nil {
 		return err
 	}
 
 	// use the first 72 bytes of the private key as the bcrypt password
-	passwd := trim(kp.privateKey, 72)
+	passwd := trim(kp.PrivateKey, 72)
 
 	encrypted, err := bcrypt.GenerateFromPassword(passwd, bcrypt.DefaultCost)
 	if err != nil {
@@ -48,7 +49,7 @@ func (c *CreateInstanceCmd) Run(ctx *Context) error {
 			Note:        "The admin account for " + c.Domain,
 			Avatar:      "https://avatars.githubusercontent.com/u/1024?v=4",
 			Header:      "https://avatars.githubusercontent.com/u/1024?v=4",
-			PublicKey:   kp.publicKey,
+			PublicKey:   kp.PublicKey,
 		}
 		if err := tx.Create(&admin).Error; err != nil {
 			return err
@@ -86,7 +87,7 @@ func (c *CreateInstanceCmd) Run(ctx *Context) error {
 			ActorID:           admin.ID,
 			Email:             c.AdminEmail,
 			EncryptedPassword: encrypted,
-			PrivateKey:        kp.privateKey,
+			PrivateKey:        kp.PrivateKey,
 			RoleID:            adminRole.ID,
 		}
 		if err := tx.Create(&adminAccount).Error; err != nil {
