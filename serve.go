@@ -204,7 +204,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	signalCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	g := group.New(signalCtx)
-	g.AddContext(func(ctx context.Context) error {
+	g.Add(func(ctx context.Context) error {
 		fmt.Println("http.ListenAndServe", s.Addr, "started")
 		defer fmt.Println("http.ListenAndServe", s.Addr, "stopped")
 		svr := &http.Server{

@@ -1,6 +1,7 @@
 package activitypub
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -20,7 +21,7 @@ func NewRelationshipRequestProcessor(db *gorm.DB) *RelationshipRequestProcessor 
 	}
 }
 
-func (rrp *RelationshipRequestProcessor) Run(stop <-chan struct{}) error {
+func (rrp *RelationshipRequestProcessor) Run(ctx context.Context) error {
 	fmt.Println("RelationshipRequestProcessor.Run started")
 	defer fmt.Println("RelationshipRequestProcessor.Run stopped")
 
@@ -29,7 +30,7 @@ func (rrp *RelationshipRequestProcessor) Run(stop <-chan struct{}) error {
 			return err
 		}
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			return nil
 		case <-time.After(30 * time.Second):
 			// continue

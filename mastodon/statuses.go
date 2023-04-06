@@ -361,16 +361,16 @@ func NewStatusAttachmentRequestProcessor(db *gorm.DB) *StatusAttachmentRequestPr
 	return &StatusAttachmentRequestProcessor{db: db}
 }
 
-func (s *StatusAttachmentRequestProcessor) Run(stop <-chan struct{}) error {
+func (s *StatusAttachmentRequestProcessor) Run(ctx context.Context) error {
 	fmt.Println("StatusAttachmentRequestProcessor.Run started")
 	defer fmt.Println("StatusAttachmentRequestProcessor.Run stopped")
 
 	for {
-		if err := s.process(); err != nil {
+		if err := s.process(ctx); err != nil {
 			return err
 		}
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			return nil
 		case <-time.After(30 * time.Second):
 			// continue
@@ -378,34 +378,49 @@ func (s *StatusAttachmentRequestProcessor) Run(stop <-chan struct{}) error {
 	}
 }
 
-func (s *StatusAttachmentRequestProcessor) process() error {
+func (s *StatusAttachmentRequestProcessor) process(ctx context.Context) error {
 	var requests []*models.StatusAttachmentRequest
-	return s.db.Preload("StatusAttachment").FindInBatches(&requests, 100, func(tx *gorm.DB, batch int) error {
+	db := s.db.WithContext(ctx)
+	return db.Preload("StatusAttachment").FindInBatches(&requests, 100, func(tx *gorm.DB, batch int) error {
 		for _, request := range requests {
 			if request.Attempts > 3 {
 				// skip
 				continue
 			}
-			if err := s.processRequest(request); err != nil {
-				request.LastAttempt = time.Now()
-				request.Attempts++
-				request.LastResult = err.Error()
-				if err := s.db.Save(request).Error; err != nil {
-					return err
+			if err := withTX(db, func(tx *gorm.DB) error {
+				if err := processRequest(ctx, tx, request); err != nil {
+					request.LastAttempt = time.Now()
+					request.Attempts++
+					request.LastResult = err.Error()
+					if err := s.db.Save(request).Error; err != nil {
+						return err
+					}
+				} else {
+					if err := s.db.Delete(request).Error; err != nil {
+						return err
+					}
 				}
-			} else {
-				if err := s.db.Delete(request).Error; err != nil {
-					return err
-				}
+				return nil
+			}); err != nil {
+				return err
 			}
 		}
 		return nil
 	}).Error
 }
 
-func (s *StatusAttachmentRequestProcessor) processRequest(request *models.StatusAttachmentRequest) error {
+func withTX(db *gorm.DB, fn func(tx *gorm.DB) error) error {
+	tx := db.Begin()
+	if err := fn(tx); err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit().Error
+}
+
+func processRequest(ctx context.Context, tx *gorm.DB, request *models.StatusAttachmentRequest) error {
 	fmt.Println("StatusAttachmentRequestProcessor.processRequest", request.StatusAttachment.URL)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, request.StatusAttachment.URL, nil)
@@ -442,7 +457,7 @@ func (s *StatusAttachmentRequestProcessor) processRequest(request *models.Status
 	}
 	b := img.Bounds()
 	fmt.Println("StatusAttachmentRequestProcessor.processRequest", request.StatusAttachment.URL, "format", format, "bounds", b)
-	return s.db.Model(request.StatusAttachment).
+	return tx.Model(request.StatusAttachment).
 		Updates(map[string]interface{}{
 			"media_type": contentType,
 			"width":      b.Dx(),

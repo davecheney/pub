@@ -28,27 +28,14 @@ func New(ctx context.Context) *G {
 	}
 }
 
-// AddContext adds a new goroutine to the group.
+// Add adds a new goroutine to the group.
 // The goroutine should exit when the context passed to it is canceled.
-func (g *G) AddContext(fn func(context.Context) error) {
+func (g *G) Add(fn func(context.Context) error) {
 	g.done.Add(1)
 	go func() {
 		defer g.done.Done()
 		defer g.cancel()
 		if err := fn(g.ctx); err != nil {
-			g.errOnce.Do(func() { g.err = err })
-		}
-	}()
-}
-
-// Add adds a new goroutine to the group.
-// The goroutine should exit when the channel passed to it is canceled.
-func (g *G) Add(fn func(<-chan struct{}) error) {
-	g.done.Add(1)
-	go func() {
-		defer g.done.Done()
-		defer g.cancel()
-		if err := fn(g.ctx.Done()); err != nil {
 			g.errOnce.Do(func() { g.err = err })
 		}
 	}()
