@@ -4,8 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 func TestReactions(t *testing.T) {
@@ -116,15 +114,29 @@ func TestReactions(t *testing.T) {
 		require.EqualValues(0, st.ReblogsCount)
 	})
 
-}
+	t.Run("Bookmark and Unbookmark", func(t *testing.T) {
+		require := require.New(t)
+		tx := db.Begin()
+		defer tx.Rollback()
 
-func setupTestDB(t *testing.T) *gorm.DB {
-	t.Helper()
-	require := require.New(t)
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
-	require.NoError(err)
+		author := MockActor(t, tx, "alice", "example.com")
+		bookmarkedBy := MockActor(t, tx, "bob", "example.com")
+		status := MockStatus(t, tx, author, "This speech is my recital, I think it's very vital")
 
-	err = db.AutoMigrate(AllTables()...)
-	require.NoError(err)
-	return db
+		reactions := NewReactions(tx)
+		_, err := reactions.Bookmark(status, bookmarkedBy)
+		require.NoError(err)
+
+		var reaction Reaction
+		err = tx.Where("status_id = ? AND actor_id = ?", status.ID, bookmarkedBy.ID).First(&reaction).Error
+		require.NoError(err)
+		require.True(reaction.Bookmarked)
+
+		_, err = reactions.Unbookmark(status, bookmarkedBy)
+		require.NoError(err)
+
+		err = tx.Where("status_id = ? AND actor_id = ?", status.ID, bookmarkedBy.ID).First(&reaction).Error
+		require.NoError(err)
+		require.False(reaction.Bookmarked)
+	})
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/davecheney/pub/internal/crypto"
 	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/stretchr/testify/require"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -42,4 +43,15 @@ func MockStatus(t *testing.T, tx *gorm.DB, actor *Actor, note string) *Status {
 	}
 	require.NoError(tx.Create(status).Error)
 	return status
+}
+
+func setupTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	require := require.New(t)
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	require.NoError(err)
+
+	err = db.AutoMigrate(AllTables()...)
+	require.NoError(err)
+	return db
 }
