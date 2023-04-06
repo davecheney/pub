@@ -135,7 +135,7 @@ func (r *Relationships) Mute(actor, target *Actor) (*Relationship, error) {
 		return nil, err
 	}
 	forward.Muting = true
-	if err := r.db.Model(forward).Update("muting", true).Error; err != nil {
+	if err := r.db.Save(forward).Error; err != nil {
 		return nil, err
 	}
 	// there is no inverse relationship for muting
@@ -149,7 +149,7 @@ func (r *Relationships) Unmute(actor, target *Actor) (*Relationship, error) {
 		return nil, err
 	}
 	forward.Muting = false
-	if err := r.db.Model(forward).Update("muting", false).Error; err != nil {
+	if err := r.db.Save(forward).Error; err != nil {
 		return nil, err
 	}
 	// there is no inverse relationship for muting
@@ -163,11 +163,11 @@ func (r *Relationships) Block(actor, target *Actor) (*Relationship, error) {
 		return nil, err
 	}
 	forward.Blocking = true
-	if err := r.db.Model(forward).Update("blocking", true).Error; err != nil {
+	if err := r.db.Save(forward).Error; err != nil {
 		return nil, err
 	}
 	inverse.BlockedBy = true
-	if err := r.db.Model(inverse).Update("blocked_by", true).Error; err != nil {
+	if err := r.db.Save(inverse).Error; err != nil {
 		return nil, err
 	}
 	return forward, nil
@@ -180,11 +180,11 @@ func (r *Relationships) Unblock(actor, target *Actor) (*Relationship, error) {
 		return nil, err
 	}
 	forward.Blocking = false
-	if err := r.db.Model(forward).Update("blocking", false).Error; err != nil {
+	if err := r.db.Save(forward).Error; err != nil {
 		return nil, err
 	}
 	inverse.BlockedBy = false
-	if err := r.db.Model(inverse).Update("blocked_by", false).Error; err != nil {
+	if err := r.db.Save(inverse).Error; err != nil {
 		return nil, err
 	}
 	return forward, nil
@@ -196,15 +196,12 @@ func (r *Relationships) Follow(actor, target *Actor) (*Relationship, error) {
 	if err != nil {
 		return nil, err
 	}
-	// this magic is important, updating the local copy, then passing it to db.Model makes it
-	// available to the BeforeCreate hook. Then the hook can check how the relationship has changed
-	// compared to the previous state.
 	forward.Following = true
-	if err := r.db.Model(forward).Update("following", true).Error; err != nil {
+	if err := r.db.Save(forward).Error; err != nil {
 		return nil, err
 	}
 	inverse.FollowedBy = true
-	if err := r.db.Model(inverse).Update("followed_by", true).Error; err != nil {
+	if err := r.db.Save(inverse).Error; err != nil {
 		return nil, err
 	}
 	return forward, nil
@@ -217,11 +214,11 @@ func (r *Relationships) Unfollow(actor, target *Actor) (*Relationship, error) {
 		return nil, err
 	}
 	forward.Following = false
-	if err := r.db.Model(forward).Update("following", false).Error; err != nil {
+	if err := r.db.Save(forward).Error; err != nil {
 		return nil, err
 	}
 	inverse.FollowedBy = false
-	if err := r.db.Model(inverse).Update("followed_by", false).Error; err != nil {
+	if err := r.db.Save(inverse).Error; err != nil {
 		return nil, err
 	}
 	return forward, nil

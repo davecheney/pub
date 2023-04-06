@@ -23,8 +23,28 @@ type Reaction struct {
 	Pinned     bool         `gorm:"not null;default:false"`
 }
 
-// BeforeUpdate creates a reaction request between the actor and target if needed.
 func (r *Reaction) BeforeUpdate(tx *gorm.DB) error {
+	return forEach(tx, r.createReactionRequest)
+}
+
+func (r *Reaction) AfterSave(tx *gorm.DB) error {
+	return forEach(tx, r.updateStatusCount)
+}
+
+// updateStatusCount updates the favourites_count and reblogs_count fields on the status.
+func (r *Reaction) updateStatusCount(tx *gorm.DB) error {
+	status := &Status{ID: r.StatusID}
+	favouritesCount := tx.Select("COUNT(*)").Where("status_id = ? and favourited = true", r.StatusID).Table("reactions")
+	reblogsCount := tx.Select("COUNT(*)").Where("status_id = ? and reblogged = true", r.StatusID).Table("reactions")
+	return tx.Model(status).UpdateColumns(map[string]interface{}{
+		"favourites_count": favouritesCount,
+		"reblogs_count":    reblogsCount,
+	}).Error
+}
+
+// createReactionRequest creates a reaction request between the actor and target if needed.
+func (r *Reaction) createReactionRequest(tx *gorm.DB) error {
+	fmt.Println("reaction before update:", r)
 	var original Reaction
 	if err := tx.First(&original, "actor_id = ? and status_id = ?", r.ActorID, r.StatusID).Error; err != nil {
 		return err
@@ -56,21 +76,6 @@ func (r *Reaction) BeforeUpdate(tx *gorm.DB) error {
 	default:
 		return nil
 	}
-}
-
-func (r *Reaction) AfterUpdate(tx *gorm.DB) error {
-	return forEach(tx, r.updateStatusCount)
-}
-
-// updateStatusCount updates the favourites_count and reblogs_count fields on the status.
-func (r *Reaction) updateStatusCount(tx *gorm.DB) error {
-	status := &Status{ID: r.StatusID}
-	favouritesCount := tx.Select("COUNT(*)").Where("status_id = ? and favourited = true", r.StatusID).Table("reactions")
-	reblogsCount := tx.Select("COUNT(*)").Where("status_id = ? and reblogged = true", r.StatusID).Table("reactions")
-	return tx.Model(status).UpdateColumns(map[string]interface{}{
-		"favourites_count": favouritesCount,
-		"reblogs_count":    reblogsCount,
-	}).Error
 }
 
 // A ReactionRequest is a request to update the reaction to a status.
@@ -125,8 +130,7 @@ func (r *Reactions) Pin(status *Status, actor *Actor) (*Reaction, error) {
 		return nil, err
 	}
 	reaction.Pinned = true
-	err = r.db.Model(reaction).UpdateColumn("pinned", true).Error
-	return reaction, err
+	return reaction, r.db.Save(reaction).Error
 }
 
 func (r *Reactions) Unpin(status *Status, actor *Actor) (*Reaction, error) {
@@ -135,8 +139,7 @@ func (r *Reactions) Unpin(status *Status, actor *Actor) (*Reaction, error) {
 		return nil, err
 	}
 	reaction.Pinned = false
-	err = r.db.Model(reaction).UpdateColumn("pinned", false).Error
-	return reaction, err
+	return reaction, r.db.Save(reaction).Error
 }
 
 func (r *Reactions) Favourite(status *Status, actor *Actor) (*Reaction, error) {
@@ -145,11 +148,8 @@ func (r *Reactions) Favourite(status *Status, actor *Actor) (*Reaction, error) {
 		return nil, err
 	}
 	reaction.Favourited = true
-	if err := r.db.Model(reaction).UpdateColumn("favourited", true).Error; err != nil {
-		return nil, err
-	}
 	reaction.Status.FavouritesCount++
-	return reaction, nil
+	return reaction, r.db.Save(reaction).Error
 }
 
 func (r *Reactions) Unfavourite(status *Status, actor *Actor) (*Reaction, error) {
@@ -158,11 +158,8 @@ func (r *Reactions) Unfavourite(status *Status, actor *Actor) (*Reaction, error)
 		return nil, err
 	}
 	reaction.Favourited = false
-	if err := r.db.Model(reaction).UpdateColumn("favourited", false).Error; err != nil {
-		return nil, err
-	}
 	reaction.Status.FavouritesCount--
-	return reaction, nil
+	return reaction, r.db.Save(reaction).Error
 }
 
 func (r *Reactions) Bookmark(status *Status, actor *Actor) (*Reaction, error) {
@@ -171,8 +168,7 @@ func (r *Reactions) Bookmark(status *Status, actor *Actor) (*Reaction, error) {
 		return nil, err
 	}
 	reaction.Bookmarked = true
-	err = r.db.Model(reaction).Update("bookmarked", true).Error
-	return reaction, err
+	return reaction, r.db.Save(reaction).Error
 }
 
 func (r *Reactions) Unbookmark(status *Status, actor *Actor) (*Reaction, error) {
@@ -181,8 +177,7 @@ func (r *Reactions) Unbookmark(status *Status, actor *Actor) (*Reaction, error) 
 		return nil, err
 	}
 	reaction.Bookmarked = false
-	err = r.db.Model(reaction).Update("bookmarked", false).Error
-	return reaction, err
+	return reaction, r.db.Save(reaction).Error
 }
 
 // Reblog creates a new status that is a reblog of the given status.

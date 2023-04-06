@@ -204,7 +204,8 @@ func (s *ServeCmd) Run(ctx *Context) error {
 
 	signalCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	g := group.New(signalCtx)
+
+	g := group.New(context.WithValue(signalCtx, "mux", &mux))
 	g.Add(func(ctx context.Context) error {
 		fmt.Println("http.ListenAndServe", s.Addr, "started")
 		defer fmt.Println("http.ListenAndServe", s.Addr, "stopped")
@@ -220,6 +221,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		}()
 		return svr.ListenAndServe()
 	})
+
 	g.Add(processors.NewRelationshipRequestProcessor(db))
 	g.Add(processors.NewReactionRequestProcessor(db))
 	g.Add(processors.NewStatusAttachmentRequestProcessor(db))

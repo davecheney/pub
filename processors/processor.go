@@ -6,6 +6,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// process makes one pass through the objects matching the scope, calling fn for each one.
+// If fn returns an error, the object is updated with the error and the process continues.
+// If fn returns nil, the object is deleted.
 func process[T any](db *gorm.DB, scope func(*gorm.DB) *gorm.DB, fn func(*gorm.DB, T) error) error {
 	var requests []T
 	return db.Scopes(scope).FindInBatches(&requests, 100, func(db *gorm.DB, batch int) error {
