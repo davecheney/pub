@@ -27,6 +27,7 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 		&models.Relationship{}, &models.RelationshipRequest{},
 		// &models.Notification{},
 		&models.Status{}, &models.StatusPoll{}, &models.StatusPollOption{}, &models.StatusAttachment{}, &models.StatusMention{}, &models.StatusTag{},
+		&models.StatusAttachmentRequest{},
 		&models.Tag{},
 		&models.Token{},
 	)
@@ -37,5 +38,14 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 	// post migration fixups
 
 	// convert the admin account to a LocalService
-	return db.Model(&models.Actor{}).Where("type = ? and name = ?", "Service", "admin").Update("type", "LocalService").Error
+	err = db.Model(&models.Actor{}).Where("type = ? and name = ?", "Service", "admin").Update("type", "LocalService").Error
+	if err != nil {
+		return err
+	}
+
+	// load each status attachment and save it to trigger the AfterSave hook
+	var results []models.StatusAttachment
+	return db.FindInBatches(&results, 100, func(tx *gorm.DB, batch int) error {
+		return tx.Save(&results).Error
+	}).Error
 }

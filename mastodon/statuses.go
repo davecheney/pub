@@ -1,8 +1,11 @@
 package mastodon
 
 import (
+	"bufio"
+	"context"
 	"errors"
 	"fmt"
+	"image"
 	"net/http"
 	"net/http/httputil"
 	"strings"
@@ -347,4 +350,112 @@ func reverse[T any](a []T) {
 	for i, j := 0, len(a)-1; i < j; i, j = i+1, j-1 {
 		a[i], a[j] = a[j], a[i]
 	}
+}
+
+// StatusAttachmentRequestProcessor handles updating status attachments.
+type StatusAttachmentRequestProcessor struct {
+	db *gorm.DB
+}
+
+func NewStatusAttachmentRequestProcessor(db *gorm.DB) *StatusAttachmentRequestProcessor {
+	return &StatusAttachmentRequestProcessor{db: db}
+}
+
+func (s *StatusAttachmentRequestProcessor) Run(stop <-chan struct{}) error {
+	fmt.Println("StatusAttachmentRequestProcessor.Run started")
+	defer fmt.Println("StatusAttachmentRequestProcessor.Run stopped")
+
+	for {
+		if err := s.process(); err != nil {
+			return err
+		}
+		select {
+		case <-stop:
+			return nil
+		case <-time.After(30 * time.Second):
+			// continue
+		}
+	}
+}
+
+func (s *StatusAttachmentRequestProcessor) process() error {
+	var requests []*models.StatusAttachmentRequest
+	return s.db.Preload("StatusAttachment").FindInBatches(&requests, 100, func(tx *gorm.DB, batch int) error {
+		for _, request := range requests {
+			if request.Attempts > 3 {
+				// skip
+				continue
+			}
+			if err := s.processRequest(request); err != nil {
+				request.LastAttempt = time.Now()
+				request.Attempts++
+				request.LastResult = err.Error()
+				if err := s.db.Save(request).Error; err != nil {
+					return err
+				}
+			} else {
+				if err := s.db.Delete(request).Error; err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}).Error
+}
+
+func (s *StatusAttachmentRequestProcessor) processRequest(request *models.StatusAttachmentRequest) error {
+	fmt.Println("StatusAttachmentRequestProcessor.processRequest", request.StatusAttachment.URL)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, request.StatusAttachment.URL, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	headerContentType := resp.Header.Get("Content-Type")
+
+	// read first 512 bytes to check the content type
+	br := bufio.NewReader(resp.Body)
+	head, err := br.Peek(512)
+	if err != nil {
+		return err
+	}
+	contentType := http.DetectContentType(head)
+	if !equal(headerContentType, contentType, request.StatusAttachment.MediaType) {
+		fmt.Println("StatusAttachmentRequestProcessor.processRequest", request.StatusAttachment.URL, "content type mismatch, header:", headerContentType, "detected:", contentType, "db:", request.StatusAttachment.MediaType)
+	}
+
+	img, format, err := image.Decode(br)
+	if err != nil {
+		return err
+	}
+	b := img.Bounds()
+	fmt.Println("StatusAttachmentRequestProcessor.processRequest", request.StatusAttachment.URL, "format", format, "bounds", b)
+	return s.db.Model(request.StatusAttachment).
+		Updates(map[string]interface{}{
+			"media_type": contentType,
+			"width":      b.Dx(),
+			"height":     b.Dy(),
+		}).Error
+}
+
+func equal[T comparable](first, second T, rest ...T) bool {
+	if first != second {
+		return false
+	}
+	if len(rest) > 0 {
+		return equal(second, rest[0], rest[1:]...)
+	}
+	return true
 }

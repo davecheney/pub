@@ -211,11 +211,11 @@ func (r *Reactions) Reblog(status *Status, actor *Actor) (*Status, error) {
 			ActorID:        actor.ID,
 			Actor:          actor,
 			ConversationID: conv.ID,
-			Visibility: conv.Visibility,
-			ReblogID: &status.ID,
-			Reblog:   status,
-			URI:      fmt.Sprintf("%s/statuses/%d", actor.URI, id),
-			Reaction: reaction,
+			Visibility:     conv.Visibility,
+			ReblogID:       &status.ID,
+			Reblog:         status,
+			URI:            fmt.Sprintf("%s/statuses/%d", actor.URI, id),
+			Reaction:       reaction,
 		}
 		if err := r.db.Create(&reblog).Error; err != nil {
 			return nil, err

@@ -11,6 +11,8 @@ import (
 	"io"
 	"net/http"
 
+	_ "golang.org/x/image/webp"
+
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/go-chi/chi/v5"
