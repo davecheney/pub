@@ -352,75 +352,55 @@ func reverse[T any](a []T) {
 	}
 }
 
-// StatusAttachmentRequestProcessor handles updating status attachments.
-type StatusAttachmentRequestProcessor struct {
-	db *gorm.DB
-}
+func NewStatusAttachmentRequestProcessor(db *gorm.DB) func(context.Context) error {
+	return func(ctx context.Context) error {
+		fmt.Println("StatusAttachmentRequestProcessor.Run started")
+		defer fmt.Println("StatusAttachmentRequestProcessor.Run stopped")
 
-func NewStatusAttachmentRequestProcessor(db *gorm.DB) *StatusAttachmentRequestProcessor {
-	return &StatusAttachmentRequestProcessor{db: db}
-}
-
-func (s *StatusAttachmentRequestProcessor) Run(ctx context.Context) error {
-	fmt.Println("StatusAttachmentRequestProcessor.Run started")
-	defer fmt.Println("StatusAttachmentRequestProcessor.Run stopped")
-
-	for {
-		if err := s.process(ctx); err != nil {
-			return err
-		}
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-time.After(30 * time.Second):
-			// continue
+		db := db.WithContext(ctx)
+		for {
+			if err := process(db, processRequest); err != nil {
+				return err
+			}
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(30 * time.Second):
+				// continue
+			}
 		}
 	}
 }
 
-func (s *StatusAttachmentRequestProcessor) process(ctx context.Context) error {
-	var requests []*models.StatusAttachmentRequest
-	db := s.db.WithContext(ctx)
-	return db.Preload("StatusAttachment").FindInBatches(&requests, 100, func(tx *gorm.DB, batch int) error {
-		for _, request := range requests {
-			if request.Attempts > 3 {
-				// skip
-				continue
+func process[T any](db *gorm.DB, fn func(*gorm.DB, T) error) error {
+	var requests []T
+	return db.Preload("StatusAttachment").Where("attempts < 3").FindInBatches(&requests, 100, func(db *gorm.DB, batch int) error {
+		return forEach(requests, func(request T) error {
+			start := time.Now()
+			if err := fn(db, request); err != nil {
+				return db.Model(request).Updates(map[string]interface{}{
+					"attempts":     gorm.Expr("attempts + 1"),
+					"last_attempt": start,
+					"last_result":  err.Error(),
+				}).Error
 			}
-			if err := withTX(db, func(tx *gorm.DB) error {
-				if err := processRequest(ctx, tx, request); err != nil {
-					request.LastAttempt = time.Now()
-					request.Attempts++
-					request.LastResult = err.Error()
-					if err := s.db.Save(request).Error; err != nil {
-						return err
-					}
-				} else {
-					if err := s.db.Delete(request).Error; err != nil {
-						return err
-					}
-				}
-				return nil
-			}); err != nil {
-				return err
-			}
-		}
-		return nil
+			return db.Delete(request).Error
+		})
 	}).Error
 }
 
-func withTX(db *gorm.DB, fn func(tx *gorm.DB) error) error {
-	tx := db.Begin()
-	if err := fn(tx); err != nil {
-		tx.Rollback()
-		return err
+func forEach[T any](a []T, fn func(T) error) error {
+	for _, v := range a {
+		if err := fn(v); err != nil {
+			return err
+		}
 	}
-	return tx.Commit().Error
+	return nil
 }
 
-func processRequest(ctx context.Context, tx *gorm.DB, request *models.StatusAttachmentRequest) error {
+func processRequest(tx *gorm.DB, request *models.StatusAttachmentRequest) error {
 	fmt.Println("StatusAttachmentRequestProcessor.processRequest", request.StatusAttachment.URL)
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(tx.Statement.Context, 10*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, request.StatusAttachment.URL, nil)

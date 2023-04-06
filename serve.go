@@ -221,7 +221,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	})
 	g.Add(activitypub.NewRelationshipRequestProcessor(db).Run)
 	g.Add(activitypub.NewReactionRequestProcessor(db).Run)
-	g.Add(mastodon.NewStatusAttachmentRequestProcessor(db).Run)
+	g.Add(mastodon.NewStatusAttachmentRequestProcessor(db))
 
 	return g.Wait()
 }
