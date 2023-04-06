@@ -59,7 +59,7 @@ func (r *Reaction) createReactionRequest(tx *gorm.DB) error {
 			"action",
 			"created_at",
 			"updated_at",
-			"attempts",
+			"attempts", // resets the attempts counter
 		}),
 	})
 
@@ -131,7 +131,7 @@ func NewReactions(db *gorm.DB) *Reactions {
 }
 
 func (r *Reactions) Pin(status *Status, actor *Actor) (*Reaction, error) {
-	reaction, err := r.findOrCreate(status, actor)
+	reaction, err := findOrCreate(r.db, status, actor)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func (r *Reactions) Pin(status *Status, actor *Actor) (*Reaction, error) {
 }
 
 func (r *Reactions) Unpin(status *Status, actor *Actor) (*Reaction, error) {
-	reaction, err := r.findOrCreate(status, actor)
+	reaction, err := findOrCreate(r.db, status, actor)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func (r *Reactions) Unpin(status *Status, actor *Actor) (*Reaction, error) {
 }
 
 func (r *Reactions) Favourite(status *Status, actor *Actor) (*Reaction, error) {
-	reaction, err := r.findOrCreate(status, actor)
+	reaction, err := findOrCreate(r.db, status, actor)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +159,7 @@ func (r *Reactions) Favourite(status *Status, actor *Actor) (*Reaction, error) {
 }
 
 func (r *Reactions) Unfavourite(status *Status, actor *Actor) (*Reaction, error) {
-	reaction, err := r.findOrCreate(status, actor)
+	reaction, err := findOrCreate(r.db, status, actor)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func (r *Reactions) Unfavourite(status *Status, actor *Actor) (*Reaction, error)
 }
 
 func (r *Reactions) Bookmark(status *Status, actor *Actor) (*Reaction, error) {
-	reaction, err := r.findOrCreate(status, actor)
+	reaction, err := findOrCreate(r.db, status, actor)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +178,7 @@ func (r *Reactions) Bookmark(status *Status, actor *Actor) (*Reaction, error) {
 }
 
 func (r *Reactions) Unbookmark(status *Status, actor *Actor) (*Reaction, error) {
-	reaction, err := r.findOrCreate(status, actor)
+	reaction, err := findOrCreate(r.db, status, actor)
 	if err != nil {
 		return nil, err
 	}
@@ -188,26 +188,27 @@ func (r *Reactions) Unbookmark(status *Status, actor *Actor) (*Reaction, error) 
 
 // Reblog creates a new status that is a reblog of the given status.
 func (r *Reactions) Reblog(status *Status, actor *Actor) (*Status, error) {
-	return withTransaction(r.db, func(tx *gorm.DB) (*Status, error) {
+	var reblog Status
+	return &reblog, r.db.Transaction(func(tx *gorm.DB) error {
 		conv := Conversation{
 			Visibility: "public",
 		}
-		if err := r.db.Create(&conv).Error; err != nil {
-			return nil, err
+		if err := tx.Create(&conv).Error; err != nil {
+			return err
 		}
 
-		reaction, err := r.findOrCreate(status, actor)
+		reaction, err := findOrCreate(tx, status, actor)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		reaction.Reblogged = true
-		err = r.db.Model(reaction).Update("reblogged", true).Error
-		if err != nil {
-			return nil, err
+		reaction.Status.ReblogsCount++
+		if err := tx.Save(reaction).Error; err != nil {
+			return err
 		}
 
 		id := snowflake.Now()
-		reblog := Status{
+		reblog = Status{
 			ID:             id,
 			ActorID:        actor.ID,
 			Actor:          actor,
@@ -218,42 +219,37 @@ func (r *Reactions) Reblog(status *Status, actor *Actor) (*Status, error) {
 			URI:            fmt.Sprintf("%s/statuses/%d", actor.URI, id),
 			Reaction:       reaction,
 		}
-		if err := r.db.Create(&reblog).Error; err != nil {
-			return nil, err
-		}
-		return &reblog, nil
+		return tx.Create(&reblog).Error
 	})
 }
 
 // Unreblog removes the reblog of the given status with the given actor.
 func (r *Reactions) Unreblog(status *Status, actor *Actor) (*Status, error) {
-	return withTransaction(r.db, func(tx *gorm.DB) (*Status, error) {
-		reaction, err := r.findOrCreate(status, actor)
+	var reblog Status
+	return &reblog, r.db.Transaction(func(tx *gorm.DB) error {
+		reaction, err := findOrCreate(tx, status, actor)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		reaction.Reblogged = false
-		err = r.db.Model(reaction).Update("reblogged", false).Error
-		if err != nil {
-			return nil, err
+		reaction.Status.ReblogsCount--
+		if err := tx.Save(reaction).Error; err != nil {
+			return err
 		}
-		var reblog Status
-		if err := r.db.Where("reblog_id = ? AND actor_id = ?", status.ID, actor.ID).First(&reblog).Error; err != nil {
-			return nil, err
+
+		if err := tx.Where("reblog_id = ? AND actor_id = ?", status.ID, actor.ID).Preload("Actor").First(&reblog).Error; err != nil {
+			return err
 		}
-		if err := r.db.Delete(&reblog).Error; err != nil {
-			return nil, err
-		}
-		return status, nil
+		return tx.Delete(&reblog).Error
 	})
 }
 
-func (r *Reactions) findOrCreate(status *Status, actor *Actor) (*Reaction, error) {
+func findOrCreate(tx *gorm.DB, status *Status, actor *Actor) (*Reaction, error) {
 	status.Reaction = &Reaction{
 		StatusID: status.ID,
 		Status:   status,
 		ActorID:  actor.ID,
 		Actor:    actor,
 	}
-	return status.Reaction, r.db.FirstOrCreate(status.Reaction).Error
+	return status.Reaction, tx.FirstOrCreate(status.Reaction).Error
 }

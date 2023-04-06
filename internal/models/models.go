@@ -13,20 +13,3 @@ func forEach(tx *gorm.DB, fns ...func(tx *gorm.DB) error) error {
 	}
 	return nil
 }
-
-func withTransaction[P *T, T any](db *gorm.DB, fn func(tx *gorm.DB) (P, error)) (P, error) {
-	tx := db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			panic(r)
-		}
-	}()
-	result, err := fn(tx)
-	if tx.Error != nil || err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-	tx.Commit()
-	return result, nil
-}
