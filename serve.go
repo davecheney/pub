@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/davecheney/pub/activitypub"
-	"github.com/davecheney/pub/internal/group"
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/streaming"
@@ -20,6 +19,7 @@ import (
 	"github.com/davecheney/pub/media"
 	"github.com/davecheney/pub/oauth"
 	"github.com/davecheney/pub/wellknown"
+	"github.com/pkg/group"
 	"gorm.io/gorm"
 
 	"github.com/go-chi/chi/v5"

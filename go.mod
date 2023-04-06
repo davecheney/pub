@@ -10,6 +10,7 @@ require (
 	github.com/go-json-experiment/json v0.0.0-20230321051131-ccbac49a6929
 	github.com/google/uuid v1.3.0
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
+	github.com/pkg/group v1.0.0
 	github.com/stretchr/testify v1.8.2
 	golang.org/x/crypto v0.7.0
 	golang.org/x/image v0.6.0
