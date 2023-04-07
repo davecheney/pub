@@ -12,8 +12,8 @@ require (
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pkg/group v1.0.0
 	github.com/stretchr/testify v1.8.2
-	golang.org/x/crypto v0.7.0
-	golang.org/x/image v0.6.0
+	golang.org/x/crypto v0.8.0
+	golang.org/x/image v0.7.0
 	gorm.io/driver/mysql v1.4.7
 	gorm.io/driver/sqlite v1.4.4
 	gorm.io/gorm v1.24.6
@@ -27,7 +27,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.16 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/exp v0.0.0-20230321023759-10a507213a29 // indirect
-	golang.org/x/net v0.8.0 // indirect
+	golang.org/x/net v0.9.0 // indirect
 	golang.org/x/sys v0.7.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
