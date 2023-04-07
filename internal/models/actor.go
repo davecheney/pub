@@ -27,7 +27,7 @@ type Actor struct {
 	LastStatusAt   time.Time
 	Avatar         string            `gorm:"size:255"`
 	Header         string            `gorm:"size:255"`
-	PublicKey      []byte            `gorm:"type:blob;not null"`
+	PublicKey      []byte            `gorm:"size:16384;type:blob;not null"`
 	Attributes     []*ActorAttribute `gorm:"constraint:OnDelete:CASCADE;"`
 }
 
