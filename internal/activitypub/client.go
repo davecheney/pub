@@ -78,41 +78,24 @@ func (e *Error) Error() string {
 }
 
 // Follow sends a follow request to the given URL.
-func (c *Client) Follow(follower, target string) error {
-	actor, err := c.Get(target)
-	if err != nil {
-		return err
-	}
-	inbox := stringFromAny(actor["sharedInbox"])
+func (c *Client) Follow(follower, target *models.Actor) error {
+	inbox := target.Inbox()
 	if inbox == "" {
-		inbox = stringFromAny(actor["inbox"])
-		if inbox == "" {
-			return fmt.Errorf("no inbox found for %s", target)
-		}
+		return fmt.Errorf("no inbox found for %s", target.URI)
 	}
 
 	return c.Post(inbox, map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       uuid.New().String(),
 		"type":     "Follow",
-		"object":   target,
-		"actor":    follower,
+		"object":   target.URI,
+		"actor":    follower.URI,
 	})
 }
 
 // Unfollow sends an unfollow request to the given URL.
-func (c *Client) Unfollow(follower, target string) error {
-	actor, err := c.Get(target)
-	if err != nil {
-		return err
-	}
-	inbox := stringFromAny(actor["sharedInbox"])
-	if inbox == "" {
-		inbox = stringFromAny(actor["inbox"])
-		if inbox == "" {
-			return fmt.Errorf("no inbox found for %s", target)
-		}
-	}
+func (c *Client) Unfollow(follower, target *models.Actor) error {
+	inbox := target.Inbox()
 
 	return c.Post(inbox, map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
@@ -120,60 +103,44 @@ func (c *Client) Unfollow(follower, target string) error {
 		"type":     "Undo",
 		"object": map[string]any{
 			"type":   "Follow",
-			"object": target,
-			"actor":  follower,
+			"object": target.URI,
+			"actor":  follower.URI,
 		},
-		"actor": follower,
+		"actor": follower.URI,
 	})
 }
 
 // Like sends a like request to the given URL.
-func (c *Client) Like(liking, target string) error {
-	actor, err := c.Get(target)
-	if err != nil {
-		return err
-	}
-	inbox := stringFromAny(actor["sharedInbox"])
+func (c *Client) Like(liker *models.Actor, object *models.Status) error {
+	inbox := object.Actor.Inbox()
 	if inbox == "" {
-		inbox = stringFromAny(actor["inbox"])
-		if inbox == "" {
-			return fmt.Errorf("no inbox found for %s", target)
-		}
+		return fmt.Errorf("no inbox found for %s", object.Actor.URI)
 	}
-
 	return c.Post(inbox, map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       uuid.New().String(),
 		"type":     "Like",
-		"object":   target,
-		"actor":    liking,
+		"object":   object.URI,
+		"actor":    liker.URI,
 	})
 }
 
 // Unlike sends an undo like request to the given URL.
-func (c *Client) Unlike(liking, target string) error {
-	actor, err := c.Get(target)
-	if err != nil {
-		return err
-	}
-	inbox := stringFromAny(actor["sharedInbox"])
+func (c *Client) Unlike(liker *models.Actor, object *models.Status) error {
+	inbox := object.Actor.Inbox()
 	if inbox == "" {
-		inbox = stringFromAny(actor["inbox"])
-		if inbox == "" {
-			return fmt.Errorf("no inbox found for %s", target)
-		}
+		return fmt.Errorf("no inbox found for %s", object.Actor.URI)
 	}
-
 	return c.Post(inbox, map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       uuid.New().String(),
 		"type":     "Undo",
 		"object": map[string]any{
 			"type":   "Like",
-			"object": target,
-			"actor":  liking,
+			"object": object.URI,
+			"actor":  liker.URI,
 		},
-		"actor": liking,
+		"actor": liker.URI,
 	})
 }
 

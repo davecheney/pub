@@ -225,6 +225,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	g.Add(workers.NewRelationshipRequestProcessor(db))
 	g.Add(workers.NewReactionRequestProcessor(db))
 	g.Add(workers.NewStatusAttachmentRequestProcessor(db))
+	g.Add(workers.NewActorRefreshProcessor(db))
 
 	return g.Wait()
 }

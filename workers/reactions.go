@@ -32,7 +32,7 @@ func NewReactionRequestProcessor(db *gorm.DB) func(ctx context.Context) error {
 }
 
 func reactionRequestScope(db *gorm.DB) *gorm.DB {
-	return db.Preload("Actor").Preload("Target").Where("attempts < 3")
+	return db.Preload("Actor").Preload("Target").Preload("Target.Actor").Where("attempts < 3")
 }
 
 func processReactionRequest(db *gorm.DB, request *models.ReactionRequest) error {
@@ -49,11 +49,19 @@ func processReactionRequest(db *gorm.DB, request *models.ReactionRequest) error 
 		return err
 	}
 
+	inbox := request.Target.Actor.Inbox()
+	if inbox == "" {
+		if err := models.NewActors(db).Refresh(request.Target.Actor); err != nil {
+			return err
+		}
+		return fmt.Errorf("no inbox for actor %q", request.Target.Actor.URI)
+	}
+
 	switch request.Action {
 	case "like":
-		return client.Like(account.Actor.URI, request.Target.URI)
+		return client.Like(account.Actor, request.Target)
 	case "unlike":
-		return client.Unlike(account.Actor.URI, request.Target.URI)
+		return client.Unlike(account.Actor, request.Target)
 	default:
 		return fmt.Errorf("unknown action %q", request.Action)
 	}

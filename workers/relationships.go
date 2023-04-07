@@ -51,9 +51,9 @@ func processRelationshipRequest(db *gorm.DB, request *models.RelationshipRequest
 
 	switch request.Action {
 	case "follow":
-		return client.Follow(account.Actor.URI, request.Target.URI)
+		return client.Follow(account.Actor, request.Target)
 	case "unfollow":
-		return client.Unfollow(account.Actor.URI, request.Target.URI)
+		return client.Unfollow(account.Actor, request.Target)
 	default:
 		return fmt.Errorf("unknown action %q", request.Action)
 	}

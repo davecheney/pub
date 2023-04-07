@@ -11,7 +11,15 @@ import (
 	"gorm.io/gorm"
 )
 
-func MockActor(t *testing.T, tx *gorm.DB, name, domain string) *Actor {
+// WithType sets the type of an actor.
+func WithType(t ActorType) func(*Actor) {
+	return func(a *Actor) {
+		a.Type = t
+	}
+}
+
+// MockActor creates a new actor in the database.
+func MockActor(t *testing.T, tx *gorm.DB, name, domain string, opts ...func(*Actor)) *Actor {
 	t.Helper()
 	require := require.New(t)
 
@@ -27,6 +35,9 @@ func MockActor(t *testing.T, tx *gorm.DB, name, domain string) *Actor {
 		Avatar:      "https://avatars.githubusercontent.com/u/1024?v=4",
 		Header:      "https://avatars.githubusercontent.com/u/1024?v=4",
 		PublicKey:   kp.PublicKey,
+	}
+	for _, opt := range opts {
+		opt(actor)
 	}
 	require.NoError(tx.Create(actor).Error)
 	return actor

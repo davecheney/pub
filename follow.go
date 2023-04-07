@@ -29,5 +29,5 @@ func (f *FollowCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	return client.Follow(account.Actor.URI, f.Object)
+	return client.Follow(account.Actor, &models.Actor{URI: f.Object})
 }

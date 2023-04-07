@@ -44,7 +44,6 @@ func (r *Reaction) updateStatusCount(tx *gorm.DB) error {
 
 // createReactionRequest creates a reaction request between the actor and target if needed.
 func (r *Reaction) createReactionRequest(tx *gorm.DB) error {
-	fmt.Println("reaction before update:", r)
 	var original Reaction
 	if err := tx.First(&original, "actor_id = ? and status_id = ?", r.ActorID, r.StatusID).Error; err != nil {
 		return err
