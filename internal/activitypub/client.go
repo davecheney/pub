@@ -179,6 +179,33 @@ func (c *Client) Get(uri string) (map[string]any, error) {
 	return c.bodyToObj(resp)
 }
 
+// Fetch fetches the ActivityPub resource at the given URL and decodes it into the given object.
+func (c *Client) Fetch(uri string, obj interface{}) error {
+	req, err := http.NewRequestWithContext(c.ctx, "GET", uri, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Accept", "application/activity+json, application/ld+json")
+	if err := httpsig.Sign(req, c.keyID, c.privateKey, nil); err != nil {
+		return fmt.Errorf("failed to sign request: %w", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		body, _ := io.ReadAll(resp.Body)
+		return &Error{
+			StatusCode: resp.StatusCode,
+			URI:        resp.Request.URL.String(),
+			Method:     resp.Request.Method,
+			Body:       string(body),
+		}
+	}
+	defer resp.Body.Close()
+	return json.UnmarshalFull(resp.Body, obj)
+}
+
 // Post posts the given ActivityPub object to the given URL.
 func (c *Client) Post(url string, obj map[string]any) error {
 	body, err := json.Marshal(obj)

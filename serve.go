@@ -225,7 +225,14 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	g.Add(workers.NewRelationshipRequestProcessor(db))
 	g.Add(workers.NewReactionRequestProcessor(db))
 	g.Add(workers.NewStatusAttachmentRequestProcessor(db))
-	g.Add(workers.NewActorRefreshProcessor(db))
+
+	// ActorRefreshProcessor needs an admin account to sign the activitypub requests.
+	// Pick _an_ admin account, it doesn't matter which one.
+	var admin models.Account
+	if err := db.Joins("Actor", "name = ? and type = ?", "admin", "LocalService").Take(&admin).Error; err != nil {
+		return err
+	}
+	g.Add(workers.NewActorRefreshProcessor(db, &admin))
 
 	return g.Wait()
 }

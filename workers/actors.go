@@ -6,20 +6,26 @@ import (
 	"time"
 
 	"github.com/carlmjohnson/requests"
+	"github.com/davecheney/pub/internal/activitypub"
 	"github.com/davecheney/pub/internal/webfinger"
 	"github.com/davecheney/pub/models"
 	"gorm.io/gorm"
 )
 
 // NewActorRefreshProcessor handles updating the actor's record.
-func NewActorRefreshProcessor(db *gorm.DB) func(ctx context.Context) error {
+func NewActorRefreshProcessor(db *gorm.DB, admin *models.Account) func(ctx context.Context) error {
+
+	refresher := &actorRefresher{
+		admin: admin,
+	}
+
 	return func(ctx context.Context) error {
 		fmt.Println("NewActorRefreshProcessor started")
 		defer fmt.Println("NewActorRefreshProcessor stopped")
 
 		db := db.WithContext(ctx)
 		for {
-			if err := process(db, actorRefreshScope, processActorRefresh); err != nil {
+			if err := process(db, actorRefreshScope, refresher.processActorRefresh); err != nil {
 				return err
 			}
 			select {
@@ -36,7 +42,12 @@ func actorRefreshScope(db *gorm.DB) *gorm.DB {
 	return db.Preload("Actor").Preload("Actor.Attributes").Where("attempts < 3")
 }
 
-func processActorRefresh(db *gorm.DB, request *models.ActorRefreshRequest) error {
+type actorRefresher struct {
+	// admin is the Account that will be used to refresh the actor.
+	admin *models.Account
+}
+
+func (a *actorRefresher) processActorRefresh(db *gorm.DB, request *models.ActorRefreshRequest) error {
 	if request.Actor.IsLocal() {
 		// ignore local actors
 		return nil
@@ -63,7 +74,11 @@ func processActorRefresh(db *gorm.DB, request *models.ActorRefreshRequest) error
 			SharedInbox string `json:"sharedInbox"`
 		} `json:"endpoints"`
 	}
-	if err := requests.URL(ap).Accept("application/activity+json, application/ld+json").ToJSON(&actor).Fetch(ctx); err != nil {
+	c, err := activitypub.NewClient(ctx, a.admin)
+	if err != nil {
+		return err
+	}
+	if err := c.Fetch(ap, &actor); err != nil {
 		return err
 	}
 	return db.Model(request.Actor).UpdateColumns(map[string]interface{}{
