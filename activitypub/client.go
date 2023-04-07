@@ -255,8 +255,3 @@ func (c *Client) bodyToObj(resp *http.Response) (map[string]any, error) {
 	}
 	return obj, nil
 }
-
-func stringFromAny(v any) string {
-	s, _ := v.(string)
-	return s
-}

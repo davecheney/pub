@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davecheney/pub/internal/activitypub"
 	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/davecheney/pub/models"
@@ -85,7 +84,7 @@ func propertyType(t string) func(map[string]any) bool {
 
 func (f *RemoteActorFetcher) fetch(uri string) (map[string]any, error) {
 	fmt.Println("RemoteActorFetcher.fetch:", uri)
-	c, err := activitypub.NewClient(f.db.Statement.Context, f.signAs)
+	c, err := NewClient(f.db.Statement.Context, f.signAs)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +270,7 @@ func attachmentsToStatusAttachments(attachments []any) []*models.StatusAttachmen
 
 func (f *RemoteStatusFetcher) fetch(uri string) (map[string]interface{}, error) {
 	fmt.Println("RemoteStatusFetcher.fetch:", uri)
-	c, err := activitypub.NewClient(f.db.Statement.Context, f.signAs)
+	c, err := NewClient(f.db.Statement.Context, f.signAs)
 	if err != nil {
 		return nil, err
 	}
