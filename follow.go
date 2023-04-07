@@ -24,10 +24,5 @@ func (f *FollowCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	client, err := activitypub.NewClient(context.Background(), &account)
-	if err != nil {
-		return err
-	}
-
-	return client.Follow(account.Actor, &models.Actor{URI: f.Object})
+	return activitypub.Follow(context.Background(), &account, &models.Actor{URI: f.Object})
 }

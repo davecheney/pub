@@ -44,11 +44,6 @@ func processReactionRequest(db *gorm.DB, request *models.ReactionRequest) error 
 		return err
 	}
 
-	client, err := activitypub.NewClient(db.Statement.Context, account)
-	if err != nil {
-		return err
-	}
-
 	inbox := request.Target.Actor.Inbox()
 	if inbox == "" {
 		if err := models.NewActors(db).Refresh(request.Target.Actor); err != nil {
@@ -59,9 +54,9 @@ func processReactionRequest(db *gorm.DB, request *models.ReactionRequest) error 
 
 	switch request.Action {
 	case "like":
-		return client.Like(account.Actor, request.Target)
+		return activitypub.Like(db.Statement.Context, account, request.Target)
 	case "unlike":
-		return client.Unlike(account.Actor, request.Target)
+		return activitypub.Unlike(db.Statement.Context, account, request.Target)
 	default:
 		return fmt.Errorf("unknown action %q", request.Action)
 	}

@@ -43,17 +43,11 @@ func processRelationshipRequest(db *gorm.DB, request *models.RelationshipRequest
 	if err != nil {
 		return err
 	}
-
-	client, err := activitypub.NewClient(db.Statement.Context, account)
-	if err != nil {
-		return err
-	}
-
 	switch request.Action {
 	case "follow":
-		return client.Follow(account.Actor, request.Target)
+		return activitypub.Follow(db.Statement.Context, account, request.Target)
 	case "unfollow":
-		return client.Unfollow(account.Actor, request.Target)
+		return activitypub.Unfollow(db.Statement.Context, account, request.Target)
 	default:
 		return fmt.Errorf("unknown action %q", request.Action)
 	}
