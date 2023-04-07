@@ -15,13 +15,18 @@ import (
 // NewActorRefreshProcessor handles updating the actor's record.
 func NewActorRefreshProcessor(db *gorm.DB, admin *models.Account) func(ctx context.Context) error {
 
-	refresher := &actorRefresher{
-		admin: admin,
-	}
-
 	return func(ctx context.Context) error {
 		fmt.Println("NewActorRefreshProcessor started")
 		defer fmt.Println("NewActorRefreshProcessor stopped")
+
+		c, err := activitypub.NewClient(ctx, admin)
+		if err != nil {
+			return err
+		}
+
+		refresher := &actorRefresher{
+			client: c,
+		}
 
 		db := db.WithContext(ctx)
 		for {
@@ -43,8 +48,8 @@ func actorRefreshScope(db *gorm.DB) *gorm.DB {
 }
 
 type actorRefresher struct {
-	// admin is the Account that will be used to refresh the actor.
-	admin *models.Account
+	// client is the client used to fetch the actor's inbox and outbox URLs.
+	client *activitypub.Client
 }
 
 func (a *actorRefresher) processActorRefresh(db *gorm.DB, request *models.ActorRefreshRequest) error {
@@ -67,18 +72,8 @@ func (a *actorRefresher) processActorRefresh(db *gorm.DB, request *models.ActorR
 		return err
 	}
 
-	var actor struct {
-		Inbox     string `json:"inbox"`
-		Outbox    string `json:"outbox"`
-		Endpoints struct {
-			SharedInbox string `json:"sharedInbox"`
-		} `json:"endpoints"`
-	}
-	c, err := activitypub.NewClient(ctx, a.admin)
-	if err != nil {
-		return err
-	}
-	if err := c.Fetch(ap, &actor); err != nil {
+	var actor activitypub.Actor
+	if err := a.client.Fetch(ap, &actor); err != nil {
 		return err
 	}
 	return db.Model(request.Actor).UpdateColumns(map[string]interface{}{
