@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/davecheney/pub/internal/algorithms"
-	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
+	"github.com/davecheney/pub/models"
 )
 
 // Seraliser contains methods to seralise various Mastodon REST API

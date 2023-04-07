@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/davecheney/pub/internal/crypto"
-	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
+	"github.com/davecheney/pub/models"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )

@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/davecheney/pub/internal/httpx"
-	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/davecheney/pub/internal/streaming"
+	"github.com/davecheney/pub/models"
 	"gorm.io/gorm"
 )
 

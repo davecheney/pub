@@ -8,9 +8,9 @@ import (
 
 	"github.com/davecheney/pub/activitypub"
 	"github.com/davecheney/pub/internal/httpx"
-	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/to"
 	"github.com/davecheney/pub/internal/webfinger"
+	"github.com/davecheney/pub/models"
 )
 
 func SearchIndex(env *Env, w http.ResponseWriter, r *http.Request) error {

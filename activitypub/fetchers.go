@@ -8,8 +8,8 @@ import (
 
 	"github.com/davecheney/pub/internal/activitypub"
 	"github.com/davecheney/pub/internal/algorithms"
-	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
+	"github.com/davecheney/pub/models"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

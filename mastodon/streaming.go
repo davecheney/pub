@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/streaming"
+	"github.com/davecheney/pub/models"
 	"github.com/go-json-experiment/json"
 )
 

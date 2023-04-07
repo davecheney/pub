@@ -14,7 +14,7 @@ import (
 	_ "golang.org/x/image/webp"
 
 	"github.com/davecheney/pub/internal/httpx"
-	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/models"
 	"github.com/go-chi/chi/v5"
 	"github.com/nfnt/resize"
 )

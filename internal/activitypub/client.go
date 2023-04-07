@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/davecheney/pub/internal/httpsig"
-	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/models"
 	"github.com/go-json-experiment/json"
 	"github.com/google/uuid"
 )

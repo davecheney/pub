@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/davecheney/pub/internal/algorithms"
-	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/to"
+	"github.com/davecheney/pub/models"
 	"gorm.io/gorm"
 )
 

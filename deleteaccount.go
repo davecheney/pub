@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/models"
 	"gorm.io/gorm"
 )
 

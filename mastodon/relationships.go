@@ -4,9 +4,9 @@ import (
 	"net/http"
 
 	"github.com/davecheney/pub/internal/httpx"
-	"github.com/davecheney/pub/internal/models"
 	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/davecheney/pub/internal/to"
+	"github.com/davecheney/pub/models"
 	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 )

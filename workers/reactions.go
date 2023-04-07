@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/davecheney/pub/internal/activitypub"
-	"github.com/davecheney/pub/internal/models"
+	"github.com/davecheney/pub/models"
 	"gorm.io/gorm"
 )
 
