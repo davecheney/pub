@@ -1,7 +1,6 @@
 package activitypub
 
 import (
-	"encoding/json"
 	"time"
 )
 
@@ -108,11 +107,11 @@ type Activity struct {
 	// The Activity's unique global identifier.
 	ID string `json:"id"`
 	// Object is the Object that the Activity is acting upon.
-	Object json.RawMessage `json:"object"`
+	Object any `json:"object"`
 	// Actor is the Actor that performed the Activity.
-	Actor json.RawMessage `json:"actor"`
+	Actor any `json:"actor"`
 	// Target is the Object that the Activity is directed at.
-	Target json.RawMessage `json:"target"`
+	Target string `json:"target"`
 
 	Published time.Time `json:"published"`
 	Updated   time.Time `json:"updated"`
