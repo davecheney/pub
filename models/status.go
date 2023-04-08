@@ -82,6 +82,7 @@ func (st *Status) updateStatusCount(tx *gorm.DB) error {
 	statusesCount := tx.Select("COUNT(id)").Where("actor_id = ?", st.ActorID).Table("statuses")
 	createdAt := st.ID.ToTime()
 	actor := &Actor{ID: st.ActorID}
+	//TODO(dfc) last_status_at should only be updated if the status is newer than the current value.
 	return tx.Model(actor).UpdateColumns(map[string]interface{}{
 		"statuses_count": statusesCount,
 		"last_status_at": createdAt,

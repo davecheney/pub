@@ -161,22 +161,24 @@ func Unlike(ctx context.Context, liker *models.Account, target *models.Status) e
 	})
 }
 
-// Get fetches the ActivityPub resource at the given URL.
-func (c *Client) Get(uri string) (map[string]any, error) {
-	req, err := http.NewRequest("GET", uri, nil)
+// FetchActor fetches the Actor at the given URI.
+func FetchActor(ctx context.Context, signer *models.Account, uri string) (*Actor, error) {
+	c, err := NewClient(ctx, signer)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Accept", "application/activity+json, application/ld+json")
-	if err := httpsig.Sign(req, c.keyID, c.privateKey, nil); err != nil {
-		return nil, fmt.Errorf("failed to sign request: %w", err)
-	}
-	resp, err := http.DefaultClient.Do(req.WithContext(c.ctx))
+	var actor Actor
+	return &actor, c.Fetch(uri, &actor)
+}
+
+// FetchStatus fetches the Status at the given URI.
+func FetchStatus(ctx context.Context, signer *models.Account, uri string) (*Status, error) {
+	c, err := NewClient(ctx, signer)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-	return c.bodyToObj(resp)
+	var status Status
+	return &status, c.Fetch(uri, &status)
 }
 
 // Fetch fetches the ActivityPub resource at the given URL and decodes it into the given object.
@@ -235,23 +237,4 @@ func (c *Client) Post(url string, obj map[string]any) error {
 		}
 	}
 	return nil
-}
-
-// bodyToObj reads the body of the given response and returns the
-// ActivityPub object as a map[string]any.
-func (c *Client) bodyToObj(resp *http.Response) (map[string]any, error) {
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, &Error{
-			StatusCode: resp.StatusCode,
-			URI:        resp.Request.URL.String(),
-			Method:     resp.Request.Method,
-			Body:       string(body),
-		}
-	}
-	var obj map[string]any
-	if err := json.UnmarshalFull(resp.Body, &obj); err != nil {
-		return nil, err
-	}
-	return obj, nil
 }

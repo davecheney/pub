@@ -27,68 +27,63 @@ func NewRemoteActorFetcher(signAs *models.Account, db *gorm.DB) *RemoteActorFetc
 }
 
 func (f *RemoteActorFetcher) Fetch(uri string) (*models.Actor, error) {
-	u, err := url.Parse(uri)
+	fmt.Println("RemoteActorFetcher.Fetch", uri)
+
+	actor, err := FetchActor(f.db.Statement.Context, f.signAs, uri)
 	if err != nil {
 		return nil, err
 	}
 
-	obj, err := f.fetch(uri)
-	if err != nil {
-		return nil, err
-	}
-
-	published := timeFromAnyOrZero(obj["published"])
+	published := actor.Published
 	if published.IsZero() {
 		published = time.Now()
 	}
 
+	u, err := url.Parse(actor.ID)
+	if err != nil {
+		return nil, err
+	}
+
 	return &models.Actor{
-		ID:           snowflake.TimeToID(published),
-		Type:         models.ActorType(stringFromAny(obj["type"])),
-		Name:         stringFromAny(obj["preferredUsername"]),
-		Domain:       u.Host,
-		URI:          stringFromAny(obj["id"]),
-		DisplayName:  stringFromAny(obj["name"]),
-		Locked:       boolFromAny(obj["manuallyApprovesFollowers"]),
-		Note:         stringFromAny(obj["summary"]),
-		Avatar:       stringFromAny(mapFromAny(obj["icon"])["url"]),
-		Header:       stringFromAny(mapFromAny(obj["image"])["url"]),
-		LastStatusAt: time.Now(),
-		PublicKey:    []byte(stringFromAny(mapFromAny(obj["publicKey"])["publicKeyPem"])),
-		Attributes:   attachmentsToActorAttributes(anyToSlice(obj["attachment"])),
+		ID:             snowflake.TimeToID(published),
+		Type:           models.ActorType(actor.Type),
+		Name:           actor.PreferredUsername,
+		Domain:         u.Host,
+		URI:            actor.ID,
+		DisplayName:    actor.Name,
+		Locked:         actor.ManuallyApprovesFollowers,
+		Note:           actor.Summary,
+		Avatar:         actor.Icon.URL,
+		Header:         actor.Image.URL,
+		InboxURL:       actor.Inbox,
+		OutboxURL:      actor.Outbox,
+		SharedInboxURL: actor.Endpoints.SharedInbox,
+		PublicKey:      []byte(actor.PublicKey.PublicKeyPem),
+		Attributes:     attachmentsToActorAttributes(actor.Attachments),
 	}, nil
 }
 
-func attachmentsToActorAttributes(attachments []any) []*models.ActorAttribute {
+func attachmentsToActorAttributes(attachments []Attachment) []*models.ActorAttribute {
 	return algorithms.Map(
 		algorithms.Filter(
-			algorithms.Map(attachments, mapFromAny),
+			attachments,
 			propertyType("PropertyValue"),
 		),
 		objToActorAttribute,
 	)
 }
 
-func objToActorAttribute(obj map[string]any) *models.ActorAttribute {
+func objToActorAttribute(a Attachment) *models.ActorAttribute {
 	return &models.ActorAttribute{
-		Name:  stringFromAny(obj["name"]),
-		Value: stringFromAny(obj["value"]),
+		Name:  a.Name,
+		Value: a.Value,
 	}
 }
 
-func propertyType(t string) func(map[string]any) bool {
-	return func(m map[string]any) bool {
-		return m["type"] == t
+func propertyType(t string) func(Attachment) bool {
+	return func(a Attachment) bool {
+		return a.Type == t
 	}
-}
-
-func (f *RemoteActorFetcher) fetch(uri string) (map[string]any, error) {
-	fmt.Println("RemoteActorFetcher.fetch:", uri)
-	c, err := NewClient(f.db.Statement.Context, f.signAs)
-	if err != nil {
-		return nil, err
-	}
-	return c.Get(uri)
 }
 
 type RemoteStatusFetcher struct {
@@ -104,50 +99,52 @@ func NewRemoteStatusFetcher(signAs *models.Account, db *gorm.DB) *RemoteStatusFe
 }
 
 func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
-	obj, err := f.fetch(uri)
+	fmt.Println("RemoteStatusFetcher.Fetch", uri)
+
+	c, err := NewClient(f.db.Statement.Context, f.signAs)
 	if err != nil {
 		return nil, err
 	}
+	var status Status
+	if err := c.Fetch(uri, &status); err != nil {
+		return nil, err
+	}
 
-	typ := stringFromAny(obj["type"])
-	switch typ {
-	case "Note":
-		// cool
-	case "Question":
+	switch status.Type {
+	case "Note", "Question":
 		// cool
 	default:
-		return nil, fmt.Errorf("unsupported type %q", typ)
+		return nil, fmt.Errorf("unsupported type %q", status.Type)
 	}
 
 	var visibility string
-	for _, recipient := range anyToSlice(obj["to"]) {
+	for _, recipient := range anyToSlice(status.To) {
 		switch recipient {
 		case "https://www.w3.org/ns/activitystreams#Public":
 			visibility = "public"
-		case stringFromAny(obj["attributedTo"]) + "/followers":
+		case status.AttributedTo + "/followers":
 			visibility = "limited"
 		}
 	}
 	if visibility == "" {
-		for _, recipient := range anyToSlice(obj["cc"]) {
+		for _, recipient := range anyToSlice(status.CC) {
 			switch recipient {
 			case "https://www.w3.org/ns/activitystreams#Public":
 				visibility = "public"
-			case stringFromAny(obj["attributedTo"]) + "/followers":
+			case status.AttributedTo + "/followers":
 				visibility = "limited"
 			}
 		}
 	}
 	if visibility == "" {
-		x, _ := marshalIndent(obj)
-		return nil, fmt.Errorf("unsupported visibility %q: %s", visibility, x)
+		return nil, fmt.Errorf("unsupported visibility %q: %v", visibility, status)
 	}
 
 	var inReplyTo *models.Status
-	if inReplyToURI := stringFromAny(obj["inReplyTo"]); inReplyToURI != "" {
-		inReplyTo, err = models.NewStatuses(f.db).FindOrCreate(inReplyToURI, f.Fetch)
+	if status.InReplyTo != "" {
+		inReplyTo, err = models.NewStatuses(f.db).FindOrCreate(status.InReplyTo, f.Fetch)
 		if err != nil {
-			if err := f.retry(uri, inReplyToURI, err); err != nil {
+			if err := f.retry(uri, status.InReplyTo, err); err != nil {
 				return nil, err
 			}
 		}
@@ -166,37 +163,31 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 		conversationID = conv.ID
 	}
 	fetcher := NewRemoteActorFetcher(f.signAs, f.db)
-	actor, err := models.NewActors(f.db).FindOrCreate(stringFromAny(obj["attributedTo"]), fetcher.Fetch)
-	if err != nil {
-		return nil, err
-	}
-	publishedAt, updatedAt, err := publishedAndUpdated(obj)
+	actor, err := models.NewActors(f.db).FindOrCreate(status.AttributedTo, fetcher.Fetch)
 	if err != nil {
 		return nil, err
 	}
 
 	st := &models.Status{
-		ID:               snowflake.TimeToID(publishedAt),
-		UpdatedAt:        updatedAt,
+		ID:               snowflake.TimeToID(status.Published),
+		UpdatedAt:        status.Updated,
 		ActorID:          actor.ID,
 		Actor:            actor,
 		ConversationID:   conversationID,
 		InReplyToID:      inReplyToID(inReplyTo),
 		InReplyToActorID: inReplyToActorID(inReplyTo),
-		Sensitive:        boolFromAny(obj["sensitive"]),
-		SpoilerText:      stringFromAny(obj["summary"]),
+		Sensitive:        status.Sensitive,
+		SpoilerText:      status.Summary,
 		Visibility:       "public",
-		Language:         stringFromAny(obj["language"]),
-		URI:              uri,
-		Note:             stringFromAny(obj["content"]),
-		Attachments:      attachmentsToStatusAttachments(anyToSlice(obj["attachment"])),
+		URI:              status.ID,
+		Note:             status.Content,
+		Attachments:      attachmentsToStatusAttachments(status.Attachments),
 	}
 
-	for _, tag := range anyToSlice(obj["tag"]) {
-		t := mapFromAny(tag)
-		switch t["type"] {
+	for _, tag := range status.Tags {
+		switch tag.Type {
 		case "Mention":
-			mention, err := models.NewActors(f.db).FindOrCreate(stringFromAny(t["href"]), fetcher.Fetch)
+			mention, err := models.NewActors(f.db).FindOrCreate(tag.Href, fetcher.Fetch)
 			if err != nil {
 				return nil, err
 			}
@@ -209,18 +200,28 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 			st.Tags = append(st.Tags, models.StatusTag{
 				StatusID: st.ID,
 				Tag: &models.Tag{
-					Name: strings.TrimLeft(stringFromAny(t["name"]), "#"),
+					Name: strings.TrimLeft(tag.Name, "#"),
 				},
 			})
 		}
 	}
 
-	if _, ok := obj["oneOf"]; ok {
-		st.Poll, err = objToStatusPoll(obj)
-		if err != nil {
-			return nil, err
+	if len(status.OneOf) > 0 {
+		poll := &models.StatusPoll{
+			StatusID:  st.ID,
+			ExpiresAt: status.EndTime,
+			Multiple:  false,
 		}
-		st.Poll.StatusID = st.ID
+		for _, option := range status.OneOf {
+			if option.Type != "Note" {
+				return nil, fmt.Errorf("invalid poll option type: %q", option.Type)
+			}
+			poll.Options = append(poll.Options, models.StatusPollOption{
+				Title: option.Name,
+				Count: option.Replies.TotalItems,
+			})
+		}
+		st.Poll = poll
 	}
 
 	return st, nil
@@ -256,23 +257,4 @@ func attachmentsToStatusAttachments(attachments []any) []*models.StatusAttachmen
 		),
 		objToStatusAttachment,
 	)
-}
-
-// // noteToStatus converts an ActivityPub note to a Status.
-// func noteToStatus(note map[string]interface{}) (*Status, error) {
-// 	createdAt := timeFromAny(note["published"])
-// 	st := &Status{
-// 		ID:             snowflake.TimeToID(createdAt),
-// 		ActorID:        actor.ID,
-// 		Actor:          actor,
-// 	}
-// }
-
-func (f *RemoteStatusFetcher) fetch(uri string) (map[string]interface{}, error) {
-	fmt.Println("RemoteStatusFetcher.fetch:", uri)
-	c, err := NewClient(f.db.Statement.Context, f.signAs)
-	if err != nil {
-		return nil, err
-	}
-	return c.Get(uri)
 }
