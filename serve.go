@@ -130,10 +130,9 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Get("/statuses/{id}", httpx.HandlerFunc(envFn, mastodon.StatusesShow))
 			r.Delete("/statuses/{id}", httpx.HandlerFunc(envFn, mastodon.StatusesDestroy))
 
-			r.Route("/streaming", func(r chi.Router) {
-				r.Get("/health", httpx.HandlerFunc(envFn, mastodon.StreamingHealth))
-				r.Get("/public", httpx.HandlerFunc(envFn, mastodon.StreamingPublic))
-			})
+			r.Get("/streaming", httpx.HandlerFunc(envFn, mastodon.StreamingWebsocket))
+			r.Get("/streaming/health", httpx.HandlerFunc(envFn, mastodon.StreamingHealth))
+			r.Get("/streaming/public", httpx.HandlerFunc(envFn, mastodon.StreamingPublic))
 
 			r.Route("/timelines", func(r chi.Router) {
 				r.Get("/home", httpx.HandlerFunc(envFn, mastodon.TimelinesHome))

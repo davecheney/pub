@@ -4,13 +4,77 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/davecheney/pub/internal/streaming"
 	"github.com/davecheney/pub/models"
 	"github.com/go-json-experiment/json"
+	"golang.org/x/net/websocket"
 )
+
+func StreamingWebsocket(env *Env, w http.ResponseWriter, r *http.Request) error {
+	svr := websocket.Server{
+		Handler: func(ws *websocket.Conn) {
+			fmt.Println("StreamingHandler: connected: ", ws.LocalAddr(), ws.RemoteAddr())
+			defer func() {
+				fmt.Println("StreamingHandler: disconnected: ", ws.LocalAddr(), ws.RemoteAddr())
+				ws.Close()
+			}()
+
+			readErr := make(chan error, 1)
+			go func() {
+				var val struct {
+					Type   string `json:"type"`
+					Stream string `json:"stream"`
+					Tag    string `json:"tag"`
+				}
+				dec := json.DecodeOptions{}.NewDecoder(ws)
+				for {
+					err := json.UnmarshalOptions{}.UnmarshalNext(dec, &val)
+					if err != nil {
+						readErr <- err
+						return
+					}
+					log.Printf("StreamingHandler: read: %+v", val)
+				}
+			}()
+			ctx := ws.Request().Context()
+			sub := env.Subscribe()
+			defer sub.Cancel()
+			for {
+				select {
+				case err := <-readErr:
+					log.Println("StreamingHandler: read error:", err)
+					return
+				case <-ctx.Done():
+					return
+				case _, ok := <-sub.C:
+					if !ok {
+						return
+					}
+				case <-time.After(30 * time.Second):
+					if _, err := ws.Write([]byte("")); err != nil {
+						return
+					}
+				}
+			}
+		},
+		Handshake: func(config *websocket.Config, req *http.Request) error {
+			_, err := env.authenticate(req)
+			return err
+		},
+		Config: websocket.Config{
+			Origin: &url.URL{
+				Host: r.RemoteAddr,
+			},
+		},
+	}
+	svr.ServeHTTP(w, r)
+	return nil
+}
 
 func StreamingHealth(env *Env, w http.ResponseWriter, r *http.Request) error {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
