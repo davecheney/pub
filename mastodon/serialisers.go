@@ -200,6 +200,7 @@ type Status struct {
 	Favourited         bool               `json:"favourited"`
 	Reblogged          bool               `json:"reblogged"`
 	Muted              bool               `json:"muted"`
+	Pinned             bool               `json:"pinned"`
 	Bookmarked         bool               `json:"bookmarked"`
 	Content            string             `json:"content"`
 	Filtered           []any              `json:"filtered,omitempty"`
@@ -622,7 +623,7 @@ type Poll struct {
 	VotersCount any          `json:"voters_count"`
 	Voted       bool         `json:"voted"`
 	Options     []PollOption `json:"options"`
-	Emojies     []any        `json:"emojies"`
+	Emojis      []any        `json:"emojis"`
 }
 
 type PollOption struct {
@@ -634,7 +635,7 @@ func (s *Serialiser) Poll(p *models.StatusPoll) *Poll {
 	if p == nil {
 		return nil
 	}
-	return &Poll{
+	poll := &Poll{
 		ID:          p.StatusID,
 		ExpiresAt:   p.ExpiresAt.Format("2006-01-02T15:04:05.006Z"),
 		Expired:     p.ExpiresAt.After(time.Now()),
@@ -652,6 +653,7 @@ func (s *Serialiser) Poll(p *models.StatusPoll) *Poll {
 			},
 		),
 	}
+	return poll
 }
 
 // https://docs.joinmastodon.org/entities/StatusEdit/
@@ -663,7 +665,7 @@ type StatusEdit struct {
 	Account          *Account           `json:"account"`
 	Poll             *Poll              `json:"poll"`
 	MediaAttachments []*MediaAttachment `json:"media_attachments"`
-	Emojies          []any              `json:"emojies"`
+	Emojis           []any              `json:"emojis"`
 }
 
 func (s *Serialiser) StatusEdit(st *models.Status) *StatusEdit {
@@ -681,7 +683,6 @@ func (s *Serialiser) StatusEdit(st *models.Status) *StatusEdit {
 		Account:          s.Account(st.Actor),
 		Poll:             s.Poll(st.Poll),
 		MediaAttachments: s.MediaAttachments(st.Attachments),
-		Emojies:          nil,
 	}
 }
 
