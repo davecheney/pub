@@ -2,7 +2,6 @@ package models
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/davecheney/pub/internal/snowflake"
 	"gorm.io/gorm"
@@ -90,12 +89,10 @@ func (r *Relationship) updateFollowingCount(tx *gorm.DB) error {
 // RelationshipRequests are created by hooks on the Relationship model, and are
 // processed by the RelationshipRequestProcessor in the background.
 type RelationshipRequest struct {
-	ID uint32 `gorm:"primarykey;"`
-	// CreatedAt is the time the request was created.
-	CreatedAt time.Time
-	// UpdatedAt is the time the request was last updated.
-	UpdatedAt time.Time
-	ActorID   snowflake.ID `gorm:"uniqueIndex:uidx_relationship_requests_actor_id_target_id;not null;"`
+	Request
+
+	// ActorID is the ID of the actor that is requesting the relationship change.
+	ActorID snowflake.ID `gorm:"uniqueIndex:uidx_relationship_requests_actor_id_target_id;not null;"`
 	// Actor is the actor that is requesting the relationship change.
 	Actor    *Actor       `gorm:"constraint:OnDelete:CASCADE;<-:false;"`
 	TargetID snowflake.ID `gorm:"uniqueIndex:uidx_relationship_requests_actor_id_target_id;not null;"`
@@ -103,12 +100,6 @@ type RelationshipRequest struct {
 	Target *Actor `gorm:"constraint:OnDelete:CASCADE;<-:false;"`
 	// Action is the action to perform, either follow or unfollow.
 	Action RelationshipRequestAction `gorm:"not null"`
-	// Attempts is the number of times the request has been attempted.
-	Attempts uint32 `gorm:"not null;default:0"`
-	// LastAttempt is the time the request was last attempted.
-	LastAttempt time.Time
-	// LastResult is the result of the last attempt if it failed.
-	LastResult string `gorm:"size:255;not null;default:''"`
 }
 
 type RelationshipRequestAction string

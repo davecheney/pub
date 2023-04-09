@@ -1,6 +1,7 @@
 package activitypub
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strings"
@@ -10,7 +11,6 @@ import (
 	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/davecheney/pub/models"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type RemoteActorFetcher struct {
@@ -101,12 +101,11 @@ func NewRemoteStatusFetcher(signAs *models.Account, db *gorm.DB) *RemoteStatusFe
 func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 	fmt.Println("RemoteStatusFetcher.Fetch", uri)
 
-	c, err := NewClient(f.db.Statement.Context, f.signAs)
+	ctx, cancel := context.WithTimeout(f.db.Statement.Context, 5*time.Second)
+	defer cancel()
+
+	status, err := FetchStatus(ctx, f.signAs, uri)
 	if err != nil {
-		return nil, err
-	}
-	var status Status
-	if err := c.Fetch(uri, &status); err != nil {
 		return nil, err
 	}
 
@@ -144,9 +143,7 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 	if status.InReplyTo != "" {
 		inReplyTo, err = models.NewStatuses(f.db).FindOrCreate(status.InReplyTo, f.Fetch)
 		if err != nil {
-			if err := f.retry(uri, status.InReplyTo, err); err != nil {
-				return nil, err
-			}
+			return nil, err
 		}
 	}
 
@@ -162,8 +159,8 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 		}
 		conversationID = conv.ID
 	}
-	fetcher := NewRemoteActorFetcher(f.signAs, f.db)
-	actor, err := models.NewActors(f.db).FindOrCreate(status.AttributedTo, fetcher.Fetch)
+
+	actor, err := models.NewActors(f.db).FindOrCreate(status.AttributedTo, NewRemoteActorFetcher(f.signAs, f.db).Fetch)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +184,7 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 	for _, tag := range status.Tags {
 		switch tag.Type {
 		case "Mention":
-			mention, err := models.NewActors(f.db).FindOrCreate(tag.Href, fetcher.Fetch)
+			mention, err := models.NewActors(f.db).FindOrCreate(tag.Href, NewRemoteActorFetcher(f.signAs, f.db).Fetch)
 			if err != nil {
 				return nil, err
 			}
@@ -225,28 +222,6 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 	}
 
 	return st, nil
-}
-
-// retry adds the uri and the parent to the retry queue.
-func (f *RemoteStatusFetcher) retry(uri, parent string, err error) error {
-	upsert := clause.OnConflict{
-		UpdateAll: true,
-	}
-	if err := f.db.Clauses(upsert).Create(&models.ActivitypubRefresh{
-		URI:         parent,
-		Attempts:    1,
-		LastAttempt: time.Now(),
-		LastResult:  err.Error(),
-	}).Error; err != nil {
-		return err
-	}
-	if err := f.db.Clauses(upsert).Create(&models.ActivitypubRefresh{
-		URI:       uri,
-		DependsOn: parent,
-	}).Error; err != nil {
-		return err
-	}
-	return nil
 }
 
 func attachmentsToStatusAttachments(attachments []any) []*models.StatusAttachment {

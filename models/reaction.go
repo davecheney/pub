@@ -2,7 +2,6 @@ package models
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/davecheney/pub/internal/snowflake"
 	"gorm.io/gorm"
@@ -87,12 +86,10 @@ func (r *Reaction) createReactionRequest(tx *gorm.DB) error {
 // ReactionRequests are created by hooks on the Reaction model, and are
 // processed by the ReactionRequestProcessor in the background.
 type ReactionRequest struct {
-	ID uint32 `gorm:"primarykey;"`
-	// CreatedAt is the time the request was created.
-	CreatedAt time.Time
-	// UpdatedAt is the time the request was last updated.
-	UpdatedAt time.Time
-	ActorID   snowflake.ID `gorm:"uniqueIndex:uidx_reaction_requests_actor_id_target_id;not null;"`
+	Request
+
+	// ActorID is the ID of the actor that is requesting the reaction change.
+	ActorID snowflake.ID `gorm:"uniqueIndex:uidx_reaction_requests_actor_id_target_id;not null;"`
 	// Actor is the actor that is requesting the reaction change.
 	Actor    *Actor       `gorm:"constraint:OnDelete:CASCADE;"`
 	TargetID snowflake.ID `gorm:"uniqueIndex:uidx_reaction_requests_actor_id_target_id;not null;"`
@@ -100,12 +97,6 @@ type ReactionRequest struct {
 	Target *Status `gorm:"constraint:OnDelete:CASCADE;"`
 	// Action is the action to perform, either follow or unfollow.
 	Action ReactionRequestAction `gorm:"not null"`
-	// Attempts is the number of times the request has been attempted.
-	Attempts uint32 `gorm:"not null;default:0"`
-	// LastAttempt is the time the request was last attempted.
-	LastAttempt time.Time
-	// LastResult is the result of the last attempt if it failed.
-	LastResult string `gorm:"size:255;not null;default:''"`
 }
 
 type ReactionRequestAction string

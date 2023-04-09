@@ -23,7 +23,7 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 	// post migration fixups
 
 	// convert the admin account to a LocalService
-	err = db.Model(&models.Actor{}).Where("type = ? and name = ?", "Service", "admin").Update("type", "LocalService").Error
+	err = db.Model(&models.Actor{}).Where("type = ? and name = ?", "Service", "admin").UpdateColumn("type", "LocalService").Error
 	if err != nil {
 		return err
 	}

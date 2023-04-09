@@ -189,23 +189,27 @@ func (a *Actors) Refresh(actor *Actor) error {
 	return db.Create(&ActorRefreshRequest{ActorID: actor.ID}).Error
 }
 
-// ActorRefreshRequest is a request to refresh an actor's data.
-type ActorRefreshRequest struct {
+type Request struct {
 	ID uint32 `gorm:"primarykey;"`
 	// CreatedAt is the time the request was created.
 	CreatedAt time.Time
 	// UpdatedAt is the time the request was last updated.
 	UpdatedAt time.Time
-	// ActorID is the ID of the actor to refresh.
-	ActorID snowflake.ID `gorm:"uniqueIndex;not null;"`
-	// Actor is the actor to refresh.
-	Actor *Actor `gorm:"constraint:OnDelete:CASCADE;<-:false;"`
 	// Attempts is the number of times the request has been attempted.
 	Attempts uint32 `gorm:"not null;default:0"`
 	// LastAttempt is the time the request was last attempted.
 	LastAttempt time.Time
 	// LastResult is the result of the last attempt if it failed.
-	LastResult string `gorm:"size:255;not null;default:''"`
+	LastResult string `gorm:"type:text;"`
+}
+
+// ActorRefreshRequest is a request to refresh an actor's data.
+type ActorRefreshRequest struct {
+	Request
+	// ActorID is the ID of the actor to refresh.
+	ActorID snowflake.ID `gorm:"uniqueIndex;not null;"`
+	// Actor is the actor to refresh.
+	Actor *Actor `gorm:"constraint:OnDelete:CASCADE;<-:false;"`
 }
 
 // MaybeExcludeReplies returns a query that excludes replies if the request contains

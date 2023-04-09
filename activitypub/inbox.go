@@ -282,9 +282,7 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 			remoteStatusFetcher := NewRemoteStatusFetcher(i.signAs, i.db)
 			inReplyTo, err = models.NewStatuses(i.db).FindOrCreate(inReplyToAtomUri, remoteStatusFetcher.Fetch)
 			if err != nil {
-				if err := i.retry(uri, inReplyToAtomUri, err); err != nil {
-					return nil, err
-				}
+				return nil, err
 			}
 		}
 
@@ -355,28 +353,6 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 		fmt.Println("processCreate", string(b), err)
 	}
 	return err
-}
-
-// retry adds the uri and the parent to the retry queue.
-func (i *inboxProcessor) retry(uri, parent string, err error) error {
-	upsert := clause.OnConflict{
-		UpdateAll: true,
-	}
-	if err := i.db.Clauses(upsert).Create(&models.ActivitypubRefresh{
-		URI:         parent,
-		Attempts:    1,
-		LastAttempt: time.Now(),
-		LastResult:  err.Error(),
-	}).Error; err != nil {
-		return err
-	}
-	if err := i.db.Clauses(upsert).Create(&models.ActivitypubRefresh{
-		URI:       uri,
-		DependsOn: parent,
-	}).Error; err != nil {
-		return err
-	}
-	return nil
 }
 
 // publishedAndUpdated returns the published and updated times for the given object.
