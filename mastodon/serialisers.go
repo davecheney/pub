@@ -620,8 +620,9 @@ type Poll struct {
 	Expired     bool         `json:"expired"`
 	Multiple    bool         `json:"multiple"`
 	VotesCount  int          `json:"votes_count"`
-	VotersCount any          `json:"voters_count"`
+	VotersCount *int         `json:"voters_count"`
 	Voted       bool         `json:"voted"`
+	OwnVotes    []int        `json:"own_votes"`
 	Options     []PollOption `json:"options"`
 	Emojis      []any        `json:"emojis"`
 }
@@ -636,13 +637,12 @@ func (s *Serialiser) Poll(p *models.StatusPoll) *Poll {
 		return nil
 	}
 	poll := &Poll{
-		ID:          p.StatusID,
-		ExpiresAt:   p.ExpiresAt.Format("2006-01-02T15:04:05.006Z"),
-		Expired:     p.ExpiresAt.After(time.Now()),
-		Multiple:    p.Multiple,
-		VotesCount:  p.VotesCount,
-		VotersCount: nil,
-		Voted:       false,
+		ID:         p.StatusID,
+		ExpiresAt:  p.ExpiresAt.Format("2006-01-02T15:04:05.006Z"),
+		Expired:    p.ExpiresAt.Before(time.Now()),
+		Multiple:   p.Multiple,
+		VotesCount: p.VotesCount,
+		Voted:      false,
 		Options: algorithms.Map(
 			p.Options,
 			func(option models.StatusPollOption) PollOption {
