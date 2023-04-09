@@ -7,11 +7,9 @@ import (
 	"image"
 	"image/gif"
 	"image/jpeg"
-	_ "image/png"
+
 	"io"
 	"net/http"
-
-	_ "golang.org/x/image/webp"
 
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/models"
@@ -54,14 +52,15 @@ const (
 	PREVIEW_MAX_HEIGHT = 415
 )
 
+// Preview returns a preview of the attachment in the format requested by the
+// file extension in the URL.
 func Preview(env *models.Env, w http.ResponseWriter, r *http.Request) error {
 	var att models.StatusAttachment
 
 	if err := env.DB.Take(&att, chi.URLParam(r, "id")).Error; err != nil {
 		return httpx.Error(http.StatusNotFound, err)
 	}
-	ext := chi.URLParam(r, "ext")
-	resp, err := http.DefaultClient.Get(fmt.Sprintf("https://%s/media/original/%d.%s", r.Host, att.ID, ext))
+	resp, err := http.DefaultClient.Get(fmt.Sprintf("https://%s/media/original/%d.%s", r.Host, att.ID, att.Extension()))
 	if err != nil {
 		return httpx.Error(http.StatusBadGateway, err)
 	}
@@ -79,7 +78,7 @@ func Preview(env *models.Env, w http.ResponseWriter, r *http.Request) error {
 	if b.Dx() > PREVIEW_MAX_WIDTH || b.Dy() > PREVIEW_MAX_HEIGHT {
 		img = resize.Thumbnail(PREVIEW_MAX_WIDTH, PREVIEW_MAX_HEIGHT, img, resize.Lanczos3)
 	}
-	switch ext {
+	switch ext := chi.URLParam(r, "ext"); ext {
 	case "jpg":
 		w.Header().Set("Content-Type", "image/jpeg")
 		return jpeg.Encode(w, img, nil)

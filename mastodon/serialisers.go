@@ -368,48 +368,6 @@ type MetaFormat struct {
 	Bitrate   string  `json:"bitrate,omitempty"`
 }
 
-func attachmentType(att *models.Attachment) string {
-	switch att.MediaType {
-	case "image/jpeg":
-		return "image"
-	case "image/png":
-		return "image"
-	case "image/gif":
-		return "image"
-	case "video/mp4":
-		return "video"
-	case "video/webm":
-		return "video"
-	case "audio/mpeg":
-		return "audio"
-	case "audio/ogg":
-		return "audio"
-	default:
-		return "unknown"
-	}
-}
-
-func extension(att *models.Attachment) string {
-	switch att.MediaType {
-	case "image/jpeg":
-		return "jpg"
-	case "image/png":
-		return "png"
-	case "image/gif":
-		return "gif"
-	case "video/mp4":
-		return "mp4"
-	case "video/webm":
-		return "webm"
-	case "audio/mpeg":
-		return "mp3"
-	case "audio/ogg":
-		return "ogg"
-	default:
-		return "jpg" // todo YOLO
-	}
-}
-
 func (s *Serialiser) InstanceV1(i *models.Instance) map[string]any {
 	return map[string]any{
 		"uri":               i.Domain,
@@ -742,7 +700,7 @@ func (s *Serialiser) MediaAttachments(attachments []*models.StatusAttachment) []
 		), func(att *models.Attachment) *MediaAttachment {
 			at := &MediaAttachment{
 				ID:         att.ID,
-				Type:       attachmentType(att),
+				Type:       att.ToType(),
 				URL:        s.mediaOriginalURL(att),
 				PreviewURL: s.mediaPreviewURL(att),
 				RemoteURL:  att.URL,
@@ -781,9 +739,7 @@ func smallMetaFormat(att *models.Attachment) *MetaFormat {
 		return nil
 	}
 	switch att.MediaType {
-	case "image/jpeg",
-		// "image/png",
-		"image/gif":
+	case "image/jpeg", "image/gif", "image/png", "image/webp":
 		h := att.Height
 		w := att.Width
 
@@ -809,9 +765,9 @@ func smallMetaFormat(att *models.Attachment) *MetaFormat {
 
 func (s *Serialiser) mediaOriginalURL(att *models.Attachment) string {
 	switch att.MediaType {
-	case "image/jpeg", "image/png", "image/gif":
+	case "image/jpeg", "image/png", "image/gif", "image/webp":
 		// call through /media proxy to cache
-		return s.urlFor(fmt.Sprintf("/media/original/%d.%s", att.ID, extension(att)))
+		return s.urlFor(fmt.Sprintf("/media/original/%d.%s", att.ID, att.Extension()))
 	default:
 		// otherwise return the remote URL
 		return att.URL
@@ -823,12 +779,15 @@ func (s *Serialiser) mediaPreviewURL(att *models.Attachment) string {
 		// no preview needed
 		return ""
 	}
+	ext := att.Extension()
 	switch att.MediaType {
-	case "image/jpeg",
-		// "image/png",
-		"image/gif":
+	case "image/png", "image/webp":
+		// request a JPEG preview
+		ext = "jpg"
+		fallthrough
+	case "image/jpeg", "image/gif":
 		// call through /media proxy to cache
-		return s.urlFor(fmt.Sprintf("/media/preview/%d.%s", att.ID, extension(att)))
+		return s.urlFor(fmt.Sprintf("/media/preview/%d.%s", att.ID, ext))
 	default:
 		// no preview available
 		return ""

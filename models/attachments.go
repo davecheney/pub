@@ -18,6 +18,55 @@ type Attachment struct {
 	Height       int    `gorm:"not null"`
 }
 
+// Extension returns the file extension of the attachment.
+// This is used to generate the filename of the attachment which most IOS clients expect.
+func (att *Attachment) Extension() string {
+	switch att.MediaType {
+	case "image/jpeg":
+		return "jpg"
+	case "image/png":
+		return "png"
+	case "image/gif":
+		return "gif"
+	case "image/webp":
+		return "webp"
+	case "video/mp4":
+		return "mp4"
+	case "video/webm":
+		return "webm"
+	case "audio/mpeg":
+		return "mp3"
+	case "audio/ogg":
+		return "ogg"
+	default:
+		return "jpg" // todo YOLO
+	}
+}
+
+// ToType returns the Mastodon type of the attachment, image, video, audio or unknown.
+func (att *Attachment) ToType() string {
+	switch att.MediaType {
+	case "image/jpeg":
+		return "image"
+	case "image/png":
+		return "image"
+	case "image/gif":
+		return "image"
+	case "image/webp":
+		return "image"
+	case "video/mp4":
+		return "video"
+	case "video/webm":
+		return "video"
+	case "audio/mpeg":
+		return "audio"
+	case "audio/ogg":
+		return "audio"
+	default:
+		return "unknown"
+	}
+}
+
 // A StatusAttachment is an attachment to a Status.
 // A Status has many StatusAttachments.
 type StatusAttachment struct {
