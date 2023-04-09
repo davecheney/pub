@@ -202,7 +202,7 @@ type Status struct {
 	Muted              bool               `json:"muted"`
 	Bookmarked         bool               `json:"bookmarked"`
 	Content            string             `json:"content"`
-	Filtered           []any              `json:"filtered"`
+	Filtered           []any              `json:"filtered,omitempty"`
 	Reblog             *Status            `json:"reblog"`
 	Application        any                `json:"application,omitempty"`
 	Account            *Account           `json:"account"`
@@ -819,7 +819,7 @@ func (s *Serialiser) mediaOriginalURL(att *models.Attachment) string {
 }
 
 func (s *Serialiser) mediaPreviewURL(att *models.Attachment) string {
-	if att.Width < PREVIEW_MAX_WIDTH || att.Height < PREVIEW_MAX_HEIGHT {
+	if att.Width < PREVIEW_MAX_WIDTH && att.Height < PREVIEW_MAX_HEIGHT {
 		// no preview needed
 		return ""
 	}
