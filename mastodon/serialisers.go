@@ -341,7 +341,7 @@ type MediaAttachment struct {
 type Meta struct {
 	Original      *MetaFormat `json:"original,omitempty"`
 	Small         *MetaFormat `json:"small,omitempty"`
-	Focus         MetaFocus   `json:"focus,omitempty"`
+	Focus         *MetaFocus  `json:"focus,omitempty"`
 	Length        string      `json:"length,omitempty"`
 	Duration      float64     `json:"duration,omitzero"`
 	FPS           int         `json:"fps,omitzero"`
@@ -706,10 +706,7 @@ func (s *Serialiser) MediaAttachments(attachments []*models.StatusAttachment) []
 				PreviewURL: s.mediaPreviewURL(att),
 				RemoteURL:  att.URL,
 				Meta: Meta{
-					Focus: MetaFocus{
-						X: 0.0, // always centered
-						Y: 0.0,
-					},
+					Focus:    focus(att),
 					Original: originalMetaFormat(att),
 					Small:    smallMetaFormat(att),
 				},
@@ -719,6 +716,16 @@ func (s *Serialiser) MediaAttachments(attachments []*models.StatusAttachment) []
 			return at
 		},
 	)
+}
+
+func focus(att *models.Attachment) *MetaFocus {
+	if att.FocalPoint.X == 0 && att.FocalPoint.Y == 0 {
+		return nil
+	}
+	return &MetaFocus{
+		X: att.FocalPoint.X,
+		Y: att.FocalPoint.Y,
+	}
 }
 
 func originalMetaFormat(att *models.Attachment) *MetaFormat {

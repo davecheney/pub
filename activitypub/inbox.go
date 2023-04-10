@@ -388,14 +388,28 @@ func objToStatusAttachment(obj map[string]any) *models.StatusAttachment {
 	fmt.Println("objToStatusAttachment:", obj)
 	return &models.StatusAttachment{
 		Attachment: models.Attachment{
-			ID:        snowflake.Now(),
-			MediaType: stringFromAny(obj["mediaType"]),
-			URL:       stringFromAny(obj["url"]),
-			Name:      stringFromAny(obj["name"]),
-			Width:     intFromAny(obj["width"]),
-			Height:    intFromAny(obj["height"]),
-			Blurhash:  stringFromAny(obj["blurhash"]),
+			ID:         snowflake.Now(),
+			MediaType:  stringFromAny(obj["mediaType"]),
+			URL:        stringFromAny(obj["url"]),
+			Name:       stringFromAny(obj["name"]),
+			Width:      intFromAny(obj["width"]),
+			Height:     intFromAny(obj["height"]),
+			Blurhash:   stringFromAny(obj["blurhash"]),
+			FocalPoint: focalPoint(obj),
 		},
+	}
+}
+
+func focalPoint(obj map[string]any) models.FocalPoint {
+	focalPoint := anyToSlice(obj["focalPoint"])
+	var x, y float64
+	if len(focalPoint) == 2 {
+		x, _ = focalPoint[0].(float64)
+		y, _ = focalPoint[1].(float64)
+	}
+	return models.FocalPoint{
+		X: x,
+		Y: y,
 	}
 }
 

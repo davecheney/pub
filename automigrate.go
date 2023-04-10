@@ -30,7 +30,7 @@ func (a *AutoMigrateCmd) Run(ctx *Context) error {
 
 	// load each status attachment and save it to trigger the AfterSave hook
 	var results []models.StatusAttachment
-	return db.FindInBatches(&results, 100, func(tx *gorm.DB, batch int) error {
+	return db.Where("width = 0 and height = 0").FindInBatches(&results, 100, func(tx *gorm.DB, batch int) error {
 		return tx.Save(&results).Error
 	}).Error
 }

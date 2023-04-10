@@ -10,12 +10,18 @@ import (
 
 type Attachment struct {
 	snowflake.ID `gorm:"primarykey;autoIncrement:false"`
-	MediaType    string `gorm:"size:64;not null"`
-	URL          string `gorm:"size:255;not null"`
-	Name         string `gorm:"not null"`
-	Blurhash     string `gorm:"size:36;not null"`
-	Width        int    `gorm:"not null"`
-	Height       int    `gorm:"not null"`
+	MediaType    string     `gorm:"size:64;not null"`
+	URL          string     `gorm:"size:255;not null"`
+	Name         string     `gorm:"not null"`
+	Blurhash     string     `gorm:"size:36;not null"`
+	Width        int        `gorm:"not null"`
+	Height       int        `gorm:"not null"`
+	FocalPoint   FocalPoint `gorm:"embedded;embeddedPrefix:focal_point_"`
+}
+
+type FocalPoint struct {
+	X float64 `gorm:"not null;default:0"`
+	Y float64 `gorm:"not null;default:0"`
 }
 
 // Extension returns the file extension of the attachment.
