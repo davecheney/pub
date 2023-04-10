@@ -38,6 +38,12 @@ func relationshipRequestScope(db *gorm.DB) *gorm.DB {
 func processRelationshipRequest(db *gorm.DB, request *models.RelationshipRequest) error {
 	fmt.Println("RelationshipRequestProcessor: actor:", request.Actor.URI, "target:", request.Target.URI, "action:", request.Action)
 
+	if !request.Actor.IsLocal() {
+		// non local actors means the follow request was sent to us
+		// by another server. We don't need to do anything.
+		return nil
+	}
+
 	accounts := models.NewAccounts(db)
 	account, err := accounts.AccountForActor(request.Actor)
 	if err != nil {

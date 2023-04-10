@@ -23,6 +23,12 @@ type Relationship struct {
 
 // BeforeUpdate creates a relationship request between the actor and target.
 func (r *Relationship) BeforeUpdate(tx *gorm.DB) error {
+	return forEach(tx, r.updateRelationshipRequest)
+}
+
+// updateRelationshipRequest schedules a ActivityPub follow or unfollow request if
+// the actor has changed their relationship with the target.
+func (r *Relationship) updateRelationshipRequest(tx *gorm.DB) error {
 	var original Relationship
 	if err := tx.First(&original, "actor_id = ? and target_id = ?", r.ActorID, r.TargetID).Error; err != nil {
 		return err
