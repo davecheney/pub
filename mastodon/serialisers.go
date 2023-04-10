@@ -698,24 +698,26 @@ func (s *Serialiser) MediaAttachments(attachments []*models.StatusAttachment) []
 			func(sa *models.StatusAttachment) *models.Attachment {
 				return &sa.Attachment
 			},
-		), func(att *models.Attachment) *MediaAttachment {
-			at := &MediaAttachment{
-				ID:         att.ID,
-				Type:       att.ToType(),
-				URL:        s.mediaOriginalURL(att),
-				PreviewURL: s.mediaPreviewURL(att),
-				RemoteURL:  att.URL,
-				Meta: Meta{
-					Focus:    focus(att),
-					Original: originalMetaFormat(att),
-					Small:    smallMetaFormat(att),
-				},
-				Description: att.Name,
-				Blurhash:    att.Blurhash,
-			}
-			return at
-		},
+		),
+		s.mediaAttachment,
 	)
+}
+
+func (s *Serialiser) mediaAttachment(att *models.Attachment) *MediaAttachment {
+	return &MediaAttachment{
+		ID:         att.ID,
+		Type:       att.ToType(),
+		URL:        s.mediaOriginalURL(att),
+		PreviewURL: s.mediaPreviewURL(att),
+		RemoteURL:  att.URL,
+		Meta: Meta{
+			Focus:    focus(att),
+			Original: originalMetaFormat(att),
+			Small:    smallMetaFormat(att),
+		},
+		Description: att.Name,
+		Blurhash:    att.Blurhash,
+	}
 }
 
 func focus(att *models.Attachment) *MetaFocus {
@@ -732,7 +734,6 @@ func originalMetaFormat(att *models.Attachment) *MetaFormat {
 	if att.Width == 0 || att.Height == 0 {
 		return nil
 	}
-
 	return &MetaFormat{
 		Width:  att.Width,
 		Height: att.Height,
@@ -743,8 +744,7 @@ func originalMetaFormat(att *models.Attachment) *MetaFormat {
 
 func smallMetaFormat(att *models.Attachment) *MetaFormat {
 	if att.Width < PREVIEW_MAX_WIDTH && att.Height < PREVIEW_MAX_HEIGHT {
-		// no preview needed
-		return nil
+		return originalMetaFormat(att)
 	}
 	switch att.MediaType {
 	case "image/jpeg", "image/gif", "image/png", "image/webp":
@@ -752,11 +752,17 @@ func smallMetaFormat(att *models.Attachment) *MetaFormat {
 		w := att.Width
 
 		if w > h {
-			h = int(float64(h) * (PREVIEW_MAX_WIDTH / float64(w)))
-			w = 560
+			h = h * PREVIEW_MAX_WIDTH / w
+			if h < 1 {
+				h = 1
+			}
+			w = PREVIEW_MAX_WIDTH
 		} else {
-			w = int(float64(w) * (PREVIEW_MAX_HEIGHT / float64(h)))
-			h = 415
+			w = w * PREVIEW_MAX_HEIGHT / h
+			if w < 1 {
+				w = 1
+			}
+			h = PREVIEW_MAX_HEIGHT
 		}
 
 		return &MetaFormat{
@@ -784,8 +790,7 @@ func (s *Serialiser) mediaOriginalURL(att *models.Attachment) string {
 
 func (s *Serialiser) mediaPreviewURL(att *models.Attachment) string {
 	if att.Width < PREVIEW_MAX_WIDTH && att.Height < PREVIEW_MAX_HEIGHT {
-		// no preview needed
-		return ""
+		return s.mediaOriginalURL(att)
 	}
 	ext := att.Extension()
 	switch att.MediaType {
