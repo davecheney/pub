@@ -40,14 +40,14 @@ func HandlerFunc[E any](envFn func(r *http.Request) *E, fn func(*E, http.Respons
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
 			if se := new(StatusError); errors.As(err, &se) {
-				log.Printf("HTTP: path: %s, status: %d, error: %s", r.URL.Path, se.Status(), err)
+				log.Printf("HTTP: method: %s, path: %s, status: %d, error: %s", r.Method, r.URL.Path, se.Status(), err)
 				w.WriteHeader(se.Status())
 				json.MarshalFull(w, map[string]any{
 					"error": se.Error(),
 				})
 				return
 			}
-			log.Printf("HTTP: path: %s, status: %d, error: %s", r.URL.Path, http.StatusInternalServerError, err)
+			log.Printf("HTTP: method: %s, path: %s, status: %d, error: %s", r.Method, r.URL.Path, http.StatusInternalServerError, err)
 			w.WriteHeader(http.StatusInternalServerError)
 			json.MarshalFull(w, map[string]any{
 				"error": http.StatusInternalServerError,

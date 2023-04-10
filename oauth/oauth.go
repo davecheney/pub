@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"io"
 	"log"
+
 	"net/http"
 	"net/http/httputil"
 	"strings"
 
 	"github.com/davecheney/pub/activitypub"
 	"github.com/davecheney/pub/internal/httpx"
+	"github.com/davecheney/pub/internal/mime"
 	"github.com/davecheney/pub/internal/to"
 	"github.com/davecheney/pub/models"
 	"github.com/go-json-experiment/json"
@@ -107,15 +109,11 @@ func TokenCreate(env *activitypub.Env, w http.ResponseWriter, r *http.Request) e
 		Code         string `json:"code"`
 		RedirectURI  string `json:"redirect_uri"`
 	}
-	switch strings.Split(r.Header.Get("Content-Type"), ";")[0] {
-	case "application/x-www-form-urlencoded", "multipart/form-data":
-		params.ClientID = r.PostFormValue("client_id")
-		params.ClientSecret = r.PostFormValue("client_secret")
-		params.GrantType = r.PostFormValue("grant_type")
-		params.Code = r.PostFormValue("code")
-		params.RedirectURI = r.FormValue("redirect_uri")
+	switch mime.MediaType(r) {
 	case "":
 		// ice cubes, why you gotta do me like this?
+		fallthrough
+	case "multipart/form-data", "application/x-www-form-urlencoded":
 		params.ClientID = r.FormValue("client_id")
 		params.ClientSecret = r.FormValue("client_secret")
 		params.GrantType = r.FormValue("grant_type")
@@ -124,7 +122,7 @@ func TokenCreate(env *activitypub.Env, w http.ResponseWriter, r *http.Request) e
 	case "application/json":
 		switch r.ContentLength {
 		case 0:
-			// god damnint Mammoth, why do you send empty body?
+			// god damnit Mammoth, why do you send empty body?
 			params.ClientID = r.FormValue("client_id")
 			params.ClientSecret = r.FormValue("client_secret")
 			params.GrantType = r.FormValue("grant_type")
