@@ -7,31 +7,28 @@ import (
 	"log"
 
 	"net/http"
-	"net/http/httputil"
-	"strings"
 
 	"github.com/davecheney/pub/activitypub"
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/to"
 	"github.com/davecheney/pub/models"
-	"github.com/go-json-experiment/json"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 func AuthorizeNew(env *activitypub.Env, w http.ResponseWriter, r *http.Request) error {
-	clientID := r.FormValue("client_id")
-	redirectURI := r.FormValue("redirect_uri")
-	if clientID == "" {
-		return httpx.Error(http.StatusBadRequest, fmt.Errorf("client_id is required"))
+	var params struct {
+		ResponseType string `json:"-" schema:"response_type"`
+		ClientID     string `json:"-" schema:"client_id,required"`
+		RedirectURI  string `json:"-" schema:"redirect_uri,required"`
+		Scope        string `json:"-" schema:"scope"`
 	}
-	if redirectURI == "" {
-		return httpx.Error(http.StatusBadRequest, fmt.Errorf("redirect_uri is required"))
+	if err := httpx.Params(r, &params); err != nil {
+		return err
 	}
-
 	var app models.Application
-	if err := env.DB.Where("client_id = ?", clientID).First(&app).Error; err != nil {
+	if err := env.DB.Where("client_id = ?", params.ClientID).First(&app).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return httpx.Error(http.StatusUnauthorized, fmt.Errorf("client_id not found"))
 		}
@@ -50,8 +47,8 @@ func AuthorizeNew(env *activitypub.Env, w http.ResponseWriter, r *http.Request) 
 		<form method="POST" action="/oauth/authorize">
 		<p><label>Username</label><input type="text" name="username"></p>
 		<p><label>Password</label><input type="password" name="password"></p>
-		<input type="hidden" name="client_id" value="`+clientID+`">
-		<input type="hidden" name="redirect_uri" value="`+redirectURI+`">
+		<input type="hidden" name="client_id" value="`+params.ClientID+`">
+		<input type="hidden" name="redirect_uri" value="`+params.RedirectURI+`">
 		<input type="hidden" name="response_type" value="code"> 
 		<p><input type="submit" value="I solemnly swear that I am up to no good"></p>
 		</form>
@@ -62,22 +59,28 @@ func AuthorizeNew(env *activitypub.Env, w http.ResponseWriter, r *http.Request) 
 }
 
 func AuthorizeCreate(env *activitypub.Env, w http.ResponseWriter, r *http.Request) error {
-	username := r.FormValue("username")
-	password := r.PostFormValue("password")
-	redirectURI := r.PostFormValue("redirect_uri")
-	clientID := r.PostFormValue("client_id")
+	var params struct {
+		Username     string `json:"-" schema:"username,required"`
+		Password     string `json:"-" schema:"password,required"`
+		RedirectURI  string `json:"-" schema:"redirect_uri,required"`
+		ClientID     string `json:"-" schema:"client_id,required"`
+		ResponseType string `json:"-" schema:"response_type"` // ignored
+	}
+	if err := httpx.Params(r, &params); err != nil {
+		return err
+	}
 
 	var app models.Application
-	if err := env.DB.Where("client_id = ?", clientID).First(&app).Error; err != nil {
+	if err := env.DB.Where("client_id = ?", params.ClientID).First(&app).Error; err != nil {
 		return httpx.Error(http.StatusBadRequest, fmt.Errorf("failed to find application: %v", err))
 	}
 
 	var account models.Account
-	if err := env.DB.Joins("Actor").First(&account, "name = ? and domain = ?", username, r.Host).Error; err != nil {
+	if err := env.DB.Joins("Actor").First(&account, "name = ? and domain = ?", params.Username, r.Host).Error; err != nil {
 		return httpx.Error(http.StatusUnauthorized, fmt.Errorf("invalid username"))
 	}
 
-	if err := bcrypt.CompareHashAndPassword(account.EncryptedPassword, []byte(password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword(account.EncryptedPassword, []byte(params.Password)); err != nil {
 		return httpx.Error(http.StatusUnauthorized, fmt.Errorf("invalid password"))
 	}
 
@@ -93,51 +96,24 @@ func AuthorizeCreate(env *activitypub.Env, w http.ResponseWriter, r *http.Reques
 		return err
 	}
 
-	if redirectURI == "" {
-		redirectURI = app.RedirectURI
+	if params.RedirectURI == "" {
+		params.RedirectURI = app.RedirectURI
 	}
 
-	return httpx.Redirect(w, redirectURI+"?code="+token.AuthorizationCode)
+	return httpx.Redirect(w, params.RedirectURI+"?code="+token.AuthorizationCode)
 }
 
 func TokenCreate(env *activitypub.Env, w http.ResponseWriter, r *http.Request) error {
 	var params struct {
-		ClientID     string `json:"client_id"`
-		ClientSecret string `json:"client_secret"`
-		GrantType    string `json:"grant_type"`
-		Code         string `json:"code"`
-		RedirectURI  string `json:"redirect_uri"`
+		ClientID     string `json:"client_id" schema:"client_id,required"`
+		ClientSecret string `json:"client_secret" schema:"client_secret,required"`
+		GrantType    string `json:"grant_type" schema:"grant_type,required"`
+		Code         string `json:"code" schema:"code,required"`
+		RedirectURI  string `json:"redirect_uri" schema:"redirect_uri,required"`
+		Scope        string `json:"-" schema:"scope"` // ignored
 	}
-	switch httpx.MediaType(r) {
-	case "":
-		// ice cubes, why you gotta do me like this?
-		fallthrough
-	case "multipart/form-data", "application/x-www-form-urlencoded":
-		params.ClientID = r.FormValue("client_id")
-		params.ClientSecret = r.FormValue("client_secret")
-		params.GrantType = r.FormValue("grant_type")
-		params.Code = r.FormValue("code")
-		params.RedirectURI = r.FormValue("redirect_uri")
-	case "application/json":
-		switch r.ContentLength {
-		case 0:
-			// god damnit Mammoth, why do you send empty body?
-			params.ClientID = r.FormValue("client_id")
-			params.ClientSecret = r.FormValue("client_secret")
-			params.GrantType = r.FormValue("grant_type")
-			params.Code = r.FormValue("code")
-			params.RedirectURI = r.FormValue("redirect_uri")
-		default:
-			if err := json.UnmarshalFull(r.Body, &params); err != nil {
-				buf, _ := httputil.DumpRequest(r, false)
-				fmt.Println(string(buf))
-				return httpx.Error(http.StatusBadRequest, fmt.Errorf("failed to parse request body: %w", err))
-			}
-		}
-	default:
-		buf, _ := httputil.DumpRequest(r, true)
-		fmt.Println(string(buf))
-		return httpx.Error(http.StatusUnsupportedMediaType, fmt.Errorf("unsupported media type: %s", r.Header.Get("Content-Type")))
+	if err := httpx.Params(r, &params); err != nil {
+		return err
 	}
 	var token models.Token
 	if err := env.DB.Where("authorization_code = ?", params.Code).First(&token).Error; err != nil {
@@ -162,23 +138,13 @@ func TokenCreate(env *activitypub.Env, w http.ResponseWriter, r *http.Request) e
 
 func TokenDestroy(env *activitypub.Env, w http.ResponseWriter, r *http.Request) error {
 	var params struct {
-		ClientID     string `json:"client_id"`
-		ClientSecret string `json:"client_secret"`
-		Token        string `json:"token"`
+		ClientID     string `json:"client_id" schema:"client_id"`
+		ClientSecret string `json:"client_secret" schema:"client_secret"`
+		Token        string `json:"token" schema:"token"`
 	}
-	switch strings.Split(r.Header.Get("Content-Type"), ";")[0] {
-	case "application/x-www-form-urlencoded", "multipart/form-data":
-		params.ClientID = r.FormValue("client_id")
-		params.ClientSecret = r.FormValue("client_secret")
-		params.Token = r.FormValue("token")
-	case "application/json":
-		if err := json.UnmarshalFull(r.Body, &params); err != nil {
-			return httpx.Error(http.StatusBadRequest, fmt.Errorf("failed to parse request body: %w", err))
-		}
-	default:
-		return httpx.Error(http.StatusUnsupportedMediaType, fmt.Errorf("unsupported media type"))
+	if err := httpx.Params(r, &params); err != nil {
+		return err
 	}
-	fmt.Println("params", params)
 	var token models.Token
 	if err := env.DB.Where("access_token = ?", params.Token).First(&token).Error; err != nil {
 		return httpx.Error(http.StatusUnauthorized, fmt.Errorf("token not found"))

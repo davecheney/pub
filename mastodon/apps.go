@@ -1,42 +1,24 @@
 package mastodon
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/davecheney/pub/internal/to"
 	"github.com/davecheney/pub/models"
-	"github.com/go-json-experiment/json"
 	"github.com/google/uuid"
 )
 
 func AppsCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var params struct {
-		ClientName   string `json:"client_name"`
-		Website      string `json:"website"`
-		RedirectURIs string `json:"redirect_uris"`
-		Scopes       string `json:"scopes"`
+		ClientName   string `json:"client_name" schema:"client_name,required"`
+		Website      string `json:"website" schema:"website,required"`
+		RedirectURIs string `json:"redirect_uris" schema:"redirect_uris,required"`
+		Scopes       string `json:"scopes" schema:"scopes,required"`
 	}
-	switch mt := httpx.MediaType(r); mt {
-	case "application/x-www-form-urlencoded", "multipart/form-data":
-		params.ClientName = r.PostFormValue("client_name")
-		params.Website = r.PostFormValue("website")
-		params.RedirectURIs = r.PostFormValue("redirect_uris")
-		params.Scopes = r.PostFormValue("scopes")
-	case "application/octet-stream":
-		// ice cubes uses url parameters :picard_facepalm:
-		params.ClientName = r.FormValue("client_name")
-		params.Website = r.FormValue("website")
-		params.RedirectURIs = r.FormValue("redirect_uris")
-		params.Scopes = r.FormValue("scopes")
-	case "application/json":
-		if err := json.UnmarshalFull(r.Body, &params); err != nil {
-			return httpx.Error(http.StatusBadRequest, err)
-		}
-	default:
-		return httpx.Error(http.StatusUnsupportedMediaType, errors.New("unsupported media type: "+mt))
+	if err := httpx.Params(r, &params); err != nil {
+		return err
 	}
 
 	var instance models.Instance
