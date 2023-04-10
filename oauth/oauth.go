@@ -12,7 +12,6 @@ import (
 
 	"github.com/davecheney/pub/activitypub"
 	"github.com/davecheney/pub/internal/httpx"
-	"github.com/davecheney/pub/internal/mime"
 	"github.com/davecheney/pub/internal/to"
 	"github.com/davecheney/pub/models"
 	"github.com/go-json-experiment/json"
@@ -109,7 +108,7 @@ func TokenCreate(env *activitypub.Env, w http.ResponseWriter, r *http.Request) e
 		Code         string `json:"code"`
 		RedirectURI  string `json:"redirect_uri"`
 	}
-	switch mime.MediaType(r) {
+	switch httpx.MediaType(r) {
 	case "":
 		// ice cubes, why you gotta do me like this?
 		fallthrough

@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/davecheney/pub/internal/httpx"
-	"github.com/davecheney/pub/internal/mime"
 	"github.com/go-json-experiment/json"
 )
 
@@ -14,7 +13,7 @@ func PushSubscriptionCreate(env *Env, w http.ResponseWriter, r *http.Request) er
 	if err != nil {
 		return err
 	}
-	switch mime.MediaType(r) {
+	switch httpx.MediaType(r) {
 	case "application/json":
 		var body struct {
 			Data struct {

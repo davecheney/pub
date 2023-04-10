@@ -1,12 +1,11 @@
-// package mime contains helper functions for setting the Content-Type header.
-package mime
+package httpx
 
 import (
 	"net/http"
 	"strings"
 )
 
-// mediaType returns the media type of the request.
+// MediaType returns the media type of the request.
 func MediaType(req *http.Request) string {
 	typ := strings.Split(req.Header.Get("Content-Type"), ";")[0]
 	if typ == "" {

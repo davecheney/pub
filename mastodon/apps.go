@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/davecheney/pub/internal/httpx"
-	"github.com/davecheney/pub/internal/mime"
 	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/davecheney/pub/internal/to"
 	"github.com/davecheney/pub/models"
@@ -20,7 +19,7 @@ func AppsCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 		RedirectURIs string `json:"redirect_uris"`
 		Scopes       string `json:"scopes"`
 	}
-	switch mt := mime.MediaType(r); mt {
+	switch mt := httpx.MediaType(r); mt {
 	case "application/x-www-form-urlencoded", "multipart/form-data":
 		params.ClientName = r.PostFormValue("client_name")
 		params.Website = r.PostFormValue("website")
