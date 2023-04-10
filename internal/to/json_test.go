@@ -41,7 +41,7 @@ func TestToJSONReturnsEmptyObjectForNilMap(t *testing.T) {
 	require.Equal("{}", out.String())
 }
 
-func TestToJOSNReturnsAnEmptyArrayForKeyWithNilSlice(t *testing.T) {
+func TestToJSONReturnsAnEmptyArrayForKeyWithNilSlice(t *testing.T) {
 	require := require.New(t)
 
 	m := map[string]interface{}{
@@ -51,4 +51,16 @@ func TestToJOSNReturnsAnEmptyArrayForKeyWithNilSlice(t *testing.T) {
 	err := to.JSON(&out, m)
 	require.NoError(err)
 	require.Equal("{\n  \"foo\": []\n}", out.String())
+}
+
+func TestTOJSONDoesNotEscapeHTML(t *testing.T) {
+	require := require.New(t)
+
+	m := map[string]interface{}{
+		"foo": "<p>Hello, world!</p>",
+	}
+	var out mockResponseWriter
+	err := to.JSON(&out, m)
+	require.NoError(err)
+	require.Equal("{\n  \"foo\": \"<p>Hello, world!</p>\"\n}", out.String())
 }
