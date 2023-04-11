@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httputil"
-	"strings"
 	"time"
 
 	"github.com/davecheney/pub/internal/algorithms"
@@ -14,7 +12,6 @@ import (
 	"github.com/davecheney/pub/internal/to"
 	"github.com/davecheney/pub/models"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 )
 
@@ -25,49 +22,19 @@ func StatusesCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	var toot struct {
-		Status      string        `json:"status"`
-		InReplyToID *snowflake.ID `json:"in_reply_to_id,string"`
-		Sensitive   bool          `json:"sensitive"`
-		SpoilerText string        `json:"spoiler_text"`
-		Visibility  string        `json:"visibility"`
-		Language    string        `json:"language"`
-		ScheduledAt *time.Time    `json:"scheduled_at,omitempty"`
+		Status      string        `json:"status" schema:"status"`
+		InReplyToID *snowflake.ID `json:"in_reply_to_id,string" schema:"in_reply_to_id"`
+		Sensitive   bool          `json:"sensitive" schema:"sensitive"`
+		SpoilerText string        `json:"spoiler_text" schema:"spoiler_text"`
+		Visibility  string        `json:"visibility" schema:"visibility"`
+		Language    string        `json:"language" schema:"language"`
+		ScheduledAt *time.Time    `json:"scheduled_at,omitempty" schema:"scheduled_at"`
 	}
-	switch strings.Split(r.Header.Get("Content-Type"), ";")[0] {
-	case "multipart/form-data":
-		toot.Status = r.FormValue("status")
-		inReplyToID := r.FormValue("in_reply_to_id")
-		if inReplyToID != "" {
-			replyToID, err := snowflake.Parse(inReplyToID)
-			if err != nil {
-				return httpx.Error(http.StatusBadRequest, err)
-			}
-			toot.InReplyToID = &replyToID
-		}
-		toot.Sensitive = r.FormValue("sensitive") == "true"
-		toot.SpoilerText = r.FormValue("spoiler_text")
-		toot.Visibility = r.FormValue("visibility")
-		toot.Language = r.FormValue("language")
-		scheduledAt := r.FormValue("scheduled_at")
-		if scheduledAt != "" {
-			t, err := time.Parse(time.RFC3339, scheduledAt)
-			if err != nil {
-				return httpx.Error(http.StatusBadRequest, err)
-			}
-			toot.ScheduledAt = &t
-		}
-	case "application/json":
-		if err := json.UnmarshalFull(r.Body, &toot); err != nil {
-			return httpx.Error(http.StatusBadRequest, err)
-		}
-	default:
-		buf, _ := httputil.DumpRequest(r, true)
-		fmt.Println(string(buf))
-		return httpx.Error(http.StatusUnsupportedMediaType, fmt.Errorf("unsupported media type"))
+	if err := httpx.Params(r, &toot); err != nil {
+		return err
 	}
 
 	actor := user.Actor
-
 	var parent models.Status
 	var conv *models.Conversation
 	if toot.InReplyToID != nil {
