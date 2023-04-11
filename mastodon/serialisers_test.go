@@ -325,7 +325,7 @@ func TestSmallMetaFormat(t *testing.T) {
 			Width:  int(width),
 			Height: height,
 			Size:   fmt.Sprintf("%dx%d", int(width), height),
-			Aspect: float64(width) / float64(height),
+			Aspect: width / float64(height),
 		}, smallMetaFormat(att))
 	})
 }

@@ -54,7 +54,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
-			ctx = context.WithValue(ctx, "mux", &mux)
+			ctx = context.WithValue(ctx, streaming.MuxContextKey, &mux)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	})
@@ -205,7 +205,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	signalCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	g := group.New(context.WithValue(signalCtx, "mux", &mux))
+	g := group.New(context.WithValue(signalCtx, streaming.MuxContextKey, &mux))
 	g.Add(func(ctx context.Context) error {
 		fmt.Println("http.ListenAndServe", s.Addr, "started")
 		defer fmt.Println("http.ListenAndServe", s.Addr, "stopped")

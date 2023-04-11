@@ -7,6 +7,10 @@ type Payload struct {
 	Data  any
 }
 
+type muxContextKey string
+
+const MuxContextKey = muxContextKey("")
+
 type Mux struct {
 	mu            sync.Mutex
 	subscriptions map[*Subscription]chan<- Payload

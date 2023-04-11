@@ -138,18 +138,6 @@ func mapFromAny(v any) map[string]any {
 	return m
 }
 
-func timeFromAnyOrZero(v any) time.Time {
-	switch v := v.(type) {
-	case string:
-		t, _ := time.Parse(time.RFC3339, v)
-		return t
-	case time.Time:
-		return v
-	default:
-		return time.Time{}
-	}
-}
-
 func timeFromAny(v any) (time.Time, error) {
 	switch v := v.(type) {
 	case string:

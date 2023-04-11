@@ -33,5 +33,5 @@ func PushSubscriptionCreate(env *Env, w http.ResponseWriter, r *http.Request) er
 	if err := httpx.Params(r, &body); err != nil {
 		return err
 	}
-	return httpx.Error(http.StatusForbidden, errors.New("This action is outside the authorized scopes"))
+	return httpx.Error(http.StatusForbidden, errors.New("this action is outside the authorized scopes"))
 }
