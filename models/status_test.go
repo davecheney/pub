@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -88,5 +89,52 @@ func TestStatus(t *testing.T) {
 
 		err = tx.Delete(status).Error
 		require.NoError(err)
+	})
+}
+
+func TestStatuses(t *testing.T) {
+	db := setupTestDB(t)
+
+	t.Run("FindOrCreate", func(t *testing.T) {
+		t.Run("Assert status is created if it doesn't exist", func(t *testing.T) {
+			require := require.New(t)
+			tx := db.Begin()
+			defer tx.Rollback()
+
+			alice := MockActor(t, tx, "alice", "example.com")
+			status, err := NewStatuses(tx).FindOrCreate("https://example.com/status/1", func(uri string) (*Status, error) {
+				return &Status{
+					ActorID: alice.ID,
+					URI:     uri,
+					Conversation: &Conversation{
+						Visibility: "public",
+					},
+					Note: "Hello world",
+				}, nil
+			})
+			require.NoError(err)
+			require.NotNil(status)
+			require.EqualValues("Hello world", status.Note)
+			require.NotNil(status.Conversation)
+			require.NotEmpty(status.Conversation.ID)
+		})
+
+		t.Run("Assert status is found if it exists", func(t *testing.T) {
+			require := require.New(t)
+			tx := db.Begin()
+			defer tx.Rollback()
+
+			alice := MockActor(t, tx, "alice", "example.com")
+			st := MockStatus(t, tx, alice, "Hello world")
+			status, err := NewStatuses(tx).FindOrCreate(st.URI, func(uri string) (*Status, error) {
+				return nil, errors.New("should not be called")
+			})
+			require.NoError(err)
+			require.NotNil(status)
+			require.EqualValues("Hello world", status.Note)
+			require.NotNil(status.Conversation)
+			require.NotEmpty(status.Conversation.ID)
+		})
+
 	})
 }

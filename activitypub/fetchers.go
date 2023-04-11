@@ -139,27 +139,19 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 		return nil, fmt.Errorf("unsupported visibility %q: %v", visibility, status)
 	}
 
+	conv := &models.Conversation{
+		Visibility: models.Visibility(visibility),
+	}
 	var inReplyTo *models.Status
 	if status.InReplyTo != "" {
 		inReplyTo, err = models.NewStatuses(f.db).FindOrCreate(status.InReplyTo, f.Fetch)
 		if err != nil {
 			return nil, err
 		}
+		conv = inReplyTo.Conversation
 	}
 
 	actor, err := models.NewActors(f.db).FindOrCreate(status.AttributedTo, NewRemoteActorFetcher(f.signAs, f.db).Fetch)
-	if err != nil {
-		return nil, err
-	}
-
-	convID := uint32(0)
-	if inReplyTo != nil {
-		convID = inReplyTo.ConversationID
-	}
-	var conv models.Conversation
-	err = f.db.Where("id = ?", convID).FirstOrInit(&conv, &models.Conversation{
-		Visibility: models.Visibility(visibility),
-	}).Error
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +161,7 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 		UpdatedAt:        status.Updated,
 		ActorID:          actor.ID,
 		Actor:            actor,
-		Conversation:     &conv,
+		Conversation:     conv,
 		InReplyToID:      inReplyToID(inReplyTo),
 		InReplyToActorID: inReplyToActorID(inReplyTo),
 		Sensitive:        status.Sensitive,

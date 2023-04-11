@@ -188,7 +188,7 @@ func (s *Statuses) FindByURI(uri string) (*Status, error) {
 	}
 	// use find to avoid the not found error on empty result
 	var status []Status
-	query := s.db.Joins("Actor").Scopes(PreloadStatus)
+	query := s.db.Joins("Actor").Preload("Conversation").Scopes(PreloadStatus)
 	if err := query.Where(&Status{URI: uri}).Find(&status).Error; err != nil {
 		return nil, err
 	}

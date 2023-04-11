@@ -48,8 +48,10 @@ func MockStatus(t *testing.T, tx *gorm.DB, actor *Actor, note string) *Status {
 	t.Helper()
 	require := require.New(t)
 
+	id := snowflake.Now()
 	status := &Status{
-		ID:      snowflake.Now(),
+		ID:      id,
+		URI:     fmt.Sprintf("https://%s/status/%d", actor.Domain, id),
 		ActorID: actor.ID,
 		Conversation: &Conversation{
 			Visibility: "public",
@@ -66,7 +68,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
 		TranslateError: true,
 		Logger: logger.Default.LogMode(func() logger.LogLevel {
-			return logger.Info
+			return logger.Warn
 		}()),
 	})
 	require.NoError(err)

@@ -277,25 +277,17 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 			return nil, err
 		}
 
+		conv := &models.Conversation{
+			Visibility: models.Visibility(visiblity(create)),
+		}
 		var inReplyTo *models.Status
 		if inReplyToAtomUri, ok := create["inReplyTo"].(string); ok {
 			remoteStatusFetcher := NewRemoteStatusFetcher(i.signAs, i.db)
-			inReplyTo, err = models.NewStatuses(i.db).FindOrCreate(inReplyToAtomUri, remoteStatusFetcher.Fetch)
+			inReplyTo, err := models.NewStatuses(i.db).FindOrCreate(inReplyToAtomUri, remoteStatusFetcher.Fetch)
 			if err != nil {
 				return nil, err
 			}
-		}
-
-		convID := uint32(0)
-		if inReplyTo != nil {
-			convID = inReplyTo.ConversationID
-		}
-		var conv models.Conversation
-		err = i.db.Where("id = ?", convID).FirstOrInit(&conv, &models.Conversation{
-			Visibility: models.Visibility(visiblity(create)),
-		}).Error
-		if err != nil {
-			return nil, err
+			conv = inReplyTo.Conversation
 		}
 
 		st := &models.Status{
@@ -303,7 +295,7 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 			UpdatedAt:        updatedAt,
 			ActorID:          actor.ID,
 			Actor:            actor,
-			Conversation:     &conv,
+			Conversation:     conv,
 			URI:              uri,
 			InReplyToID:      inReplyToID(inReplyTo),
 			InReplyToActorID: inReplyToActorID(inReplyTo),

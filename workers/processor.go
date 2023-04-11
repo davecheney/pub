@@ -15,7 +15,7 @@ func process[T any](db *gorm.DB, scope func(*gorm.DB) *gorm.DB, fn func(*gorm.DB
 		return forEach(requests, func(request T) error {
 			start := time.Now()
 			if err := fn(db, request); err != nil {
-				return db.Model(request).Updates(map[string]interface{}{
+				return db.Model(request).UpdateColumns(map[string]interface{}{
 					"attempts":     gorm.Expr("attempts + 1"),
 					"last_attempt": start,
 					"last_result":  err.Error(),
