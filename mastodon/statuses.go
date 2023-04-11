@@ -38,28 +38,24 @@ func StatusesCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var parent models.Status
 	var conv *models.Conversation
 	if toot.InReplyToID != nil {
-		if err := env.DB.Take(&parent, *toot.InReplyToID).Error; err != nil {
+		if err := env.DB.Preload("Conversation").Take(&parent, *toot.InReplyToID).Error; err != nil {
 			return httpx.Error(http.StatusBadRequest, err)
 		}
-		conv, err = models.NewConversations(env.DB).FindOrCreate(parent.ConversationID, toot.Visibility)
-		if err != nil {
-			return err
-		}
+		conv = parent.Conversation
 	} else {
-		conv, err = models.NewConversations(env.DB).New(toot.Visibility)
-		if err != nil {
-			return err
+		conv = &models.Conversation{
+			Visibility: models.Visibility(toot.Visibility),
 		}
 	}
 
 	createdAt := time.Now()
 	id := snowflake.TimeToID(createdAt)
 	status := models.Status{
-		ID:             id,
-		UpdatedAt:      createdAt,
-		ActorID:        actor.ID,
-		Actor:          actor,
-		ConversationID: conv.ID,
+		ID:           id,
+		UpdatedAt:    createdAt,
+		ActorID:      actor.ID,
+		Actor:        actor,
+		Conversation: conv,
 		InReplyToID: func() *snowflake.ID {
 			if parent.ID != 0 {
 				return &parent.ID

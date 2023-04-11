@@ -286,16 +286,16 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 			}
 		}
 
-		vis := visiblity(create)
-		var conversationID uint32
+		convID := uint32(0)
 		if inReplyTo != nil {
-			conversationID = inReplyTo.ConversationID
-		} else {
-			conv, err := models.NewConversations(i.db).New(vis)
-			if err != nil {
-				return nil, err
-			}
-			conversationID = conv.ID
+			convID = inReplyTo.ConversationID
+		}
+		var conv models.Conversation
+		err = i.db.Where("id = ?", convID).FirstOrInit(&conv, &models.Conversation{
+			Visibility: models.Visibility(visiblity(create)),
+		}).Error
+		if err != nil {
+			return nil, err
 		}
 
 		st := &models.Status{
@@ -303,13 +303,13 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 			UpdatedAt:        updatedAt,
 			ActorID:          actor.ID,
 			Actor:            actor,
-			ConversationID:   conversationID,
+			Conversation:     &conv,
 			URI:              uri,
 			InReplyToID:      inReplyToID(inReplyTo),
 			InReplyToActorID: inReplyToActorID(inReplyTo),
 			Sensitive:        boolFromAny(create["sensitive"]),
 			SpoilerText:      stringFromAny(create["summary"]),
-			Visibility:       models.Visibility(vis),
+			Visibility:       conv.Visibility,
 			Language:         "en",
 			Note:             stringFromAny(create["content"]),
 			Attachments:      attachmentsToStatusAttachments(anyToSlice(create["attachment"])),

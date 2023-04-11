@@ -49,22 +49,15 @@ func MockStatus(t *testing.T, tx *gorm.DB, actor *Actor, note string) *Status {
 	require := require.New(t)
 
 	status := &Status{
-		ID:             snowflake.Now(),
-		ActorID:        actor.ID,
-		ConversationID: MockConversation(t, tx).ID,
-		Note:           note,
+		ID:      snowflake.Now(),
+		ActorID: actor.ID,
+		Conversation: &Conversation{
+			Visibility: "public",
+		},
+		Note: note,
 	}
 	require.NoError(tx.Create(status).Error)
 	return status
-}
-
-func MockConversation(t *testing.T, tx *gorm.DB) *Conversation {
-	t.Helper()
-	require := require.New(t)
-
-	conversation := &Conversation{Visibility: "public"}
-	require.NoError(tx.Create(conversation).Error)
-	return conversation
 }
 
 func setupTestDB(t *testing.T) *gorm.DB {
@@ -73,7 +66,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
 		TranslateError: true,
 		Logger: logger.Default.LogMode(func() logger.LogLevel {
-			return logger.Warn
+			return logger.Info
 		}()),
 	})
 	require.NoError(err)

@@ -180,13 +180,6 @@ func (r *Reactions) Unbookmark(status *Status, actor *Actor) (*Reaction, error) 
 func (r *Reactions) Reblog(status *Status, actor *Actor) (*Status, error) {
 	var reblog Status
 	return &reblog, r.db.Transaction(func(tx *gorm.DB) error {
-		conv := Conversation{
-			Visibility: "public",
-		}
-		if err := tx.Create(&conv).Error; err != nil {
-			return err
-		}
-
 		reaction, err := findOrCreateReaction(tx, status, actor)
 		if err != nil {
 			return err
@@ -199,15 +192,17 @@ func (r *Reactions) Reblog(status *Status, actor *Actor) (*Status, error) {
 
 		id := snowflake.Now()
 		reblog = Status{
-			ID:             id,
-			ActorID:        actor.ID,
-			Actor:          actor,
-			ConversationID: conv.ID,
-			Visibility:     conv.Visibility,
-			ReblogID:       &status.ID,
-			Reblog:         status,
-			URI:            fmt.Sprintf("%s/statuses/%d", actor.URI, id),
-			Reaction:       reaction,
+			ID:      id,
+			ActorID: actor.ID,
+			Actor:   actor,
+			Conversation: &Conversation{
+				Visibility: "public",
+			},
+			Visibility: "public",
+			ReblogID:   &status.ID,
+			Reblog:     status,
+			URI:        fmt.Sprintf("%s/statuses/%d", actor.URI, id),
+			Reaction:   reaction,
 		}
 		return tx.Create(&reblog).Error
 	})

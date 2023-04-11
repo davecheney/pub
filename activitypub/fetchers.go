@@ -147,20 +147,19 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 		}
 	}
 
-	var conversationID uint32
-	if inReplyTo != nil {
-		conversationID = inReplyTo.ConversationID
-	} else {
-		conv := models.Conversation{
-			Visibility: models.Visibility(visibility),
-		}
-		if err := f.db.Create(&conv).Error; err != nil {
-			return nil, err
-		}
-		conversationID = conv.ID
+	actor, err := models.NewActors(f.db).FindOrCreate(status.AttributedTo, NewRemoteActorFetcher(f.signAs, f.db).Fetch)
+	if err != nil {
+		return nil, err
 	}
 
-	actor, err := models.NewActors(f.db).FindOrCreate(status.AttributedTo, NewRemoteActorFetcher(f.signAs, f.db).Fetch)
+	convID := uint32(0)
+	if inReplyTo != nil {
+		convID = inReplyTo.ConversationID
+	}
+	var conv models.Conversation
+	err = f.db.Where("id = ?", convID).FirstOrInit(&conv, &models.Conversation{
+		Visibility: models.Visibility(visibility),
+	}).Error
 	if err != nil {
 		return nil, err
 	}
@@ -170,12 +169,12 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 		UpdatedAt:        status.Updated,
 		ActorID:          actor.ID,
 		Actor:            actor,
-		ConversationID:   conversationID,
+		Conversation:     &conv,
 		InReplyToID:      inReplyToID(inReplyTo),
 		InReplyToActorID: inReplyToActorID(inReplyTo),
 		Sensitive:        status.Sensitive,
 		SpoilerText:      status.Summary,
-		Visibility:       "public",
+		Visibility:       conv.Visibility,
 		URI:              status.ID,
 		Note:             status.Content,
 		Attachments:      attachmentsToStatusAttachments(status.Attachments),

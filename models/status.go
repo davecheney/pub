@@ -7,6 +7,7 @@ import (
 
 	"github.com/davecheney/pub/internal/snowflake"
 	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
 // A Status is a single message posted by a user. It may be a reply to another
@@ -18,7 +19,7 @@ type Status struct {
 	ActorID          snowflake.ID
 	Actor            *Actor `gorm:"constraint:OnDelete:CASCADE;<-:false;"` // don't update actor on status update
 	ConversationID   uint32
-	Conversation     *Conversation `gorm:"constraint:OnDelete:CASCADE;<-:false;"`
+	Conversation     *Conversation `gorm:"constraint:OnDelete:CASCADE;<-:create;"`
 	InReplyToID      *snowflake.ID
 	InReplyToActorID *snowflake.ID
 	Sensitive        bool
@@ -87,6 +88,30 @@ func (st *Status) updateStatusCount(tx *gorm.DB) error {
 		"statuses_count": statusesCount,
 		"last_status_at": createdAt,
 	}).Error
+}
+
+// A Conversation is a collection of related statuses. It is a way to group
+// together statuses that are replies to each other, or that are part of the
+// same thread of conversation. Conversations are not necessarily public, and
+// may be limited to a set of participants.
+type Conversation struct {
+	ID         uint32 `gorm:"primarykey"`
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	Visibility Visibility `gorm:"not null;check <> ''"`
+}
+
+type Visibility string
+
+func (Visibility) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+	switch db.Dialector.Name() {
+	case "mysql", "postgres":
+		return "enum('public', 'unlisted', 'private', 'direct', 'limited')"
+	case "sqlite":
+		return "TEXT"
+	default:
+		return ""
+	}
 }
 
 type StatusPoll struct {
