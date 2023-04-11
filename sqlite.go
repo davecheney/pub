@@ -14,3 +14,8 @@ func newDialector(dsn string) gorm.Dialector {
 		DSN: dsn,
 	}
 }
+
+func configureDB(db *gorm.DB) error {
+	// enable foreign key constraints
+	return db.Exec("PRAGMA foreign_keys = ON").Error
+}

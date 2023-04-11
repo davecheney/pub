@@ -62,6 +62,10 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	require.NoError(err)
 
+	// enable foreign key constraints
+	err = db.Exec("PRAGMA foreign_keys = ON").Error
+	require.NoError(err)
+
 	err = db.AutoMigrate(AllTables()...)
 	require.NoError(err)
 	return db
