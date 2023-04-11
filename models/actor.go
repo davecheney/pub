@@ -102,8 +102,19 @@ func (a *Actor) IsPerson() bool {
 	return a.Type == "Person" || a.Type == "LocalPerson"
 }
 
+// IsLocal indicates whether the actor is local to the instance.
 func (a *Actor) IsLocal() bool {
-	return a.Type == "LocalPerson"
+	switch a.Type {
+	case "LocalPerson", "LocalService":
+		return true
+	default:
+		return false
+	}
+}
+
+// IsRemote indicates whether the actor is not local to the instance.
+func (a *Actor) IsRemote() bool {
+	return !a.IsLocal()
 }
 
 func (a *Actor) IsGroup() bool {

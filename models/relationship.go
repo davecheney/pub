@@ -30,9 +30,14 @@ func (r *Relationship) BeforeUpdate(tx *gorm.DB) error {
 // the actor has changed their relationship with the target.
 func (r *Relationship) updateRelationshipRequest(tx *gorm.DB) error {
 	var original Relationship
-	if err := tx.First(&original, "actor_id = ? and target_id = ?", r.ActorID, r.TargetID).Error; err != nil {
+	if err := tx.Preload("Actor").Take(&original, "actor_id = ? and target_id = ?", r.ActorID, r.TargetID).Error; err != nil {
 		return err
 	}
+	if original.Actor.IsRemote() {
+		// don't create a relationship request from a remote actors to local actors
+		return nil
+	}
+
 	fmt.Printf("relationship changed from %+v to %+v\n", original, r)
 
 	// if there is a conflict; eg. a follow then an unfollow before the follow is processed
