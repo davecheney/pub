@@ -31,8 +31,8 @@ type Status struct {
 	ReblogsCount     int        `gorm:"not null;default:0"`
 	FavouritesCount  int        `gorm:"not null;default:0"`
 	ReblogID         *snowflake.ID
-	Reblog           *Status             `gorm:"<-:false;"` // don't update reblog on status update
-	Reaction         *Reaction           `gorm:"<-:false;"` // don't update reaction on status update
+	Reblog           *Status             `gorm:"constraint:OnDelete:CASCADE;<-:false;"` // don't update reblog on status update
+	Reaction         *Reaction           `gorm:"constraint:OnDelete:CASCADE;<-:false;"` // don't update reaction on status update
 	Attachments      []*StatusAttachment `gorm:"constraint:OnDelete:CASCADE;"`
 	Mentions         []StatusMention     `gorm:"constraint:OnDelete:CASCADE;"`
 	Tags             []StatusTag         `gorm:"constraint:OnDelete:CASCADE;"`
