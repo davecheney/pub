@@ -19,7 +19,7 @@ type Status struct {
 	ActorID          snowflake.ID
 	Actor            *Actor `gorm:"constraint:OnDelete:CASCADE;<-:false;"` // don't update actor on status update
 	ConversationID   uint32
-	Conversation     *Conversation `gorm:"constraint:OnDelete:CASCADE;<-:create;"`
+	Conversation     *Conversation `gorm:"constraint:OnDelete:CASCADE;"`
 	InReplyToID      *snowflake.ID
 	InReplyToActorID *snowflake.ID
 	Sensitive        bool

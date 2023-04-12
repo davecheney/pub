@@ -151,7 +151,8 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 		conv = inReplyTo.Conversation
 	}
 
-	actor, err := models.NewActors(f.db).FindOrCreate(status.AttributedTo, NewRemoteActorFetcher(f.signAs, f.db).Fetch)
+	actors := NewRemoteActorFetcher(f.signAs, f.db)
+	actor, err := models.NewActors(f.db).FindOrCreate(status.AttributedTo, actors.Fetch)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +176,7 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 	for _, tag := range status.Tags {
 		switch tag.Type {
 		case "Mention":
-			mention, err := models.NewActors(f.db).FindOrCreate(tag.Href, NewRemoteActorFetcher(f.signAs, f.db).Fetch)
+			mention, err := models.NewActors(f.db).FindOrCreate(tag.Href, actors.Fetch)
 			if err != nil {
 				return nil, err
 			}

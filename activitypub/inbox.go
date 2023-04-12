@@ -296,20 +296,22 @@ func (i *inboxProcessor) processCreate(create map[string]any) error {
 
 func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 	uri := stringFromAny(create["atomUri"])
-	if uri == "" {
-		return errors.New("missing atomUri")
-	}
-
-	_, err := models.NewStatuses(i.db).FindOrCreate(uri, func(string) (*models.Status, error) {
-		fetcher := NewRemoteActorFetcher(i.signAs, i.db)
-		actor, err := models.NewActors(i.db).FindOrCreate(stringFromAny(create["attributedTo"]), fetcher.Fetch)
+	_, err := models.NewStatuses(i.db).FindByURI(uri)
+	switch err {
+	case nil:
+		// we already have this status
+		return nil
+	case gorm.ErrRecordNotFound:
+		// we don't have this status
+		actors := NewRemoteActorFetcher(i.signAs, i.db)
+		actor, err := models.NewActors(i.db).FindOrCreate(stringFromAny(create["attributedTo"]), actors.Fetch)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		publishedAt, updatedAt, err := publishedAndUpdated(create)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		conv := &models.Conversation{
@@ -317,15 +319,15 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 		}
 		var inReplyTo *models.Status
 		if inReplyToAtomUri, ok := create["inReplyTo"].(string); ok {
-			remoteStatusFetcher := NewRemoteStatusFetcher(i.signAs, i.db)
-			inReplyTo, err := models.NewStatuses(i.db).FindOrCreate(inReplyToAtomUri, remoteStatusFetcher.Fetch)
+			statuses := NewRemoteStatusFetcher(i.signAs, i.db)
+			inReplyTo, err = models.NewStatuses(i.db).FindOrCreate(inReplyToAtomUri, statuses.Fetch)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			conv = inReplyTo.Conversation
 		}
 
-		st := &models.Status{
+		status := models.Status{
 			ID:               snowflake.TimeToID(publishedAt),
 			UpdatedAt:        updatedAt,
 			ActorID:          actor.ID,
@@ -341,23 +343,22 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 			Note:             stringFromAny(create["content"]),
 			Attachments:      attachmentsToStatusAttachments(anyToSlice(create["attachment"])),
 		}
-		// and here
 		for _, tag := range anyToSlice(create["tag"]) {
 			t := mapFromAny(tag)
 			switch t["type"] {
 			case "Mention":
-				mention, err := models.NewActors(i.db).FindOrCreate(stringFromAny(t["href"]), fetcher.Fetch)
+				mention, err := models.NewActors(i.db).FindOrCreate(stringFromAny(t["href"]), actors.Fetch)
 				if err != nil {
-					return nil, err
+					return err
 				}
-				st.Mentions = append(st.Mentions, models.StatusMention{
-					StatusID: st.ID,
+				status.Mentions = append(status.Mentions, models.StatusMention{
+					StatusID: status.ID,
 					ActorID:  mention.ID,
 					Actor:    mention,
 				})
 			case "Hashtag":
-				st.Tags = append(st.Tags, models.StatusTag{
-					StatusID: st.ID,
+				status.Tags = append(status.Tags, models.StatusTag{
+					StatusID: status.ID,
 					Tag: &models.Tag{
 						Name: strings.TrimLeft(stringFromAny(t["name"]), "#"),
 					},
@@ -366,20 +367,17 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 		}
 
 		if _, ok := create["oneOf"]; ok {
-			st.Poll, err = objToStatusPoll(create)
+			status.Poll, err = objToStatusPoll(create)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			st.Poll.StatusID = st.ID
+			status.Poll.StatusID = status.ID
 		}
-
-		return st, nil
-	})
-	if err != nil {
-		b, _ := marshalIndent(create)
-		fmt.Println("processCreate", string(b), err)
+		return i.db.Create(&status).Error
+	default:
+		// something else happened
+		return err
 	}
-	return err
 }
 
 // publishedAndUpdated returns the published and updated times for the given object.
