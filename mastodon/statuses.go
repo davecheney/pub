@@ -34,7 +34,6 @@ func StatusesCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	actor := user.Actor
 	var parent models.Status
 	var conv *models.Conversation
 	if toot.InReplyToID != nil {
@@ -53,8 +52,7 @@ func StatusesCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	status := models.Status{
 		ID:           id,
 		UpdatedAt:    createdAt,
-		ActorID:      actor.ID,
-		Actor:        actor,
+		Actor:        user.Actor,
 		Conversation: conv,
 		InReplyToID: func() *snowflake.ID {
 			if parent.ID != 0 {
@@ -70,7 +68,7 @@ func StatusesCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 				return nil
 			}
 		}(),
-		URI:         fmt.Sprintf("https://%s/users/%s/%d", actor.Domain, actor.Name, id),
+		URI:         fmt.Sprintf("https://%s/users/%s/%d", user.Actor.Domain, user.Actor.Name, id),
 		Sensitive:   toot.Sensitive,
 		SpoilerText: toot.SpoilerText,
 		Visibility:  models.Visibility(toot.Visibility),
@@ -292,7 +290,7 @@ func thread(id snowflake.ID, statuses []models.Status) ([]*models.Status, []*mod
 		ancestors = append(ancestors, l.status)
 		l = l.parent
 	}
-	reverse(ancestors)
+	algorithms.Reverse(ancestors)
 
 	var descendants []*models.Status
 	var walk func(*link)
@@ -304,10 +302,4 @@ func thread(id snowflake.ID, statuses []models.Status) ([]*models.Status, []*mod
 	}
 	walk(ids[id])
 	return ancestors, descendants
-}
-
-func reverse[T any](a []T) {
-	for i, j := 0, len(a)-1; i < j; i, j = i+1, j-1 {
-		a[i], a[j] = a[j], a[i]
-	}
 }

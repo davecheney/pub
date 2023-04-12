@@ -38,3 +38,21 @@ func TestFilter(t *testing.T) {
 		require.Equal(got, []int{2})
 	})
 }
+
+func TestReverse(t *testing.T) {
+	require := require.New(t)
+	testCases := []struct {
+		input    []int
+		expected []int
+	}{
+		{[]int{1, 2, 3}, []int{3, 2, 1}},
+		{[]int{1, 2, 3, 4}, []int{4, 3, 2, 1}},
+		{[]int{1}, []int{1}},
+		{[]int{}, []int{}},
+	}
+
+	for _, tc := range testCases {
+		Reverse(tc.input)
+		require.Equal(tc.input, tc.expected)
+	}
+}
