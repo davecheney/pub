@@ -73,11 +73,12 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	})
 	require.NoError(err)
 
+	err = db.AutoMigrate(AllTables()...)
+	require.NoError(err)
+
 	// enable foreign key constraints
 	err = db.Exec("PRAGMA foreign_keys = ON").Error
 	require.NoError(err)
 
-	err = db.AutoMigrate(AllTables()...)
-	require.NoError(err)
 	return db
 }

@@ -65,4 +65,32 @@ func TestRelationships(t *testing.T) {
 		require.EqualValues(0, bob.FollowersCount)
 		require.EqualValues(0, bob.FollowingCount)
 	})
+
+	t.Run("delete an actor deletes its relationships", func(t *testing.T) {
+		require := require.New(t)
+		tx := db.Begin()
+		defer tx.Rollback()
+
+		alice := MockActor(t, tx, "alice", "example.com")
+		bob := MockActor(t, tx, "bob", "example.com")
+		_, err := NewRelationships(tx).Follow(alice, bob)
+		require.NoError(err)
+
+		var following, follower Relationship
+		err = tx.Where("actor_id = ? AND target_id = ?", alice.ID, bob.ID).First(&following).Error
+		require.NoError(err)
+		require.True(following.Following)
+		err = tx.Where("actor_id = ? AND target_id = ?", bob.ID, alice.ID).First(&follower).Error
+		require.NoError(err)
+		require.True(follower.FollowedBy)
+
+		err = tx.Delete(alice).Error
+		require.NoError(err)
+
+		// Check if the relationship is deleted
+		err = tx.Where("actor_id = ? AND target_id = ?", alice.ID, bob.ID).First(&following).Error
+		require.Error(err)
+		err = tx.Where("actor_id = ? AND target_id = ?", bob.ID, alice.ID).First(&follower).Error
+		require.Error(err)
+	})
 }
