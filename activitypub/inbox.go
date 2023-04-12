@@ -2,6 +2,8 @@ package activitypub
 
 import (
 	"crypto"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/http"
@@ -17,13 +19,19 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func InboxCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
-	// find the instance that this request is for.
-	var instance models.Instance
-	if err := env.DB.Joins("Admin").Preload("Admin.Actor").Take(&instance, "domain = ?", r.Host).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return httpx.Error(http.StatusNotFound, err)
-		}
+func NewInbox(db *gorm.DB) *InboxController {
+	return &InboxController{
+		db: db,
+	}
+}
+
+type InboxController struct {
+	db *gorm.DB
+}
+
+func (i *InboxController) Create(env *Env, w http.ResponseWriter, r *http.Request) error {
+	instance, err := i.findInstance(r.Host)
+	if err != nil {
 		return err
 	}
 
@@ -36,17 +44,44 @@ func InboxCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	// instance's admin account.
 	processor := &inboxProcessor{
 		req:    r,
-		db:     env.DB,
+		db:     i.db,
 		signAs: instance.Admin,
-		getKey: env.GetKey,
+		getKey: i.getKey,
 	}
 
-	err := processor.processActivity(&act)
-	if err != nil {
+	if err := processor.processActivity(&act); err != nil {
 		return fmt.Errorf("processActivity failed: %s: %w ", act.ID, err)
 	}
 	w.WriteHeader(http.StatusAccepted)
 	return nil
+}
+
+func (i *InboxController) findInstance(domain string) (*models.Instance, error) {
+	var instance models.Instance
+	if err := i.db.Joins("Admin").Preload("Admin.Actor").Take(&instance, "domain = ?", domain).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, httpx.Error(http.StatusNotFound, err)
+		}
+		return nil, err
+	}
+	return &instance, nil
+}
+
+func (i *InboxController) getKey(keyID string) (crypto.PublicKey, error) {
+	actor, err := models.NewActors(i.db).FindOrCreate(trimKeyId(keyID), i.fetchActor)
+	if err != nil {
+		return nil, err
+	}
+	return pemToPublicKey(actor.PublicKey)
+}
+
+func (i *InboxController) fetchActor(uri string) (*models.Actor, error) {
+	var instance models.Instance
+	if err := i.db.Joins("Admin").Preload("Admin.Actor").Take(&instance, "admin_id is not null").Error; err != nil {
+		return nil, err
+	}
+	fetcher := NewRemoteActorFetcher(instance.Admin, i.db)
+	return fetcher.Fetch(uri)
 }
 
 type inboxProcessor struct {
@@ -605,4 +640,25 @@ func visiblity(obj map[string]any) string {
 		}
 	}
 	return "direct" // hack
+}
+
+func pemToPublicKey(key []byte) (crypto.PublicKey, error) {
+	block, _ := pem.Decode(key)
+	if block.Type != "PUBLIC KEY" {
+		return nil, fmt.Errorf("pemToPublicKey: invalid pem type: %s", block.Type)
+	}
+	var publicKey interface{}
+	var err error
+	if publicKey, err = x509.ParsePKIXPublicKey(block.Bytes); err != nil {
+		return nil, fmt.Errorf("pemToPublicKey: parsepkixpublickey: %w", err)
+	}
+	return publicKey, nil
+}
+
+// trimKeyId removes the #main-key suffix from the key id.
+func trimKeyId(id string) string {
+	if i := strings.Index(id, "#"); i != -1 {
+		return id[:i]
+	}
+	return id
 }

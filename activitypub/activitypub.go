@@ -1,13 +1,9 @@
 package activitypub
 
 import (
-	"crypto"
-	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/davecheney/pub/internal/algorithms"
@@ -23,46 +19,6 @@ import (
 type Env struct {
 	*gorm.DB
 	*streaming.Mux
-}
-
-func (e *Env) GetKey(keyID string) (crypto.PublicKey, error) {
-
-	// defer resolving the admin actor until we need use it to fetch the remote actor
-	fetch := func(uri string) (*models.Actor, error) {
-		var instance models.Instance
-		if err := e.DB.Joins("Admin").Preload("Admin.Actor").Take(&instance, "admin_id is not null").Error; err != nil {
-			return nil, err
-		}
-		fetcher := NewRemoteActorFetcher(instance.Admin, e.DB)
-		return fetcher.Fetch(uri)
-	}
-
-	actor, err := models.NewActors(e.DB).FindOrCreate(trimKeyId(keyID), fetch)
-	if err != nil {
-		return nil, err
-	}
-	return pemToPublicKey(actor.PublicKey)
-}
-
-func pemToPublicKey(key []byte) (crypto.PublicKey, error) {
-	block, _ := pem.Decode(key)
-	if block.Type != "PUBLIC KEY" {
-		return nil, fmt.Errorf("pemToPublicKey: invalid pem type: %s", block.Type)
-	}
-	var publicKey interface{}
-	var err error
-	if publicKey, err = x509.ParsePKIXPublicKey(block.Bytes); err != nil {
-		return nil, fmt.Errorf("pemToPublicKey: parsepkixpublickey: %w", err)
-	}
-	return publicKey, nil
-}
-
-// trimKeyId removes the #main-key suffix from the key id.
-func trimKeyId(id string) string {
-	if i := strings.Index(id, "#"); i != -1 {
-		return id[:i]
-	}
-	return id
 }
 
 func Followers(env *Env, w http.ResponseWriter, r *http.Request) error {

@@ -154,7 +154,6 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			Mux: &mux,
 		}
 	}
-	r.Post("/inbox", httpx.HandlerFunc(envFn, activitypub.InboxCreate))
 
 	r.Route("/oauth", func(r chi.Router) {
 		r.Get("/authorize", httpx.HandlerFunc(envFn, oauth.AuthorizeNew))
@@ -163,9 +162,11 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		r.Post("/revoke", httpx.HandlerFunc(envFn, oauth.TokenDestroy))
 	})
 
+	inbox := activitypub.NewInbox(db)
+	r.Post("/inbox", httpx.HandlerFunc(envFn, inbox.Create))
 	r.Route("/u/{name}", func(r chi.Router) {
 		r.Get("/", httpx.HandlerFunc(envFn, activitypub.UsersShow))
-		r.Post("/inbox", httpx.HandlerFunc(envFn, activitypub.InboxCreate))
+		r.Post("/inbox", httpx.HandlerFunc(envFn, inbox.Create))
 		r.Get("/outbox", httpx.HandlerFunc(envFn, activitypub.Outbox))
 		r.Get("/followers", httpx.HandlerFunc(envFn, activitypub.Followers))
 		r.Get("/following", httpx.HandlerFunc(envFn, activitypub.Following))
