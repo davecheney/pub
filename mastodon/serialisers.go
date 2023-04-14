@@ -152,7 +152,7 @@ type Relationship struct {
 	Requested           bool         `json:"requested"`
 	DomainBlocking      bool         `json:"domain_blocking"`
 	Endorsed            bool         `json:"endorsed"`
-	Note                string       `json:"note,omitempty"`
+	Note                string       `json:"note"`
 }
 
 func (s *Serialiser) Relationship(rel *models.Relationship) *Relationship {
@@ -169,14 +169,6 @@ func (s *Serialiser) Relationship(rel *models.Relationship) *Relationship {
 		Requested:           false,
 		DomainBlocking:      false,
 		Endorsed:            false,
-		Note: func() string {
-			// FirstOrInit won't preload the Target
-			// so it will be zero. :(
-			if rel.Target == nil {
-				return ""
-			}
-			return rel.Target.Note
-		}(),
 	}
 }
 

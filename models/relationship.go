@@ -19,6 +19,7 @@ type Relationship struct {
 	BlockedBy  bool         `gorm:"not null;default:false"`
 	Following  bool         `gorm:"not null;default:false"`
 	FollowedBy bool         `gorm:"not null;default:false"`
+	Note       string       `gorm:"type:text"`
 }
 
 // BeforeUpdate creates a relationship request between the actor and target.
