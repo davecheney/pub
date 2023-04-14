@@ -824,3 +824,8 @@ func (s *Serialiser) Preferences(prefs *models.AccountPreferences) *Preferences 
 		ReadingExpandSpoilers:    prefs.ReadingExpandSpoilers,
 	}
 }
+
+type FamiliarFollowers struct {
+	ID       snowflake.ID `json:"id"`
+	Accounts []*Account   `json:"accounts"`
+}

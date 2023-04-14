@@ -147,27 +147,27 @@ func AccountsShowListMembership(env *Env, w http.ResponseWriter, r *http.Request
 }
 
 func AccountsFamiliarFollowersShow(env *Env, w http.ResponseWriter, req *http.Request) error {
-	_, err := env.authenticate(req)
+	user, err := env.authenticate(req)
 	if err != nil {
 		return err
 	}
-	ids := req.URL.Query()["id"]
-	ids = append(ids, req.URL.Query()["id[]"]...)
-	// serialise := Serialiser{req: req}
-
-	type ff struct {
-		ID       snowflake.ID `json:"id"`
-		Accounts []any        `json:"accounts"`
+	var params struct {
+		IDs []snowflake.ID `schema:"id[],required"`
 	}
-
-	var resp []any
-	for _, i := range ids {
-		id, err := snowflake.Parse(i)
-		if err != nil {
-			return httpx.Error(http.StatusBadRequest, err)
+	if err := httpx.Params(req, &params); err != nil {
+		return err
+	}
+	var resp []FamiliarFollowers
+	serialiser := Serialiser{req: req}
+	for _, id := range params.IDs {
+		followers := env.DB.Select("target_id").Where("actor_id = ? and following = true", id).Table("relationships")
+		var commonFollowers []*models.Relationship
+		if err := env.DB.Preload("Target").Preload("Target.Attributes").Where("actor_id = ? and following = true and target_id in (?)", user.Actor.ID, followers).Find(&commonFollowers).Error; err != nil {
+			return httpx.Error(http.StatusInternalServerError, err)
 		}
-		resp = append(resp, &ff{
-			ID: id,
+		resp = append(resp, FamiliarFollowers{
+			ID:       id,
+			Accounts: algorithms.Map(algorithms.Map(commonFollowers, relationshipTarget), serialiser.Account),
 		})
 	}
 	return to.JSON(w, resp)
