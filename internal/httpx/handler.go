@@ -5,10 +5,10 @@ package httpx
 
 import (
 	"errors"
-	"log"
 	"net/http"
 
 	"github.com/go-json-experiment/json"
+	"golang.org/x/exp/slog"
 )
 
 // Error is a convenience function for returning an error with an associated HTTP status code.
@@ -32,25 +32,25 @@ func (se *StatusError) Status() int {
 	return se.Code
 }
 
+type env interface {
+	Log() *slog.Logger
+}
+
 // HandlerFunc adapts a function that returns an error to an http.HandlerFunc.
-func HandlerFunc[E any](envFn func(r *http.Request) *E, fn func(*E, http.ResponseWriter, *http.Request) error) http.HandlerFunc {
+func HandlerFunc[E env](envFn func(r *http.Request) E, fn func(E, http.ResponseWriter, *http.Request) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		env := envFn(r)
 		err := fn(env, w, r)
 		if err != nil {
-			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			status := http.StatusInternalServerError
 			if se := new(StatusError); errors.As(err, &se) {
-				log.Printf("HTTP: method: %s, path: %s, status: %d, error: %s", r.Method, r.URL.Path, se.Status(), err)
-				w.WriteHeader(se.Status())
-				json.MarshalFull(w, map[string]any{
-					"error": se.Error(),
-				})
-				return
+				status = se.Code
 			}
-			log.Printf("HTTP: method: %s, path: %s, status: %d, error: %s", r.Method, r.URL.Path, http.StatusInternalServerError, err)
-			w.WriteHeader(http.StatusInternalServerError)
+			env.Log().Error("HTTP", "method", r.Method, "path", r.URL.Path, "status", status, "error", err)
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			w.WriteHeader(status)
 			json.MarshalFull(w, map[string]any{
-				"error": http.StatusInternalServerError,
+				"error": err.Error(),
 			})
 		}
 	}

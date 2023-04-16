@@ -1,7 +1,6 @@
 package models
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -157,13 +156,14 @@ func NewActors(db *gorm.DB) *Actors {
 
 // FindOrCreate finds an account by its URI, or creates it if it doesn't exist.
 func (a *Actors) FindOrCreate(uri string, createFn func(string) (*Actor, error)) (*Actor, error) {
-	actor, err := a.FindByURI(uri)
-	if err == nil {
-		// found cached key
-		return actor, nil
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
+	// use find to avoid record not found error in case of empty result
+	var actors []Actor
+	if err := a.db.Limit(1).Find(&actors, "uri = ?", uri).Error; err != nil {
 		return nil, err
+	}
+	if len(actors) > 0 {
+		// found cached key
+		return &actors[0], nil
 	}
 
 	acc, err := createFn(uri)
@@ -176,15 +176,9 @@ func (a *Actors) FindOrCreate(uri string, createFn func(string) (*Actor, error))
 
 // FindByURI returns an account by its URI if it exists locally.
 func (a *Actors) FindByURI(uri string) (*Actor, error) {
-	// use find to avoid record not found error in case of empty result
-	var actors []Actor
-	if err := a.db.Limit(1).Find(&actors, "uri = ?", uri).Error; err != nil {
-		return nil, err
-	}
-	if len(actors) == 0 {
-		return nil, gorm.ErrRecordNotFound
-	}
-	return &actors[0], nil
+	var actor Actor
+	err := a.db.Where("URI = ?", uri).Take(&actor).Error
+	return &actor, err
 }
 
 // Refesh schedules a refresh of an actor's data.

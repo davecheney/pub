@@ -14,6 +14,7 @@ require (
 	github.com/pkg/group v1.0.0
 	github.com/stretchr/testify v1.8.2
 	golang.org/x/crypto v0.8.0
+	golang.org/x/exp v0.0.0-20230321023759-10a507213a29
 	golang.org/x/image v0.7.0
 	golang.org/x/net v0.9.0
 	gorm.io/driver/mysql v1.5.0
@@ -28,7 +29,6 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.16 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/exp v0.0.0-20230321023759-10a507213a29 // indirect
 	golang.org/x/sys v0.7.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

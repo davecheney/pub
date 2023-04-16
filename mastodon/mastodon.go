@@ -12,12 +12,18 @@ import (
 	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/davecheney/pub/internal/streaming"
 	"github.com/davecheney/pub/models"
+	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
 
 type Env struct {
 	*gorm.DB
 	*streaming.Mux
+	Logger *slog.Logger
+}
+
+func (e *Env) Log() *slog.Logger {
+	return e.Logger
 }
 
 // authenticate authenticates the bearer token attached to the request and, if

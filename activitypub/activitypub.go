@@ -14,11 +14,18 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
+
+	"golang.org/x/exp/slog"
 )
 
 type Env struct {
 	*gorm.DB
 	*streaming.Mux
+	Logger *slog.Logger
+}
+
+func (e *Env) Log() *slog.Logger {
+	return e.Logger
 }
 
 func Followers(env *Env, w http.ResponseWriter, r *http.Request) error {

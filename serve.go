@@ -62,8 +62,9 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	r.Route("/api", func(r chi.Router) {
 		envFn := func(r *http.Request) *mastodon.Env {
 			return &mastodon.Env{
-				DB:  db.WithContext(r.Context()),
-				Mux: &mux,
+				DB:     db.WithContext(r.Context()),
+				Mux:    &mux,
+				Logger: ctx.Logger,
 			}
 		}
 		r.Route("/v1", func(r chi.Router) {
@@ -150,8 +151,9 @@ func (s *ServeCmd) Run(ctx *Context) error {
 
 	envFn := func(r *http.Request) *activitypub.Env {
 		return &activitypub.Env{
-			DB:  db.WithContext(r.Context()),
-			Mux: &mux,
+			DB:     db.WithContext(r.Context()),
+			Mux:    &mux,
+			Logger: ctx.Logger,
 		}
 	}
 
@@ -182,7 +184,8 @@ func (s *ServeCmd) Run(ctx *Context) error {
 
 	modelEnvFn := func(r *http.Request) *models.Env {
 		return &models.Env{
-			DB: db.WithContext(r.Context()),
+			DB:     db.WithContext(r.Context()),
+			Logger: ctx.Logger,
 		}
 	}
 
@@ -223,7 +226,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		return svr.ListenAndServe()
 	})
 
-	g.Add(workers.NewRelationshipRequestProcessor(db))
+	g.Add(workers.NewRelationshipRequestProcessor(ctx.Logger, db))
 	g.Add(workers.NewReactionRequestProcessor(db))
 	g.Add(workers.NewStatusAttachmentRequestProcessor(db))
 

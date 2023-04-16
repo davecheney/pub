@@ -7,18 +7,22 @@ import (
 
 	"github.com/davecheney/pub/activitypub"
 	"github.com/davecheney/pub/models"
+	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
 
 // RelationshipRequestProcessor handles delivery of relationship requests.
-func NewRelationshipRequestProcessor(db *gorm.DB) func(ctx context.Context) error {
+func NewRelationshipRequestProcessor(log *slog.Logger, db *gorm.DB) func(ctx context.Context) error {
+	log = log.With("worker", "RelationshipRequestProcessor")
 	return func(ctx context.Context) error {
-		fmt.Println("RelationshipRequestProcessor started")
-		defer fmt.Println("RelationshipRequestProcessor stopped")
+		log.Info("started")
+		defer log.Info("stopped")
 
 		db := db.WithContext(ctx)
 		for {
-			if err := process(db, relationshipRequestScope, processRelationshipRequest); err != nil {
+			if err := process(db, relationshipRequestScope, func(db *gorm.DB, request *models.RelationshipRequest) error {
+				return processRelationshipRequest(log, db, request)
+			}); err != nil {
 				return err
 			}
 			select {
@@ -35,8 +39,8 @@ func relationshipRequestScope(db *gorm.DB) *gorm.DB {
 	return db.Preload("Actor").Preload("Target").Where("attempts < 3")
 }
 
-func processRelationshipRequest(db *gorm.DB, request *models.RelationshipRequest) error {
-	fmt.Println("RelationshipRequestProcessor: actor:", request.Actor.URI, "target:", request.Target.URI, "action:", request.Action)
+func processRelationshipRequest(log *slog.Logger, db *gorm.DB, request *models.RelationshipRequest) error {
+	log.Info("", "request", request.ID, "actor_id", request.Actor.ID, "target_id", request.Target.ID, "action", request.Action)
 	accounts := models.NewAccounts(db)
 	account, err := accounts.AccountForActor(request.Actor)
 	if err != nil {

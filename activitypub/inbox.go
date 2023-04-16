@@ -15,6 +15,7 @@ import (
 	"github.com/davecheney/pub/models"
 	"github.com/go-fed/httpsig"
 	"github.com/go-json-experiment/json"
+	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -43,6 +44,7 @@ func (i *InboxController) Create(env *Env, w http.ResponseWriter, r *http.Reques
 	// if we need to make an activity pub request, we need to sign it with the
 	// instance's admin account.
 	processor := &inboxProcessor{
+		logger: env.Logger.With("instance", instance.Domain),
 		req:    r,
 		db:     i.db,
 		signAs: instance.Admin,
@@ -85,6 +87,7 @@ func (i *InboxController) fetchActor(uri string) (*models.Actor, error) {
 }
 
 type inboxProcessor struct {
+	logger *slog.Logger
 	req    *http.Request
 	db     *gorm.DB
 	signAs *models.Account
@@ -95,7 +98,8 @@ type inboxProcessor struct {
 // blocking, it is handled immediately. If the activity requires blocking, it is
 // queued for later processing.
 func (i *inboxProcessor) processActivity(act *Activity) error {
-	fmt.Println("processActivity: type:", act.Type, "id:", act.ID)
+	i.logger = i.logger.With("id", act.ID, "type", act.Type)
+	i.logger.Info("processActivity")
 	switch act.Type {
 	case "":
 		return httpx.Error(http.StatusBadRequest, errors.New("missing type"))
@@ -194,28 +198,16 @@ func (i *inboxProcessor) processAnnounce(act *Activity) error {
 		updatedAt = publishedAt
 	}
 
-	conv := models.Conversation{
-		Visibility: "public",
-	}
-	if err := i.db.Create(&conv).Error; err != nil {
-		return err
-	}
-
 	status := &models.Status{
-		ID:               snowflake.TimeToID(publishedAt),
-		UpdatedAt:        updatedAt,
-		ActorID:          actor.ID,
-		Actor:            actor,
-		ConversationID:   conv.ID,
-		URI:              act.ID,
-		InReplyToID:      nil,
-		InReplyToActorID: nil,
-		Sensitive:        false,
-		SpoilerText:      "",
-		Visibility:       "public",
-		Language:         "",
-		Note:             "",
-		ReblogID:         &original.ID,
+		ID:        snowflake.TimeToID(publishedAt),
+		UpdatedAt: updatedAt,
+		Actor:     actor,
+		Conversation: &models.Conversation{
+			Visibility: "public",
+		},
+		URI:        act.ID,
+		Visibility: "public",
+		ReblogID:   &original.ID,
 	}
 
 	return i.db.Create(status).Error
@@ -410,7 +402,6 @@ func inReplyToActorID(inReplyTo *models.Status) *snowflake.ID {
 }
 
 func objToStatusAttachment(obj map[string]any) *models.StatusAttachment {
-	fmt.Println("objToStatusAttachment:", obj)
 	return &models.StatusAttachment{
 		Attachment: models.Attachment{
 			ID:         snowflake.Now(),
@@ -591,19 +582,21 @@ func (i *inboxProcessor) processDeleteStatus(uri string) error {
 }
 
 func (i *inboxProcessor) processDeleteActor(uri string) error {
-	// load actor to delete it so we can fire the delete hooks.
-	actor, err := models.NewActors(i.db).FindByURI(uri)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// already deleted
-			return nil
-		}
+	// use this form to avoid firing gorm's ErrNotFound mechanism;
+	// most deletes we don't know about, and that's fine.
+	var actors []*models.Actor
+	if err := i.db.Limit(1).Where("uri = ?", uri).Find(&actors).Error; err != nil {
 		return err
 	}
+	if len(actors) == 0 {
+		// already deleted
+		return nil
+	}
+	actor := actors[0]
 	if err := i.validateSignature(); err != nil {
 		return httpx.Error(http.StatusUnauthorized, err)
 	}
-	return i.db.Delete(&actor).Error
+	return i.db.Delete(actor).Error
 }
 
 func (i *inboxProcessor) validateSignature() error {

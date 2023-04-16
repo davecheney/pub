@@ -1,6 +1,10 @@
 package main
 
 import (
+	"os"
+
+	"golang.org/x/exp/slog"
+
 	"github.com/alecthomas/kong"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -8,6 +12,8 @@ import (
 
 type Context struct {
 	Debug bool
+
+	Logger *slog.Logger
 
 	gorm.Config
 	gorm.Dialector
@@ -29,7 +35,8 @@ var cli struct {
 func main() {
 	ctx := kong.Parse(&cli)
 	err := ctx.Run(&Context{
-		Debug: cli.LogSQL,
+		Debug:  cli.LogSQL,
+		Logger: slog.New(slog.NewTextHandler(os.Stderr)),
 		Config: gorm.Config{
 			Logger: logger.Default.LogMode(func() logger.LogLevel {
 				if cli.LogSQL {
