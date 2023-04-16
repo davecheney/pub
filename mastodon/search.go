@@ -1,9 +1,11 @@
 package mastodon
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/davecheney/pub/activitypub"
@@ -14,25 +16,32 @@ import (
 )
 
 func SearchIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
-	q := r.URL.Query().Get("q")
-	typ := r.URL.Query().Get("type")
-	if strings.Contains(q, "@") {
-		typ = "accounts"
+	var params struct {
+		Q       string `schema:"q"`
+		Type    string `schema:"type"`
+		Resolve bool   `schema:"resolve"`
+		Limit   int    `schema:"limit"`
 	}
-	switch typ {
+	if err := httpx.Params(r, &params); err != nil {
+		return err
+	}
+	if strings.Contains(params.Q, "@") {
+		params.Type = "accounts"
+	}
+	switch params.Type {
 	case "accounts":
-		return searchAccounts(env, w, r, q)
+		return searchAccounts(env, w, r, params.Q, params.Resolve)
 	// case "hashtags":
 	// 	s.searchHashtags(w, r, q)
 	default:
-		return searchStatuses(env, w, r, q)
+		return searchStatuses(env, w, r, params.Q)
 	}
 }
 
-func searchAccounts(env *Env, w http.ResponseWriter, r *http.Request, q string) error {
+func searchAccounts(env *Env, w http.ResponseWriter, r *http.Request, q string, resolve bool) error {
 	var actor *models.Actor
 	var err error
-	switch r.URL.Query().Get("resolve") == "true" {
+	switch resolve {
 	case true:
 		// true to fix up search query
 		switch {
@@ -45,11 +54,18 @@ func searchAccounts(env *Env, w http.ResponseWriter, r *http.Request, q string) 
 			q = "acct:" + user + "@" + u.Host
 			fallthrough
 		case strings.Contains(q, "@"):
+			re := regexp.MustCompile(`(?P<prefix>acct:)?(?P<user>[a-z0-9_]+)@(?P<host>[a-z0-9_.-]+)`)
+			matches := re.FindStringSubmatch(q)
+			if len(matches) == 0 {
+				return httpx.Error(http.StatusBadRequest, errors.New("invalid acct: "+q))
+			}
+			user := matches[2]
+			host := matches[3]
+			q := "acct:" + user + "@" + host
 			fmt.Println("webfinger", q)
-			acct, err := webfinger.Parse(q)
-			if err != nil {
-				fmt.Println("webfinger.Parse", err)
-				return httpx.Error(http.StatusBadRequest, err)
+			acct := webfinger.Acct{
+				User: user,
+				Host: host,
 			}
 			wf, err := acct.Fetch(r.Context())
 			if err != nil {
@@ -61,6 +77,7 @@ func searchAccounts(env *Env, w http.ResponseWriter, r *http.Request, q string) 
 				fmt.Println("wf.ActivityPub", err)
 				return httpx.Error(http.StatusBadRequest, err)
 			}
+
 		}
 		// find admin of this request's domain
 		var instance models.Instance

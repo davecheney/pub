@@ -17,14 +17,18 @@ func RelationshipsShow(env *Env, w http.ResponseWriter, req *http.Request) error
 		return err
 	}
 	var params struct {
-		IDs []snowflake.ID `schema:"id[],required"`
+		ID  snowflake.ID
+		IDs []snowflake.ID `schema:"id[]"`
 	}
 	if err := httpx.Params(req, &params); err != nil {
 		return err
 	}
 	serialise := Serialiser{req: req}
 	var resp []any
-	for _, tid := range params.IDs {
+	for _, tid := range append(params.IDs, params.ID) {
+		if tid == 0 {
+			continue
+		}
 		var rel models.Relationship
 		if err := env.DB.Preload("Target").FirstOrInit(&rel, models.Relationship{ActorID: user.Actor.ID, TargetID: tid}).Error; err != nil {
 			return err
