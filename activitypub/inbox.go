@@ -201,7 +201,7 @@ func (i *inboxProcessor) processAnnounce(act *Activity) error {
 	status := &models.Status{
 		ID:        snowflake.TimeToID(publishedAt),
 		UpdatedAt: updatedAt,
-		Actor:     actor,
+		ActorID:   actor.ID,
 		Conversation: &models.Conversation{
 			Visibility: "public",
 		},
