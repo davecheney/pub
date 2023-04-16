@@ -139,4 +139,38 @@ func TestReactions(t *testing.T) {
 		require.NoError(err)
 		require.False(reaction.Bookmarked)
 	})
+
+	t.Run("delete an actor deletes their reactions", func(t *testing.T) {
+		require := require.New(t)
+		tx := db.Begin()
+		defer tx.Rollback()
+
+		alice := MockActor(t, tx, "alice", "example.com")
+		bob := MockActor(t, tx, "bob", "example.com")
+		status := MockStatus(t, tx, alice, "This speech is my recital, I think it's very vital")
+
+		reactions := NewReactions(tx)
+		_, err := reactions.Favourite(status, bob)
+		require.NoError(err)
+
+		err = tx.Delete(bob).Error
+		require.NoError(err)
+	})
+
+	t.Run("delete a status deletes its reactions", func(t *testing.T) {
+		require := require.New(t)
+		tx := db.Begin()
+		defer tx.Rollback()
+
+		alice := MockActor(t, tx, "alice", "example.com")
+		bob := MockActor(t, tx, "bob", "example.com")
+		status := MockStatus(t, tx, alice, "This speech is my recital, I think it's very vital")
+
+		reactions := NewReactions(tx)
+		_, err := reactions.Favourite(status, bob)
+		require.NoError(err)
+
+		err = tx.Delete(status).Error
+		require.NoError(err)
+	})
 }
