@@ -62,6 +62,15 @@ func MockStatus(t *testing.T, tx *gorm.DB, actor *Actor, note string) *Status {
 	return status
 }
 
+func MockInstance(t *testing.T, tx *gorm.DB, domain string) *Instance {
+	t.Helper()
+	require := require.New(t)
+
+	instance, err := NewInstances(tx).Create("example.com", "Example", "Example instance", "admin@example.com")
+	require.NoError(err)
+	return instance
+}
+
 func setupTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	require := require.New(t)

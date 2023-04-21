@@ -14,9 +14,9 @@ type Account struct {
 	snowflake.ID      `gorm:"primarykey;autoIncrement:false"`
 	UpdatedAt         time.Time
 	InstanceID        snowflake.ID
-	Instance          *Instance `gorm:"<-:false;"`
+	Instance          *Instance `gorm:"<-:create;"`
 	ActorID           snowflake.ID
-	Actor             *Actor          `gorm:"constraint:OnDelete:CASCADE;<-:false;"`
+	Actor             *Actor          `gorm:"constraint:OnDelete:CASCADE;<-:create;"`
 	Lists             []AccountList   `gorm:"constraint:OnDelete:CASCADE;"`
 	Markers           []AccountMarker `gorm:"constraint:OnDelete:CASCADE;"`
 	Email             string          `gorm:"size:64;not null"`
