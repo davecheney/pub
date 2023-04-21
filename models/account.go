@@ -1,9 +1,12 @@
 package models
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/davecheney/pub/internal/crypto"
 	"github.com/davecheney/pub/internal/snowflake"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -83,6 +86,53 @@ func (a *Accounts) AccountForActor(actor *Actor) (*Account, error) {
 		return nil, err
 	}
 	return &account, nil
+}
+
+func (a *Accounts) Create(instance *Instance, name, email, password string) (*Account, error) {
+	var account Account
+	err := a.db.Transaction(func(tx *gorm.DB) error {
+
+		keypair, err := crypto.GenerateRSAKeypair()
+		if err != nil {
+			return err
+		}
+
+		passwd, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+
+		var userRole AccountRole
+		if err := tx.Where("name = ?", "admin").FirstOrCreate(&userRole, AccountRole{
+			Name:        "user",
+			Position:    10,
+			Permissions: 65535,
+		}).Error; err != nil {
+			return err
+		}
+
+		account = Account{
+			ID:       snowflake.Now(),
+			Instance: instance,
+			Actor: &Actor{
+				ID:          snowflake.Now(),
+				Name:        name,
+				Domain:      instance.Domain,
+				URI:         fmt.Sprintf("https://%s/u/%s", instance.Domain, name),
+				Type:        "LocalPerson",
+				DisplayName: name,
+				Avatar:      "https://avatars.githubusercontent.com/u/1024?v=4",
+				Header:      "https://avatars.githubusercontent.com/u/1024?v=4",
+				PublicKey:   keypair.PublicKey,
+			},
+			Email:             email,
+			EncryptedPassword: passwd,
+			PrivateKey:        keypair.PrivateKey,
+			RoleID:            userRole.ID,
+		}
+		return tx.Create(&account).Error
+	})
+	return &account, err
 }
 
 type AccountPreferences struct {

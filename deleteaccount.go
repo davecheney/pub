@@ -16,19 +16,5 @@ func (d *DeleteAccountCmd) Run(ctx *Context) error {
 		return err
 	}
 
-	return withTransaction(db, func(tx *gorm.DB) error {
-		var account models.Account
-		if err := tx.Joins("Actor").First(&account, "name = ? AND domain = ?", d.Name, d.Domain).Error; err != nil {
-			return err
-		}
-
-		// delete the actor
-		if err := tx.Delete(&account.Actor).Error; err != nil {
-			return err
-		}
-
-		// delete the account
-		return tx.Delete(&account).Error
-	})
-
+	return db.Where("name = ? AND domain = ?", d.Name, d.Domain).Delete(&models.Account{}).Error
 }
