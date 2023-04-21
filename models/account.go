@@ -19,7 +19,7 @@ type Account struct {
 	InstanceID        snowflake.ID
 	Instance          *Instance `gorm:"<-:create;"`
 	ActorID           snowflake.ID
-	Actor             *Actor          `gorm:"constraint:OnDelete:CASCADE;<-:create;"`
+	Actor             *Actor          `gorm:"<-:create;"`
 	Lists             []AccountList   `gorm:"constraint:OnDelete:CASCADE;"`
 	Markers           []AccountMarker `gorm:"constraint:OnDelete:CASCADE;"`
 	Email             string          `gorm:"size:64;not null"`
