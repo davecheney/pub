@@ -821,3 +821,39 @@ type FamiliarFollowers struct {
 	ID       snowflake.ID `json:"id"`
 	Accounts []*Account   `json:"accounts"`
 }
+
+type WebPushSubscription struct {
+	ID        uint32 `json:"id"`
+	Endpoint  string `json:"endpoint"`
+	Alerts    Alerts `json:"alerts"`
+	ServerKey string `json:"server_key"`
+}
+
+type Alerts struct {
+	Mention       bool `json:"mention"`
+	Status        bool `json:"status"`
+	Reblog        bool `json:"reblog"`
+	Follow        bool `json:"follow"`
+	FollowRequest bool `json:"follow_request"`
+	Favourite     bool `json:"favourite"`
+	Poll          bool `json:"poll"`
+	Update        bool `json:"update"`
+}
+
+func (s *Serialiser) WebPushSubscription(sub *models.PushSubscription) *WebPushSubscription {
+	return &WebPushSubscription{
+		ID:       sub.ID,
+		Endpoint: sub.Endpoint,
+		Alerts: Alerts{
+			Follow:        sub.Follow,
+			FollowRequest: sub.FollowRequest,
+			Favourite:     sub.Favourite,
+			Reblog:        sub.Reblog,
+			Mention:       sub.Mention,
+			Status:        sub.Status,
+			Poll:          sub.Poll,
+			Update:        sub.Update,
+		},
+		ServerKey: "BCk-QqERU0q-CfYZjcuB6lnyyOYfJ2AifKqfeGIm7Z-HiTU5T9eTG5GxVA0_OH5mMlI4UkkDTpaZwozy0TzdZ2M=",
+	}
+}

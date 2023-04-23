@@ -24,7 +24,7 @@ func Params(r *http.Request, v interface{}) error {
 		if err := schema.NewDecoder().Decode(v, values); err != nil {
 			return Error(http.StatusBadRequest, err)
 		}
-	case "POST":
+	case "POST", "PUT":
 		switch mediaType(r) {
 		case "application/json":
 			if err := json.UnmarshalFull(r.Body, v); err != nil {
