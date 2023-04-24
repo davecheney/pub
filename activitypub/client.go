@@ -195,6 +195,7 @@ func (c *Client) Fetch(uri string, obj interface{}) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		body, _ := io.ReadAll(resp.Body)
 		return &Error{
@@ -204,7 +205,6 @@ func (c *Client) Fetch(uri string, obj interface{}) error {
 			Body:       string(body),
 		}
 	}
-	defer resp.Body.Close()
 	return json.UnmarshalFull(resp.Body, obj)
 }
 
