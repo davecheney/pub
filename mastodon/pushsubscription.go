@@ -17,14 +17,14 @@ func PushSubscriptionCreate(env *Env, w http.ResponseWriter, r *http.Request) er
 		Data struct {
 			Policy string `json:"policy" schema:"data[policy]"`
 			Alerts struct {
-				Status        bool `json:"status" schema:"data[alerts][status]"`
-				Reblog        bool `json:"reblog" schema:"data[alerts][reblog]"`
-				Follow        bool `json:"follow" schema:"data[alerts][follow]"`
-				FollowRequest bool `json:"follow_request" schema:"data[alerts][follow_request]"`
-				Favourite     bool `json:"favourite" schema:"data[alerts][favourite]"`
-				Poll          bool `json:"poll" schema:"data[alerts][poll]"`
-				Update        bool `json:"update" schema:"data[alerts][update]"`
-				Mention       bool `json:"mention" schema:"data[alerts][mention]"`
+				Status        BoolOrBit `json:"status" schema:"data[alerts][status]"`
+				Reblog        BoolOrBit `json:"reblog" schema:"data[alerts][reblog]"`
+				Follow        BoolOrBit `json:"follow" schema:"data[alerts][follow]"`
+				FollowRequest BoolOrBit `json:"follow_request" schema:"data[alerts][follow_request]"`
+				Favourite     BoolOrBit `json:"favourite" schema:"data[alerts][favourite]"`
+				Poll          BoolOrBit `json:"poll" schema:"data[alerts][poll]"`
+				Update        BoolOrBit `json:"update" schema:"data[alerts][update]"`
+				Mention       BoolOrBit `json:"mention" schema:"data[alerts][mention]"`
 			} `json:"alerts"`
 		} `json:"data" schema:"data"`
 		Subscription struct {
@@ -42,13 +42,13 @@ func PushSubscriptionCreate(env *Env, w http.ResponseWriter, r *http.Request) er
 		AccountID:     account.ID,
 		Endpoint:      body.Subscription.Endpoint,
 		Mention:       false,
-		Status:        body.Data.Alerts.Status,
-		Reblog:        body.Data.Alerts.Reblog,
-		Follow:        body.Data.Alerts.Follow,
-		FollowRequest: body.Data.Alerts.FollowRequest,
-		Favourite:     body.Data.Alerts.Favourite,
-		Poll:          body.Data.Alerts.Poll,
-		Update:        body.Data.Alerts.Update,
+		Status:        bool(body.Data.Alerts.Status),
+		Reblog:        bool(body.Data.Alerts.Reblog),
+		Follow:        bool(body.Data.Alerts.Follow),
+		FollowRequest: bool(body.Data.Alerts.FollowRequest),
+		Favourite:     bool(body.Data.Alerts.Favourite),
+		Poll:          bool(body.Data.Alerts.Poll),
+		Update:        bool(body.Data.Alerts.Update),
 		Policy:        models.PushSubscriptionPolicy(body.Data.Policy),
 	}
 	if err := env.DB.Create(&sub).Error; err != nil {
@@ -67,14 +67,14 @@ func PushSubscriptionUpdate(env *Env, w http.ResponseWriter, r *http.Request) er
 		Data struct {
 			Policy string `json:"policy" schema:"data[policy]"`
 			Alerts struct {
-				Status        bool `json:"status" schema:"data[alerts][status]"`
-				Reblog        bool `json:"reblog" schema:"data[alerts][reblog]"`
-				Follow        bool `json:"follow" schema:"data[alerts][follow]"`
-				FollowRequest bool `json:"follow_request" schema:"data[alerts][follow_request]"`
-				Favourite     bool `json:"favourite" schema:"data[alerts][favourite]"`
-				Poll          bool `json:"poll" schema:"data[alerts][poll]"`
-				Update        bool `json:"update" schema:"data[alerts][update]"`
-				Mention       bool `json:"mention" schema:"data[alerts][mention]"`
+				Status        BoolOrBit `json:"status" schema:"data[alerts][status]"`
+				Reblog        BoolOrBit `json:"reblog" schema:"data[alerts][reblog]"`
+				Follow        BoolOrBit `json:"follow" schema:"data[alerts][follow]"`
+				FollowRequest BoolOrBit `json:"follow_request" schema:"data[alerts][follow_request]"`
+				Favourite     BoolOrBit `json:"favourite" schema:"data[alerts][favourite]"`
+				Poll          BoolOrBit `json:"poll" schema:"data[alerts][poll]"`
+				Update        BoolOrBit `json:"update" schema:"data[alerts][update]"`
+				Mention       BoolOrBit `json:"mention" schema:"data[alerts][mention]"`
 			} `json:"alerts"`
 		} `json:"data" schema:"data"`
 	}
@@ -85,14 +85,14 @@ func PushSubscriptionUpdate(env *Env, w http.ResponseWriter, r *http.Request) er
 	if err := env.DB.First(&sub, models.PushSubscription{AccountID: account.ID}).Error; err != nil {
 		return err
 	}
-	sub.Status = body.Data.Alerts.Status
-	sub.Reblog = body.Data.Alerts.Reblog
-	sub.Follow = body.Data.Alerts.Follow
-	sub.FollowRequest = body.Data.Alerts.FollowRequest
-	sub.Favourite = body.Data.Alerts.Favourite
-	sub.Poll = body.Data.Alerts.Poll
-	sub.Update = body.Data.Alerts.Update
-	sub.Mention = body.Data.Alerts.Mention
+	sub.Status = bool(body.Data.Alerts.Status)
+	sub.Reblog = bool(body.Data.Alerts.Reblog)
+	sub.Follow = bool(body.Data.Alerts.Follow)
+	sub.FollowRequest = bool(body.Data.Alerts.FollowRequest)
+	sub.Favourite = bool(body.Data.Alerts.Favourite)
+	sub.Poll = bool(body.Data.Alerts.Poll)
+	sub.Update = bool(body.Data.Alerts.Update)
+	sub.Mention = bool(body.Data.Alerts.Mention)
 	if body.Data.Policy != "" {
 		sub.Policy = models.PushSubscriptionPolicy(body.Data.Policy)
 	}
