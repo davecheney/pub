@@ -124,12 +124,7 @@ func PushSubscriptionDestroy(env *Env, w http.ResponseWriter, r *http.Request) e
 		return err
 	}
 
-	var sub models.PushSubscription
-	if err := env.DB.Delete(&sub, models.PushSubscription{AccountID: account.ID}).Error; err != nil {
-		return err
-	}
-
-	if err := env.DB.Delete(&sub).Error; err != nil {
+	if err := env.DB.Where("account_id = ?", account.ID).Delete(models.PushSubscription{}).Error; err != nil {
 		return err
 	}
 
