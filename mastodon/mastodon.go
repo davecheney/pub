@@ -29,7 +29,14 @@ func (e *Env) Log() *slog.Logger {
 // authenticate authenticates the bearer token attached to the request and, if
 // successful, returns the account associated with the token.
 func (e *Env) authenticate(r *http.Request) (*models.Account, error) {
-	bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	bearer := r.Header.Get("Authorization")
+	if bearer == "" {
+		return nil, httpx.Error(http.StatusUnauthorized, errors.New("missing bearer token"))
+	}
+	if !strings.HasPrefix(bearer, "Bearer ") {
+		return nil, httpx.Error(http.StatusUnauthorized, errors.New("invalid bearer token"))
+	}
+	bearer = strings.TrimPrefix(bearer, "Bearer ")
 	if bearer == "" {
 		return nil, httpx.Error(http.StatusUnauthorized, errors.New("missing bearer token"))
 	}
