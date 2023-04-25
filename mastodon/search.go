@@ -61,7 +61,7 @@ func searchAccounts(env *Env, w http.ResponseWriter, r *http.Request, q string, 
 			}
 			user := matches[2]
 			host := matches[3]
-			q := "acct:" + user + "@" + host
+			q = "acct:" + user + "@" + host
 			fmt.Println("webfinger", q)
 			acct := webfinger.Acct{
 				User: user,
@@ -77,7 +77,6 @@ func searchAccounts(env *Env, w http.ResponseWriter, r *http.Request, q string, 
 				fmt.Println("wf.ActivityPub", err)
 				return httpx.Error(http.StatusBadRequest, err)
 			}
-
 		}
 		// find admin of this request's domain
 		var instance models.Instance

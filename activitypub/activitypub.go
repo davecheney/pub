@@ -12,7 +12,6 @@ import (
 	"github.com/davecheney/pub/internal/to"
 	"github.com/davecheney/pub/models"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 
 	"golang.org/x/exp/slog"
@@ -130,13 +129,6 @@ func anyToSlice(v any) []any {
 	default:
 		return nil
 	}
-}
-
-func marshalIndent(v any) ([]byte, error) {
-	b, err := json.MarshalOptions{}.Marshal(json.EncodeOptions{
-		Indent: "\t", // indent for readability
-	}, v)
-	return b, err
 }
 
 // parseBool parses a boolean value from a request parameter.
