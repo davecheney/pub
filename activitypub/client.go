@@ -1,7 +1,6 @@
 package activitypub
 
 import (
-	"bytes"
 	"context"
 	"crypto"
 	"crypto/rsa"
@@ -9,14 +8,12 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io"
-	"mime"
 	"net/http"
 	"strings"
 
+	"github.com/carlmjohnson/requests"
 	"github.com/davecheney/pub/internal/httpsig"
 	"github.com/davecheney/pub/models"
-	"github.com/go-json-experiment/json"
 	"github.com/google/uuid"
 )
 
@@ -184,67 +181,28 @@ func FetchStatus(ctx context.Context, signer *models.Account, uri string) (*Stat
 
 // Fetch fetches the ActivityPub resource at the given URL and decodes it into the given object.
 func (c *Client) Fetch(uri string, obj interface{}) error {
-	req, err := http.NewRequestWithContext(c.ctx, "GET", uri, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Accept", "application/activity+json, application/ld+json")
+	return requests.URL(uri).
+		Accept("application/activity+json, application/ld+json").
+		Transport(c).
+		CheckContentType("application/activity+json", "application/ld+json", "application/json").
+		CheckStatus(http.StatusOK).
+		ToJSON(obj).
+		Fetch(c.ctx)
+}
+
+func (c *Client) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err := httpsig.Sign(req, c.keyID, c.privateKey, nil); err != nil {
-		return fmt.Errorf("failed to sign request: %w", err)
+		return nil, fmt.Errorf("failed to sign request: %w", err)
 	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	mediaType, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		body, _ := io.ReadAll(resp.Body)
-		return &Error{
-			StatusCode: resp.StatusCode,
-			URI:        resp.Request.URL.String(),
-			Method:     resp.Request.Method,
-			Body:       string(body),
-		}
-	}
-	switch mediaType {
-	case "application/activity+json":
-		return json.UnmarshalFull(resp.Body, obj)
-	default:
-		return fmt.Errorf("unsupported media type: %s", mediaType)
-	}
+	return http.DefaultTransport.RoundTrip(req)
 }
 
 // Post posts the given ActivityPub object to the given URL.
 func (c *Client) Post(url string, obj map[string]any) error {
-	body, err := json.Marshal(obj)
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequest("POST", url, bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/activity+json")
-	if err := httpsig.Sign(req, c.keyID, c.privateKey, body); err != nil {
-		return fmt.Errorf("failed to sign request: %w", err)
-	}
-	resp, err := http.DefaultClient.Do(req.WithContext(c.ctx))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		body, _ := io.ReadAll(resp.Body)
-		return &Error{
-			StatusCode: resp.StatusCode,
-			URI:        resp.Request.URL.String(),
-			Method:     resp.Request.Method,
-			Body:       string(body),
-		}
-	}
-	return nil
+	return requests.URL(url).
+		Header("Content-Type", "application/activity+json").
+		BodyJSON(obj).
+		Transport(c).
+		CheckStatus(http.StatusOK, http.StatusCreated).
+		Fetch(c.ctx)
 }
