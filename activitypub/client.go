@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"strings"
 
@@ -196,6 +197,10 @@ func (c *Client) Fetch(uri string, obj interface{}) error {
 		return err
 	}
 	defer resp.Body.Close()
+	mediaType, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
+	if err != nil {
+		return err
+	}
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		body, _ := io.ReadAll(resp.Body)
 		return &Error{
@@ -205,7 +210,12 @@ func (c *Client) Fetch(uri string, obj interface{}) error {
 			Body:       string(body),
 		}
 	}
-	return json.UnmarshalFull(resp.Body, obj)
+	switch mediaType {
+	case "application/activity+json":
+		return json.UnmarshalFull(resp.Body, obj)
+	default:
+		return fmt.Errorf("unsupported media type: %s", mediaType)
+	}
 }
 
 // Post posts the given ActivityPub object to the given URL.
