@@ -117,7 +117,7 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 	}
 
 	var visibility string
-	for _, recipient := range anyToSlice(status.To) {
+	for _, recipient := range status.To {
 		switch recipient {
 		case "https://www.w3.org/ns/activitystreams#Public":
 			visibility = "public"
@@ -126,7 +126,7 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 		}
 	}
 	if visibility == "" {
-		for _, recipient := range anyToSlice(status.CC) {
+		for _, recipient := range status.CC {
 			switch recipient {
 			case "https://www.w3.org/ns/activitystreams#Public":
 				visibility = "public"

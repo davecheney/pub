@@ -1,6 +1,8 @@
 package activitypub
 
 import (
+	"encoding/json"
+	"errors"
 	"time"
 )
 
@@ -74,8 +76,8 @@ type Status struct {
 	Published    time.Time `json:"published"`
 	Updated      time.Time `json:"updated"`
 
-	To []any `json:"to"`
-	CC []any `json:"cc"`
+	To StringOrArray `json:"to"`
+	CC StringOrArray `json:"cc"`
 
 	Sensitive   bool          `json:"sensitive"`
 	Summary     string        `json:"summary"`
@@ -86,6 +88,24 @@ type Status struct {
 	StartTime time.Time `json:"startTime"`
 	EndTime   time.Time `json:"endTime"`
 	OneOf     []Option  `json:"oneOf"`
+}
+
+type StringOrArray []string
+
+func (s *StringOrArray) UnmarshalJSON(b []byte) error {
+	var str string
+	if err := json.Unmarshal(b, &str); err == nil {
+		*s = []string{str}
+		return nil
+	}
+
+	var arr []string
+	if err := json.Unmarshal(b, &arr); err == nil {
+		*s = arr
+		return nil
+	}
+
+	return errors.New("invalid string or array")
 }
 
 type Option struct {
