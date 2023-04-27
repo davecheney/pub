@@ -182,9 +182,9 @@ func FetchStatus(ctx context.Context, signer *models.Account, uri string) (*Stat
 // Fetch fetches the ActivityPub resource at the given URL and decodes it into the given object.
 func (c *Client) Fetch(uri string, obj interface{}) error {
 	return requests.URL(uri).
-		Accept("application/activity+json, application/ld+json").
+		Accept(`application/ld+json; profile="https://www.w3.org/ns/activitystreams"`).
 		Transport(c).
-		CheckContentType("application/activity+json", "application/ld+json", "application/json").
+		CheckContentType(`application/ld+json; profile="https://www.w3.org/ns/activitystreams"`, "application/activity+json", "application/json").
 		CheckStatus(http.StatusOK).
 		ToJSON(obj).
 		Fetch(c.ctx)
@@ -200,7 +200,7 @@ func (c *Client) RoundTrip(req *http.Request) (*http.Response, error) {
 // Post posts the given ActivityPub object to the given URL.
 func (c *Client) Post(url string, obj map[string]any) error {
 	return requests.URL(url).
-		Header("Content-Type", "application/activity+json").
+		Header("Content-Type", `application/ld+json; profile="https://www.w3.org/ns/activitystreams"`).
 		BodyJSON(obj).
 		Transport(c).
 		CheckStatus(http.StatusOK, http.StatusCreated).
