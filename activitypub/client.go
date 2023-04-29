@@ -184,7 +184,7 @@ func (c *Client) Fetch(uri string, obj interface{}) error {
 	return requests.URL(uri).
 		Accept(`application/ld+json; profile="https://www.w3.org/ns/activitystreams"`).
 		Transport(c).
-		CheckContentType(`application/ld+json; profile="https://www.w3.org/ns/activitystreams"`, "application/activity+json", "application/json").
+		CheckContentType("application/ld+json", "application/activity+json", "application/json").
 		CheckStatus(http.StatusOK).
 		ToJSON(obj).
 		Fetch(c.ctx)
