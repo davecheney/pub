@@ -14,7 +14,7 @@ import (
 type Token struct {
 	AccessToken       string `gorm:"size:64;primaryKey;autoIncrement:false"`
 	CreatedAt         time.Time
-	AccountID         snowflake.ID
+	AccountID         *snowflake.ID
 	Account           *Account `gorm:"constraint:OnDelete:CASCADE;<-:false;"`
 	ApplicationID     snowflake.ID
 	Application       *Application `gorm:"constraint:OnDelete:CASCADE;<-:false;"`

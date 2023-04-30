@@ -3,9 +3,9 @@ package httpx
 import (
 	"errors"
 	"fmt"
+	"mime"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/go-json-experiment/json"
 	"github.com/gorilla/schema"
@@ -25,7 +25,11 @@ func Params(r *http.Request, v interface{}) error {
 			return Error(http.StatusBadRequest, err)
 		}
 	case "POST", "PUT":
-		switch mediaType(r) {
+		mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+		if err != nil {
+			return Error(http.StatusBadRequest, err)
+		}
+		switch mt {
 		case "application/json":
 			if err := json.UnmarshalFull(r.Body, v); err != nil {
 				return Error(http.StatusBadRequest, err)
@@ -60,9 +64,4 @@ func Params(r *http.Request, v interface{}) error {
 		return Error(http.StatusMethodNotAllowed, errors.New("unsupported method: "+r.Method))
 	}
 	return nil
-}
-
-// mediaType returns the media type of the request.
-func mediaType(req *http.Request) string {
-	return strings.Split(req.Header.Get("Content-Type"), ";")[0]
 }

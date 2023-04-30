@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 
 	"net/http"
 
@@ -88,7 +87,7 @@ func AuthorizeCreate(env *activitypub.Env, w http.ResponseWriter, r *http.Reques
 
 	token := &models.Token{
 		AccessToken:       uuid.New().String(),
-		AccountID:         account.ID,
+		AccountID:         &account.ID,
 		ApplicationID:     app.ID,
 		TokenType:         models.TokenType("Bearer"),
 		Scope:             "read write follow push",
@@ -110,32 +109,59 @@ func TokenCreate(env *activitypub.Env, w http.ResponseWriter, r *http.Request) e
 		ClientID     string `json:"client_id" schema:"client_id,required"`
 		ClientSecret string `json:"client_secret" schema:"client_secret,required"`
 		GrantType    string `json:"grant_type" schema:"grant_type,required"`
-		Code         string `json:"code" schema:"code,required"`
+		Code         string `json:"code" schema:"code"`
 		RedirectURI  string `json:"redirect_uri" schema:"redirect_uri,required"`
-		Scope        string `json:"-" schema:"scope"` // ignored
+		Scope        string `json:"scope" schema:"scope"`
 	}
 	if err := httpx.Params(r, &params); err != nil {
 		return err
 	}
-	var token models.Token
-	if err := env.DB.Where("authorization_code = ?", params.Code).First(&token).Error; err != nil {
-		return httpx.Error(http.StatusUnauthorized, fmt.Errorf("token with code %s not found", params.Code))
-	}
+
 	var app models.Application
 	if err := env.DB.Where("client_id = ?", params.ClientID).First(&app).Error; err != nil {
 		return httpx.Error(http.StatusBadRequest, fmt.Errorf("failed to find application: %w", err))
 	}
-
-	if token.ApplicationID != app.ID {
-		log.Println("client_id mismatch", token.ApplicationID, app.ID)
-		return httpx.Error(http.StatusUnauthorized, fmt.Errorf("client_id mismatch"))
+	if app.ClientSecret != params.ClientSecret {
+		return httpx.Error(http.StatusUnauthorized, fmt.Errorf("invalid client_secret"))
 	}
-	return to.JSON(w, map[string]any{
-		"access_token": token.AccessToken,
-		"token_type":   token.TokenType,
-		"scope":        token.Scope,
-		"created_at":   token.CreatedAt.Unix(),
-	})
+
+	switch params.GrantType {
+	case "authorization_code":
+		var token models.Token
+		if err := env.DB.Where("authorization_code = ?", params.Code).First(&token).Error; err != nil {
+			return httpx.Error(http.StatusUnauthorized, fmt.Errorf("token with code %s not found", params.Code))
+		}
+		if token.ApplicationID != app.ID {
+			return httpx.Error(http.StatusUnauthorized, fmt.Errorf("client_id mismatch"))
+		}
+		return to.JSON(w, map[string]any{
+			"access_token": token.AccessToken,
+			"token_type":   token.TokenType,
+			"scope":        token.Scope,
+			"created_at":   token.CreatedAt.Unix(),
+		})
+	case "refresh_token":
+		return httpx.Error(http.StatusNotImplemented, fmt.Errorf("refresh_token grant type not implemented"))
+	case "client_credentials":
+		token := &models.Token{
+			AccessToken:       uuid.New().String(),
+			ApplicationID:     app.ID,
+			TokenType:         models.TokenType("Bearer"),
+			Scope:             params.Scope,
+			AuthorizationCode: uuid.New().String(),
+		}
+		if err := env.DB.Create(token).Error; err != nil {
+			return err
+		}
+		return to.JSON(w, map[string]any{
+			"access_token": token.AccessToken,
+			"token_type":   token.TokenType,
+			"scope":        token.Scope,
+			"created_at":   token.CreatedAt.Unix(),
+		})
+	default:
+		return httpx.Error(http.StatusBadRequest, fmt.Errorf("invalid grant_type"))
+	}
 }
 
 func TokenDestroy(env *activitypub.Env, w http.ResponseWriter, r *http.Request) error {
