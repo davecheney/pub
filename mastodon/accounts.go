@@ -152,7 +152,8 @@ func AccountsFamiliarFollowersShow(env *Env, w http.ResponseWriter, req *http.Re
 		return err
 	}
 	var params struct {
-		IDs []snowflake.ID `schema:"id[],required"`
+		IDs   []snowflake.ID `schema:"id,required"`
+		Limit int            `schema:"limit"` // ignored
 	}
 	if err := httpx.Params(req, &params); err != nil {
 		return err
