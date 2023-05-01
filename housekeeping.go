@@ -25,15 +25,6 @@ func (c *HouseKeepingCmd) Run(ctx *Context) error {
 		}
 		fmt.Println("deleted", res.RowsAffected, "orphaned actor attributes")
 
-		res = tx.Exec(`
-			DELETE FROM actor_attributes
-			WHERE actor_id IS NULL
-		`)
-		if res.Error != nil {
-			return res.Error
-		}
-		fmt.Println("deleted", res.RowsAffected, "outdated actor attributes")
-
 		// delete all Person and Service actors that have no status
 		res = tx.Exec(`
 			DELETE FROM actors

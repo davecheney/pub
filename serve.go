@@ -239,7 +239,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	if err := db.Joins("Actor", "name = ? and type = ?", "admin", "LocalService").Take(&admin).Error; err != nil {
 		return err
 	}
-	g.Add(workers.NewActorRefreshProcessor(db, &admin))
+	g.Add(workers.NewActorRefreshProcessor(db, &admin, ctx.Logger.With("worker", "ActorRefreshProcessor")))
 
 	return g.Wait()
 }

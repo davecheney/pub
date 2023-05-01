@@ -5,15 +5,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/carlmjohnson/requests"
 	"github.com/davecheney/pub/activitypub"
-	"github.com/davecheney/pub/internal/webfinger"
 	"github.com/davecheney/pub/models"
+	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
 
 // NewActorRefreshProcessor handles updating the actor's record.
-func NewActorRefreshProcessor(db *gorm.DB, admin *models.Account) func(ctx context.Context) error {
+func NewActorRefreshProcessor(db *gorm.DB, admin *models.Account, logger *slog.Logger) func(ctx context.Context) error {
 
 	return func(ctx context.Context) error {
 		fmt.Println("NewActorRefreshProcessor started")
@@ -21,6 +20,7 @@ func NewActorRefreshProcessor(db *gorm.DB, admin *models.Account) func(ctx conte
 
 		refresher := &actorRefresher{
 			signAs: admin,
+			logger: logger,
 		}
 
 		db := db.WithContext(ctx)
@@ -45,6 +45,8 @@ func actorRefreshScope(db *gorm.DB) *gorm.DB {
 type actorRefresher struct {
 	// signAs is the account to sign requests as.
 	signAs *models.Account
+	// logger is the slog.Logger to use for logging.
+	logger *slog.Logger
 }
 
 func (a *actorRefresher) processActorRefresh(db *gorm.DB, request *models.ActorRefreshRequest) error {
@@ -52,23 +54,9 @@ func (a *actorRefresher) processActorRefresh(db *gorm.DB, request *models.ActorR
 		// ignore local actors
 		return nil
 	}
-	ctx := db.Statement.Context
-	acct := webfinger.Acct{
-		User: request.Actor.Name,
-		Host: request.Actor.Domain,
-	}
-	fmt.Println("processActorRefresh", acct.String())
-	var finger webfinger.Webfinger
-	if err := requests.URL(acct.Webfinger()).ToJSON(&finger).Fetch(ctx); err != nil {
-		return err
-	}
-	ap, err := finger.ActivityPub()
-	if err != nil {
-		return err
-	}
-
+	a.logger.Info("processActorRefresh", slog.String("uri", request.Actor.URI), slog.Int("attempt", int(request.Attempts)+1))
 	orig := request.Actor
-	updated, err := activitypub.NewRemoteActorFetcher(a.signAs, db).Fetch(ap)
+	updated, err := activitypub.NewRemoteActorFetcher(a.signAs, db).Fetch(request.Actor.URI)
 	if err != nil {
 		return err
 	}

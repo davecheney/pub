@@ -27,8 +27,6 @@ func NewRemoteActorFetcher(signAs *models.Account, db *gorm.DB) *RemoteActorFetc
 }
 
 func (f *RemoteActorFetcher) Fetch(uri string) (*models.Actor, error) {
-	fmt.Println("RemoteActorFetcher.Fetch", uri)
-
 	c, err := NewClient(f.signAs)
 	if err != nil {
 		return nil, err
