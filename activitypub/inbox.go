@@ -1,7 +1,6 @@
 package activitypub
 
 import (
-	"context"
 	"crypto"
 	"crypto/x509"
 	"encoding/pem"
@@ -49,7 +48,6 @@ func (i *InboxController) Create(env *Env, w http.ResponseWriter, r *http.Reques
 		req:    r,
 		db:     i.db,
 		signAs: instance.Admin,
-		getKey: i.getKey,
 	}
 
 	if err := processor.processActivity(&act); err != nil {
@@ -70,29 +68,11 @@ func (i *InboxController) findInstance(domain string) (*models.Instance, error) 
 	return &instance, nil
 }
 
-func (i *InboxController) getKey(keyID string) (crypto.PublicKey, error) {
-	actor, err := models.NewActors(i.db).FindOrCreate(trimKeyId(keyID), i.fetchActor)
-	if err != nil {
-		return nil, err
-	}
-	return pemToPublicKey(actor.PublicKey)
-}
-
-func (i *InboxController) fetchActor(ctx context.Context, uri string) (*models.Actor, error) {
-	var instance models.Instance
-	if err := i.db.Joins("Admin").Preload("Admin.Actor").Take(&instance, "admin_id is not null").Error; err != nil {
-		return nil, err
-	}
-	fetcher := NewRemoteActorFetcher(instance.Admin)
-	return fetcher.Fetch(ctx, uri)
-}
-
 type inboxProcessor struct {
 	logger *slog.Logger
 	req    *http.Request
 	db     *gorm.DB
 	signAs *models.Account
-	getKey func(keyID string) (crypto.PublicKey, error)
 }
 
 // processActivity processes an activity. If the activity can be handled without
@@ -613,6 +593,15 @@ func (i *inboxProcessor) validateSignature() error {
 		return err
 	}
 	return nil
+}
+
+func (i *inboxProcessor) getKey(keyID string) (crypto.PublicKey, error) {
+	fetcher := NewRemoteActorFetcher(i.signAs)
+	actor, err := models.NewActors(i.db).FindOrCreate(trimKeyId(keyID), fetcher.Fetch)
+	if err != nil {
+		return nil, err
+	}
+	return pemToPublicKey(actor.PublicKey)
 }
 
 func visiblity(obj map[string]any) string {
