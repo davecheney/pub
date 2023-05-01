@@ -2,9 +2,11 @@ package workers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/carlmjohnson/requests"
 	"github.com/davecheney/pub/activitypub"
 	"github.com/davecheney/pub/models"
 	"golang.org/x/exp/slog"
@@ -56,8 +58,20 @@ func (a *actorRefresher) processActorRefresh(db *gorm.DB, request *models.ActorR
 	}
 	a.logger.Info("processActorRefresh", slog.String("uri", request.Actor.URI), slog.Int("attempt", int(request.Attempts)+1))
 	orig := request.Actor
-	updated, err := activitypub.NewRemoteActorFetcher(a.signAs, db).Fetch(request.Actor.URI)
+	ctx, cancel := context.WithTimeout(db.Statement.Context, 5*time.Second)
+	defer cancel()
+	updated, err := activitypub.NewRemoteActorFetcher(a.signAs).Fetch(ctx, request.Actor.URI)
 	if err != nil {
+		var respErr *requests.ResponseError
+		if errors.As(err, &respErr) {
+			switch respErr.StatusCode {
+			case 404, 410:
+				// actor is gone
+				a.logger.Info("actor is gone", slog.String("uri", request.Actor.URI), slog.Int("attempt", int(request.Attempts)+1), slog.Int("status", respErr.StatusCode))
+				// deleting the actor deletes the refresh request
+				return db.Delete(request.Actor).Error
+			}
+		}
 		return err
 	}
 

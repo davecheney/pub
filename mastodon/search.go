@@ -83,7 +83,7 @@ func searchAccounts(env *Env, w http.ResponseWriter, r *http.Request, q string, 
 		if err := env.DB.Joins("Admin").Preload("Admin.Actor").Where("domain = ?", r.Host).First(&instance).Error; err != nil {
 			return httpx.Error(http.StatusInternalServerError, err)
 		}
-		fetcher := activitypub.NewRemoteActorFetcher(instance.Admin, env.DB)
+		fetcher := activitypub.NewRemoteActorFetcher(instance.Admin)
 		actor, err = models.NewActors(env.DB).FindOrCreate(q, fetcher.Fetch)
 	default:
 		actor, err = models.NewActors(env.DB).FindByURI(q)

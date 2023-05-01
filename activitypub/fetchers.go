@@ -16,17 +16,15 @@ import (
 type RemoteActorFetcher struct {
 	// signAs is the account that will be used to sign the request
 	signAs *models.Account
-	db     *gorm.DB
 }
 
-func NewRemoteActorFetcher(signAs *models.Account, db *gorm.DB) *RemoteActorFetcher {
+func NewRemoteActorFetcher(signAs *models.Account) *RemoteActorFetcher {
 	return &RemoteActorFetcher{
 		signAs: signAs,
-		db:     db,
 	}
 }
 
-func (f *RemoteActorFetcher) Fetch(uri string) (*models.Actor, error) {
+func (f *RemoteActorFetcher) Fetch(ctx context.Context, uri string) (*models.Actor, error) {
 	c, err := NewClient(f.signAs)
 	if err != nil {
 		return nil, err
@@ -62,7 +60,6 @@ func (f *RemoteActorFetcher) Fetch(uri string) (*models.Actor, error) {
 		} `json:"publicKey"`
 		Attachments []Attachment `json:"attachment"`
 	}
-	ctx := f.db.Statement.Context
 	if err := c.Fetch(ctx, uri, &actor); err != nil {
 		return nil, err
 	}
@@ -188,7 +185,7 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 		conv = inReplyTo.Conversation
 	}
 
-	actors := NewRemoteActorFetcher(f.signAs, f.db)
+	actors := NewRemoteActorFetcher(f.signAs)
 	actor, err := models.NewActors(f.db).FindOrCreate(status.AttributedTo, actors.Fetch)
 	if err != nil {
 		return nil, err

@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -155,7 +156,7 @@ func NewActors(db *gorm.DB) *Actors {
 }
 
 // FindOrCreate finds an account by its URI, or creates it if it doesn't exist.
-func (a *Actors) FindOrCreate(uri string, createFn func(string) (*Actor, error)) (*Actor, error) {
+func (a *Actors) FindOrCreate(uri string, createFn func(context.Context, string) (*Actor, error)) (*Actor, error) {
 	// use find to avoid record not found error in case of empty result
 	var actors []Actor
 	if err := a.db.Limit(1).Find(&actors, "uri = ?", uri).Error; err != nil {
@@ -166,7 +167,7 @@ func (a *Actors) FindOrCreate(uri string, createFn func(string) (*Actor, error))
 		return &actors[0], nil
 	}
 
-	acc, err := createFn(uri)
+	acc, err := createFn(a.db.Statement.Context, uri)
 	if err != nil {
 		return nil, err
 	}

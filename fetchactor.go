@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -37,7 +38,7 @@ func (f *FetchActorCmd) Run(ctx *Context) error {
 		return fmt.Errorf("failed to find actor: %w", err)
 	}
 
-	updated, err := activitypub.NewRemoteActorFetcher(account, db).Fetch(f.Actor)
+	updated, err := activitypub.NewRemoteActorFetcher(account).Fetch(context.Background(), f.Actor)
 	if err != nil {
 		return fmt.Errorf("failed to fetch actor: %w", err)
 	}

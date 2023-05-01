@@ -1,6 +1,7 @@
 package activitypub
 
 import (
+	"context"
 	"crypto"
 	"crypto/x509"
 	"encoding/pem"
@@ -77,13 +78,13 @@ func (i *InboxController) getKey(keyID string) (crypto.PublicKey, error) {
 	return pemToPublicKey(actor.PublicKey)
 }
 
-func (i *InboxController) fetchActor(uri string) (*models.Actor, error) {
+func (i *InboxController) fetchActor(ctx context.Context, uri string) (*models.Actor, error) {
 	var instance models.Instance
 	if err := i.db.Joins("Admin").Preload("Admin.Actor").Take(&instance, "admin_id is not null").Error; err != nil {
 		return nil, err
 	}
-	fetcher := NewRemoteActorFetcher(instance.Admin, i.db)
-	return fetcher.Fetch(uri)
+	fetcher := NewRemoteActorFetcher(instance.Admin)
+	return fetcher.Fetch(ctx, uri)
 }
 
 type inboxProcessor struct {
@@ -187,7 +188,7 @@ func (i *inboxProcessor) processAnnounce(act *Activity) error {
 		return err
 	}
 
-	actorFetcher := NewRemoteActorFetcher(i.signAs, i.db)
+	actorFetcher := NewRemoteActorFetcher(i.signAs)
 	actor, err := models.NewActors(i.db).FindOrCreate(stringFromAny(act.Actor), actorFetcher.Fetch)
 	if err != nil {
 		return err
@@ -295,7 +296,7 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 		return nil
 	case gorm.ErrRecordNotFound:
 		// we don't have this status
-		actors := NewRemoteActorFetcher(i.signAs, i.db)
+		actors := NewRemoteActorFetcher(i.signAs)
 		actor, err := models.NewActors(i.db).FindOrCreate(stringFromAny(create["attributedTo"]), actors.Fetch)
 		if err != nil {
 			return err
@@ -535,7 +536,7 @@ func objToStatusPoll(obj map[string]any) (*models.StatusPoll, error) {
 
 func (i *inboxProcessor) processUpdateActor(update map[string]any) error {
 	id := stringFromAny(update["id"])
-	actorFetcher := NewRemoteActorFetcher(i.signAs, i.db)
+	actorFetcher := NewRemoteActorFetcher(i.signAs)
 	actor, err := models.NewActors(i.db).FindOrCreate(id, actorFetcher.Fetch)
 	if err != nil {
 		return err
