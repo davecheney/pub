@@ -29,8 +29,43 @@ func NewRemoteActorFetcher(signAs *models.Account, db *gorm.DB) *RemoteActorFetc
 func (f *RemoteActorFetcher) Fetch(uri string) (*models.Actor, error) {
 	fmt.Println("RemoteActorFetcher.Fetch", uri)
 
-	actor, err := FetchActor(f.db.Statement.Context, f.signAs, uri)
+	c, err := NewClient(f.signAs)
 	if err != nil {
+		return nil, err
+	}
+	var actor struct {
+		Type string `json:"type"`
+		// The Actor's unique global identifier.
+		ID                string `json:"id"`
+		Inbox             string `json:"inbox"`
+		Outbox            string `json:"outbox"`
+		PreferredUsername string `json:"preferredUsername"`
+		Name              string `json:"name"`
+		Summary           string `json:"summary"`
+		Icon              struct {
+			Type      string `json:"type"`
+			MediaType string `json:"mediaType"`
+			URL       string `json:"url"`
+		} `json:"icon"`
+		Image struct {
+			Type      string `json:"type"`
+			MediaType string `json:"mediaType"`
+			URL       string `json:"url"`
+		} `json:"image"`
+		Endpoints struct {
+			SharedInbox string `json:"sharedInbox"`
+		} `json:"endpoints"`
+		ManuallyApprovesFollowers bool      `json:"manuallyApprovesFollowers"`
+		Published                 time.Time `json:"published"`
+		PublicKey                 struct {
+			ID           string `json:"id"`
+			Owner        string `json:"owner"`
+			PublicKeyPem string `json:"publicKeyPem"`
+		} `json:"publicKey"`
+		Attachments []Attachment `json:"attachment"`
+	}
+	ctx := f.db.Statement.Context
+	if err := c.Fetch(ctx, uri, &actor); err != nil {
 		return nil, err
 	}
 

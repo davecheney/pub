@@ -19,13 +19,8 @@ func NewActorRefreshProcessor(db *gorm.DB, admin *models.Account) func(ctx conte
 		fmt.Println("NewActorRefreshProcessor started")
 		defer fmt.Println("NewActorRefreshProcessor stopped")
 
-		c, err := activitypub.NewClient(admin)
-		if err != nil {
-			return err
-		}
-
 		refresher := &actorRefresher{
-			client: c,
+			signAs: admin,
 		}
 
 		db := db.WithContext(ctx)
@@ -48,8 +43,8 @@ func actorRefreshScope(db *gorm.DB) *gorm.DB {
 }
 
 type actorRefresher struct {
-	// client is the client used to fetch the actor's inbox and outbox URLs.
-	client *activitypub.Client
+	// signAs is the account to sign requests as.
+	signAs *models.Account
 }
 
 func (a *actorRefresher) processActorRefresh(db *gorm.DB, request *models.ActorRefreshRequest) error {
@@ -72,13 +67,15 @@ func (a *actorRefresher) processActorRefresh(db *gorm.DB, request *models.ActorR
 		return err
 	}
 
-	var actor activitypub.Actor
-	if err := a.client.Fetch(ctx, ap, &actor); err != nil {
+	fetcher := activitypub.NewRemoteActorFetcher(a.signAs, db)
+	actor, err := fetcher.Fetch(ap)
+	if err != nil {
 		return err
 	}
+
 	return db.Model(request.Actor).UpdateColumns(map[string]interface{}{
-		"inbox_url":        actor.Inbox,
-		"outbox_url":       actor.Outbox,
-		"shared_inbox_url": actor.Endpoints.SharedInbox,
+		"inbox_url":        actor.InboxURL,
+		"outbox_url":       actor.OutboxURL,
+		"shared_inbox_url": actor.SharedInboxURL,
 	}).Error
 }

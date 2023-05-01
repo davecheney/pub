@@ -152,7 +152,8 @@ func AccountsFamiliarFollowersShow(env *Env, w http.ResponseWriter, req *http.Re
 		return err
 	}
 	var params struct {
-		IDs   []snowflake.ID `schema:"id,required"`
+		ID    snowflake.ID   `schema:"id"`
+		IDs   []snowflake.ID `schema:"id[]"`
 		Limit int            `schema:"limit"` // ignored
 	}
 	if err := httpx.Params(req, &params); err != nil {
@@ -160,7 +161,10 @@ func AccountsFamiliarFollowersShow(env *Env, w http.ResponseWriter, req *http.Re
 	}
 	var resp []FamiliarFollowers
 	serialiser := Serialiser{req: req}
-	for _, id := range params.IDs {
+	for _, id := range append(params.IDs, params.ID) {
+		if id == 0 {
+			continue
+		}
 		followers := env.DB.Select("target_id").Where("actor_id = ? and following = true", id).Table("relationships")
 		var commonFollowers []*models.Relationship
 		if err := env.DB.Preload("Target").Preload("Target.Attributes").Where("actor_id = ? and following = true and target_id in (?)", user.Actor.ID, followers).Find(&commonFollowers).Error; err != nil {

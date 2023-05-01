@@ -177,7 +177,7 @@ func (a *Actors) FindOrCreate(uri string, createFn func(string) (*Actor, error))
 // FindByURI returns an account by its URI if it exists locally.
 func (a *Actors) FindByURI(uri string) (*Actor, error) {
 	var actor Actor
-	err := a.db.Where("URI = ?", uri).Take(&actor).Error
+	err := a.db.Scopes(PreloadActor).Where("URI = ?", uri).Take(&actor).Error
 	return &actor, err
 }
 

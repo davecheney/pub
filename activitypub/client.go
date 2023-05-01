@@ -157,16 +157,6 @@ func Unlike(ctx context.Context, liker *models.Account, target *models.Status) e
 	})
 }
 
-// FetchActor fetches the Actor at the given URI.
-func FetchActor(ctx context.Context, signer *models.Account, uri string) (*Actor, error) {
-	c, err := NewClient(signer)
-	if err != nil {
-		return nil, err
-	}
-	var actor Actor
-	return &actor, c.Fetch(ctx, uri, &actor)
-}
-
 // FetchStatus fetches the Status at the given URI.
 func FetchStatus(ctx context.Context, signer *models.Account, uri string) (*Status, error) {
 	c, err := NewClient(signer)
