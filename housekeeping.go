@@ -53,6 +53,20 @@ func (c *HouseKeepingCmd) Run(ctx *Context) error {
 		}
 		fmt.Println("deleted", res.RowsAffected, "orphaned conversations")
 
+		// delete all mentions that have no status or actor
+		res = tx.Exec(`
+			DELETE FROM status_mentions
+			WHERE status_id NOT IN (
+				SELECT id FROM statuses
+			) OR actor_id NOT IN (
+				SELECT id FROM actors
+			)
+		`)
+		if res.Error != nil {
+			return res.Error
+		}
+		fmt.Println("deleted", res.RowsAffected, "orphaned mentions")
+
 		return nil
 	})
 }
