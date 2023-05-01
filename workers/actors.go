@@ -19,7 +19,7 @@ func NewActorRefreshProcessor(db *gorm.DB, admin *models.Account) func(ctx conte
 		fmt.Println("NewActorRefreshProcessor started")
 		defer fmt.Println("NewActorRefreshProcessor stopped")
 
-		c, err := activitypub.NewClient(ctx, admin)
+		c, err := activitypub.NewClient(admin)
 		if err != nil {
 			return err
 		}
@@ -73,7 +73,7 @@ func (a *actorRefresher) processActorRefresh(db *gorm.DB, request *models.ActorR
 	}
 
 	var actor activitypub.Actor
-	if err := a.client.Fetch(ap, &actor); err != nil {
+	if err := a.client.Fetch(ctx, ap, &actor); err != nil {
 		return err
 	}
 	return db.Model(request.Actor).UpdateColumns(map[string]interface{}{

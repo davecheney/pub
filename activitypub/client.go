@@ -22,11 +22,10 @@ import (
 type Client struct {
 	keyID      string
 	privateKey crypto.PrivateKey
-	ctx        context.Context
 }
 
 // NewClient returns a new ActivityPub client.
-func NewClient(ctx context.Context, signAs *models.Account) (*Client, error) {
+func NewClient(signAs *models.Account) (*Client, error) {
 	privPem, _ := pem.Decode(signAs.PrivateKey)
 	if privPem == nil || privPem.Type != "RSA PRIVATE KEY" {
 		return nil, errors.New("expected RSA PRIVATE KEY")
@@ -48,7 +47,6 @@ func NewClient(ctx context.Context, signAs *models.Account) (*Client, error) {
 	return &Client{
 		keyID:      signAs.Actor.PublicKeyID(),
 		privateKey: privateKey,
-		ctx:        ctx,
 	}, nil
 }
 
@@ -81,11 +79,11 @@ func Follow(ctx context.Context, follower *models.Account, target *models.Actor)
 	if inbox == "" {
 		return fmt.Errorf("no inbox found for %s", target.URI)
 	}
-	c, err := NewClient(ctx, follower)
+	c, err := NewClient(follower)
 	if err != nil {
 		return err
 	}
-	return c.Post(inbox, map[string]any{
+	return c.Post(ctx, inbox, map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       uuid.New().String(),
 		"type":     "Follow",
@@ -100,11 +98,11 @@ func Unfollow(ctx context.Context, follower *models.Account, target *models.Acto
 	if inbox == "" {
 		return fmt.Errorf("no inbox found for %s", target.URI)
 	}
-	c, err := NewClient(ctx, follower)
+	c, err := NewClient(follower)
 	if err != nil {
 		return err
 	}
-	return c.Post(inbox, map[string]any{
+	return c.Post(ctx, inbox, map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       uuid.New().String(),
 		"type":     "Undo",
@@ -123,11 +121,11 @@ func Like(ctx context.Context, liker *models.Account, target *models.Status) err
 	if inbox == "" {
 		return fmt.Errorf("no inbox found for %s", target.Actor.URI)
 	}
-	c, err := NewClient(ctx, liker)
+	c, err := NewClient(liker)
 	if err != nil {
 		return err
 	}
-	return c.Post(inbox, map[string]any{
+	return c.Post(ctx, inbox, map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       uuid.New().String(),
 		"type":     "Like",
@@ -142,11 +140,11 @@ func Unlike(ctx context.Context, liker *models.Account, target *models.Status) e
 	if inbox == "" {
 		return fmt.Errorf("no inbox found for %s", target.Actor.URI)
 	}
-	c, err := NewClient(ctx, liker)
+	c, err := NewClient(liker)
 	if err != nil {
 		return err
 	}
-	return c.Post(inbox, map[string]any{
+	return c.Post(ctx, inbox, map[string]any{
 		"@context": "https://www.w3.org/ns/activitystreams",
 		"id":       uuid.New().String(),
 		"type":     "Undo",
@@ -161,33 +159,33 @@ func Unlike(ctx context.Context, liker *models.Account, target *models.Status) e
 
 // FetchActor fetches the Actor at the given URI.
 func FetchActor(ctx context.Context, signer *models.Account, uri string) (*Actor, error) {
-	c, err := NewClient(ctx, signer)
+	c, err := NewClient(signer)
 	if err != nil {
 		return nil, err
 	}
 	var actor Actor
-	return &actor, c.Fetch(uri, &actor)
+	return &actor, c.Fetch(ctx, uri, &actor)
 }
 
 // FetchStatus fetches the Status at the given URI.
 func FetchStatus(ctx context.Context, signer *models.Account, uri string) (*Status, error) {
-	c, err := NewClient(ctx, signer)
+	c, err := NewClient(signer)
 	if err != nil {
 		return nil, err
 	}
 	var status Status
-	return &status, c.Fetch(uri, &status)
+	return &status, c.Fetch(ctx, uri, &status)
 }
 
 // Fetch fetches the ActivityPub resource at the given URL and decodes it into the given object.
-func (c *Client) Fetch(uri string, obj interface{}) error {
+func (c *Client) Fetch(ctx context.Context, uri string, obj interface{}) error {
 	return requests.URL(uri).
 		Accept(`application/ld+json; profile="https://www.w3.org/ns/activitystreams"`).
 		Transport(c).
 		CheckContentType("application/ld+json", "application/activity+json", "application/json").
 		CheckStatus(http.StatusOK).
 		ToJSON(obj).
-		Fetch(c.ctx)
+		Fetch(ctx)
 }
 
 func (c *Client) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -198,11 +196,11 @@ func (c *Client) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 // Post posts the given ActivityPub object to the given URL.
-func (c *Client) Post(url string, obj map[string]any) error {
+func (c *Client) Post(ctx context.Context, url string, obj map[string]any) error {
 	return requests.URL(url).
 		Header("Content-Type", `application/ld+json; profile="https://www.w3.org/ns/activitystreams"`).
 		BodyJSON(obj).
 		Transport(c).
 		CheckStatus(http.StatusOK, http.StatusCreated).
-		Fetch(c.ctx)
+		Fetch(ctx)
 }
