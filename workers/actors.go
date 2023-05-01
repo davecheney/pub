@@ -67,15 +67,21 @@ func (a *actorRefresher) processActorRefresh(db *gorm.DB, request *models.ActorR
 		return err
 	}
 
-	fetcher := activitypub.NewRemoteActorFetcher(a.signAs, db)
-	actor, err := fetcher.Fetch(ap)
+	orig := request.Actor
+	updated, err := activitypub.NewRemoteActorFetcher(a.signAs, db).Fetch(ap)
 	if err != nil {
 		return err
 	}
 
-	return db.Model(request.Actor).UpdateColumns(map[string]interface{}{
-		"inbox_url":        actor.InboxURL,
-		"outbox_url":       actor.OutboxURL,
-		"shared_inbox_url": actor.SharedInboxURL,
-	}).Error
+	// RemoteActorFetcher.Fetch will have created a new snowflake ID for the updated record
+	// even if the created-at date has not changed because of the random component of the ID.
+	// We need to update the ID to match the original record.
+	updated.ID = orig.ID
+
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := db.Model(&orig).Association("Attributes").Clear(); err != nil {
+			return err
+		}
+		return db.Session(&gorm.Session{FullSaveAssociations: true}).Updates(updated).Error
+	})
 }
