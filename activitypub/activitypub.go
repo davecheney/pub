@@ -1,6 +1,7 @@
 package activitypub
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"github.com/davecheney/pub/internal/to"
 	"github.com/davecheney/pub/models"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"golang.org/x/exp/slog"
@@ -141,4 +143,88 @@ func parseBool(r *http.Request, key string) bool {
 	default:
 		return false
 	}
+}
+
+// Follow sends a follow request from the Account to the Target Actor's inbox.
+func Follow(ctx context.Context, follower *models.Account, target *models.Actor) error {
+	inbox := target.Inbox()
+	if inbox == "" {
+		return fmt.Errorf("no inbox found for %s", target.URI)
+	}
+	c, err := NewClient(follower)
+	if err != nil {
+		return err
+	}
+	return c.Post(ctx, inbox, map[string]any{
+		"@context": "https://www.w3.org/ns/activitystreams",
+		"id":       uuid.New().String(),
+		"type":     "Follow",
+		"object":   target.URI,
+		"actor":    follower.Actor.URI,
+	})
+}
+
+// Unfollow sends an unfollow request from the Account to the Target Actor's inbox.
+func Unfollow(ctx context.Context, follower *models.Account, target *models.Actor) error {
+	inbox := target.Inbox()
+	if inbox == "" {
+		return fmt.Errorf("no inbox found for %s", target.URI)
+	}
+	c, err := NewClient(follower)
+	if err != nil {
+		return err
+	}
+	return c.Post(ctx, inbox, map[string]any{
+		"@context": "https://www.w3.org/ns/activitystreams",
+		"id":       uuid.New().String(),
+		"type":     "Undo",
+		"object": map[string]any{
+			"type":   "Follow",
+			"object": target.URI,
+			"actor":  follower.Actor.URI,
+		},
+		"actor": follower.Actor.URI,
+	})
+}
+
+// Like sends a like request from the Account to the Statuses Actor's inbox.
+func Like(ctx context.Context, liker *models.Account, target *models.Status) error {
+	inbox := target.Actor.Inbox()
+	if inbox == "" {
+		return fmt.Errorf("no inbox found for %s", target.Actor.URI)
+	}
+	c, err := NewClient(liker)
+	if err != nil {
+		return err
+	}
+	return c.Post(ctx, inbox, map[string]any{
+		"@context": "https://www.w3.org/ns/activitystreams",
+		"id":       uuid.New().String(),
+		"type":     "Like",
+		"object":   target.URI,
+		"actor":    liker.Actor.URI,
+	})
+}
+
+// Unlike sends an undo like request from the Account to the Statuses Actor's inbox.
+func Unlike(ctx context.Context, liker *models.Account, target *models.Status) error {
+	inbox := target.Actor.Inbox()
+	if inbox == "" {
+		return fmt.Errorf("no inbox found for %s", target.Actor.URI)
+	}
+	c, err := NewClient(liker)
+	if err != nil {
+		return err
+	}
+	return c.Post(ctx, inbox, map[string]any{
+		"@context": "https://www.w3.org/ns/activitystreams",
+		"id":       uuid.New().String(),
+		"type":     "Undo",
+		"object": map[string]any{
+			"type":   "Like",
+			"object": target.URI,
+			"actor":  liker.Actor.URI,
+		},
+		"actor": liker.Actor.URI,
+	})
 }

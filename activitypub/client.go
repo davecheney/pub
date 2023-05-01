@@ -9,12 +9,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/carlmjohnson/requests"
 	"github.com/davecheney/pub/internal/httpsig"
 	"github.com/davecheney/pub/models"
-	"github.com/google/uuid"
 )
 
 // Client is an ActivityPub client which can be used to fetch remote
@@ -48,123 +46,6 @@ func NewClient(signAs *models.Account) (*Client, error) {
 		keyID:      signAs.Actor.PublicKeyID(),
 		privateKey: privateKey,
 	}, nil
-}
-
-type Error struct {
-	StatusCode int
-	URI        string
-	Method     string
-	Body       string
-	err        error
-}
-
-func (e *Error) Error() string {
-	var sb strings.Builder
-	sb.WriteString(e.Method)
-	sb.WriteString(" ")
-	sb.WriteString(e.URI)
-	sb.WriteString(": ")
-	fmt.Fprintf(&sb, "%d ", e.StatusCode)
-	if e.err != nil {
-		sb.WriteString(e.err.Error())
-		sb.WriteString(": ")
-	}
-	sb.WriteString(e.Body)
-	return sb.String()
-}
-
-// Follow sends a follow request from the Account to the Target Actor's inbox.
-func Follow(ctx context.Context, follower *models.Account, target *models.Actor) error {
-	inbox := target.Inbox()
-	if inbox == "" {
-		return fmt.Errorf("no inbox found for %s", target.URI)
-	}
-	c, err := NewClient(follower)
-	if err != nil {
-		return err
-	}
-	return c.Post(ctx, inbox, map[string]any{
-		"@context": "https://www.w3.org/ns/activitystreams",
-		"id":       uuid.New().String(),
-		"type":     "Follow",
-		"object":   target.URI,
-		"actor":    follower.Actor.URI,
-	})
-}
-
-// Unfollow sends an unfollow request from the Account to the Target Actor's inbox.
-func Unfollow(ctx context.Context, follower *models.Account, target *models.Actor) error {
-	inbox := target.Inbox()
-	if inbox == "" {
-		return fmt.Errorf("no inbox found for %s", target.URI)
-	}
-	c, err := NewClient(follower)
-	if err != nil {
-		return err
-	}
-	return c.Post(ctx, inbox, map[string]any{
-		"@context": "https://www.w3.org/ns/activitystreams",
-		"id":       uuid.New().String(),
-		"type":     "Undo",
-		"object": map[string]any{
-			"type":   "Follow",
-			"object": target.URI,
-			"actor":  follower.Actor.URI,
-		},
-		"actor": follower.Actor.URI,
-	})
-}
-
-// Like sends a like request from the Account to the Statuses Actor's inbox.
-func Like(ctx context.Context, liker *models.Account, target *models.Status) error {
-	inbox := target.Actor.Inbox()
-	if inbox == "" {
-		return fmt.Errorf("no inbox found for %s", target.Actor.URI)
-	}
-	c, err := NewClient(liker)
-	if err != nil {
-		return err
-	}
-	return c.Post(ctx, inbox, map[string]any{
-		"@context": "https://www.w3.org/ns/activitystreams",
-		"id":       uuid.New().String(),
-		"type":     "Like",
-		"object":   target.URI,
-		"actor":    liker.Actor.URI,
-	})
-}
-
-// Unlike sends an undo like request from the Account to the Statuses Actor's inbox.
-func Unlike(ctx context.Context, liker *models.Account, target *models.Status) error {
-	inbox := target.Actor.Inbox()
-	if inbox == "" {
-		return fmt.Errorf("no inbox found for %s", target.Actor.URI)
-	}
-	c, err := NewClient(liker)
-	if err != nil {
-		return err
-	}
-	return c.Post(ctx, inbox, map[string]any{
-		"@context": "https://www.w3.org/ns/activitystreams",
-		"id":       uuid.New().String(),
-		"type":     "Undo",
-		"object": map[string]any{
-			"type":   "Like",
-			"object": target.URI,
-			"actor":  liker.Actor.URI,
-		},
-		"actor": liker.Actor.URI,
-	})
-}
-
-// FetchStatus fetches the Status at the given URI.
-func FetchStatus(ctx context.Context, signer *models.Account, uri string) (*Status, error) {
-	c, err := NewClient(signer)
-	if err != nil {
-		return nil, err
-	}
-	var status Status
-	return &status, c.Fetch(ctx, uri, &status)
 }
 
 // Fetch fetches the ActivityPub resource at the given URL and decodes it into the given object.

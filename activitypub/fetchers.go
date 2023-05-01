@@ -139,8 +139,12 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 	ctx, cancel := context.WithTimeout(f.db.Statement.Context, 5*time.Second)
 	defer cancel()
 
-	status, err := FetchStatus(ctx, f.signAs, uri)
+	c, err := NewClient(f.signAs)
 	if err != nil {
+		return nil, err
+	}
+	var status Status
+	if err := c.Fetch(ctx, uri, &status); err != nil {
 		return nil, err
 	}
 
