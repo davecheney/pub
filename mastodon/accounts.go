@@ -47,7 +47,6 @@ func AccountsStatusesShow(env *Env, w http.ResponseWriter, r *http.Request) erro
 		models.MaybeExcludeReblogs(r),
 		models.MaybePinned(r),
 	)
-	query = query.Preload("Actor")
 	query = query.Preload("Reaction", &models.Reaction{ActorID: user.Actor.ID}) // reactions
 	query = query.Preload("Reblog.Reaction", &models.Reaction{ActorID: user.Actor.ID})
 	if err := query.Find(&statuses, "statuses.actor_id = ?", chi.URLParam(r, "id")).Error; err != nil {
@@ -91,7 +90,7 @@ func AccountsFollowingShow(env *Env, w http.ResponseWriter, r *http.Request) err
 		return err
 	}
 	var following []*models.Relationship
-	if err := env.DB.Scopes(models.PaginateRelationship(r)).Preload("Target").Where("actor_id = ? and following = true", chi.URLParam(r, "id")).Find(&following).Error; err != nil {
+	if err := env.DB.Scopes(models.PaginateRelationship(r)).Preload("Target").Preload("Target.Attributes").Where("actor_id = ? and following = true", chi.URLParam(r, "id")).Find(&following).Error; err != nil {
 		return err
 	}
 

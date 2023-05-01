@@ -222,13 +222,14 @@ func (s *Statuses) FindByID(id snowflake.ID) (*Status, error) {
 func PreloadStatus(query *gorm.DB) *gorm.DB {
 	return query.Preload("Attachments").
 		Preload("Poll").Preload("Poll.Options").
-		Preload("Mentions").Preload("Mentions.Actor").
+		Preload("Mentions").Preload("Mentions.Actor").Preload("Mentions.Actor.Attributes").
+		Preload("Actor").Preload("Actor.Attributes").
 		Preload("Tags").Preload("Tags.Tag").
 		Preload("Reblog").
-		Preload("Reblog.Actor").
+		Preload("Reblog.Actor").Preload("Reblog.Actor.Attributes").
 		Preload("Reblog.Attachments").
 		Preload("Reblog.Poll").Preload("Reblog.Poll.Options").
-		Preload("Reblog.Mentions").Preload("Reblog.Mentions.Actor").
+		Preload("Reblog.Mentions").Preload("Reblog.Mentions.Actor").Preload("Reblog.Mentions.Actor.Attributes").
 		Preload("Reblog.Tags").Preload("Reblog.Tags.Tag")
 }
 
