@@ -49,7 +49,7 @@ func (st *Status) AfterCreate(tx *gorm.DB) error {
 }
 
 func (st *Status) AfterUpdate(tx *gorm.DB) error {
-	return forEach(tx, st.updateStatusCount, st.updateRepliesCount, st.updateReblogsCount)
+	return forEach(tx, st.updateStatusCount, st.updateRepliesCount, st.updateReblogsCount, st.maybeScheduleActorRefresh)
 }
 
 // updateRepliesCount updates the replies_count field on the status.
@@ -88,6 +88,17 @@ func (st *Status) updateStatusCount(tx *gorm.DB) error {
 		"statuses_count": statusesCount,
 		"last_status_at": createdAt,
 	}).Error
+}
+
+func (st *Status) maybeScheduleActorRefresh(tx *gorm.DB) error {
+	if st.Actor == nil {
+		return fmt.Errorf("status %d has no actor", st.ID)
+	}
+	if st.Actor.UpdatedAt.Before(time.Now().Add(-24 * time.Hour)) {
+		return nil
+	}
+	fmt.Println("scheduling actor refresh:", st.Actor.ID)
+	return NewActors(tx).Refresh(st.Actor)
 }
 
 // A Conversation is a collection of related statuses. It is a way to group

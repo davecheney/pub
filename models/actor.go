@@ -140,10 +140,10 @@ func (a *Actor) URL() string {
 }
 
 type ActorAttribute struct {
-	ID      uint32 `gorm:"primarykey"`
-	ActorID snowflake.ID
-	Name    string `gorm:"size:255;not null"`
-	Value   string `gorm:"type:text;not null"`
+	ID      uint32       `gorm:"primarykey"`
+	ActorID snowflake.ID `gorm:"index;not null"`
+	Name    string       `gorm:"size:255;not null"`
+	Value   string       `gorm:"type:text;not null"`
 }
 
 type Actors struct {

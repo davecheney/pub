@@ -77,11 +77,12 @@ func (a *actorRefresher) processActorRefresh(db *gorm.DB, request *models.ActorR
 	// even if the created-at date has not changed because of the random component of the ID.
 	// We need to update the ID to match the original record.
 	updated.ID = orig.ID
-
 	return db.Transaction(func(tx *gorm.DB) error {
-		if err := db.Model(&orig).Association("Attributes").Clear(); err != nil {
+		// delete actor attributes
+		if err := tx.Where("actor_id = ?", orig.ID).Delete(&models.ActorAttribute{}).Error; err != nil {
 			return err
 		}
-		return db.Session(&gorm.Session{FullSaveAssociations: true}).Updates(updated).Error
+		// save updated actor
+		return tx.Session(&gorm.Session{FullSaveAssociations: true}).Updates(updated).Error
 	})
 }
