@@ -16,6 +16,10 @@ type Serialiser struct {
 	req *http.Request
 }
 
+func NewSerialiser(req *http.Request) Serialiser {
+	return Serialiser{req: req}
+}
+
 type Account struct {
 	ID             snowflake.ID `json:"id,string"`
 	Username       string       `json:"username"`

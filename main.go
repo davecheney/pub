@@ -28,6 +28,7 @@ var cli struct {
 	CreateInstance       CreateInstanceCmd       `cmd:"" help:"Create a new instance."`
 	DeleteAccount        DeleteAccountCmd        `cmd:"" help:"Delete an account."`
 	Serve                ServeCmd                `cmd:"" help:"Serve a local web server."`
+	ShowActor            ShowActorCmd            `cmd:"" help:"Display an actor."`
 	SynchroniseFollowers SynchroniseFollowersCmd `cmd:"" help:"Synchronise followers."`
 	Follow               FollowCmd               `cmd:"" help:"Follow an object."`
 }
