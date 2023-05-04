@@ -3,7 +3,7 @@ package models
 // AllTables returns a slice of all tables in the database.
 func AllTables() []interface{} {
 	return []interface{}{
-		&ActivitypubRefresh{},
+		&ActivitypubRefresh{}, &ActivitypubOutboxRequest{},
 		&Actor{}, &ActorAttribute{}, &ActorRefreshRequest{},
 		&Account{}, &AccountList{}, &AccountListMember{}, &AccountRole{}, &AccountMarker{}, &AccountPreferences{},
 		&Application{},
