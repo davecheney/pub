@@ -50,36 +50,32 @@ func StatusesCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	createdAt := time.Now()
 	id := snowflake.TimeToID(createdAt)
 	status := models.Status{
-		ID:           id,
-		UpdatedAt:    createdAt,
-		Actor:        user.Actor,
-		Conversation: conv,
-		InReplyToID: func() *snowflake.ID {
-			if parent.ID != 0 {
-				return &parent.ID
-			} else {
-				return nil
-			}
-		}(),
-		InReplyToActorID: func() *snowflake.ID {
-			if parent.ActorID != 0 {
-				return &parent.ActorID
-			} else {
-				return nil
-			}
-		}(),
-		URI:         fmt.Sprintf("https://%s/users/%s/%d", user.Actor.Domain, user.Actor.Name, id),
-		Sensitive:   toot.Sensitive,
-		SpoilerText: toot.SpoilerText,
-		Visibility:  models.Visibility(toot.Visibility),
-		Language:    toot.Language,
-		Note:        toot.Status,
+		ID:               id,
+		UpdatedAt:        createdAt,
+		ActorID:          user.ActorID,
+		Actor:            user.Actor,
+		Conversation:     conv,
+		InReplyToID:      idOrNil(parent.ID),
+		InReplyToActorID: idOrNil(parent.ActorID),
+		URI:              fmt.Sprintf("https://%s/users/%s/%d", user.Actor.Domain, user.Actor.Name, id),
+		Sensitive:        toot.Sensitive,
+		SpoilerText:      toot.SpoilerText,
+		Visibility:       models.Visibility(toot.Visibility),
+		Language:         toot.Language,
+		Note:             toot.Status,
 	}
 	if err := env.DB.Create(&status).Error; err != nil {
 		return err
 	}
 	serialise := Serialiser{req: r}
 	return to.JSON(w, serialise.Status(&status))
+}
+
+func idOrNil(id snowflake.ID) *snowflake.ID {
+	if id == 0 {
+		return nil
+	}
+	return &id
 }
 
 func StatusesReblogCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
