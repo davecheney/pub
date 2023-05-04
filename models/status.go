@@ -218,6 +218,48 @@ func (s *Statuses) FindByID(id snowflake.ID) (*Status, error) {
 	return &status, nil
 }
 
+func (s *Statuses) Create(actor *Actor, parent *Status, visibility Visibility, sensitive bool, spoilterText, language, note string) (*Status, error) {
+	createdAt := time.Now()
+	conv := conversation(parent, visibility)
+	id := snowflake.TimeToID(createdAt)
+	status := Status{
+		ID:           id,
+		UpdatedAt:    createdAt,
+		ActorID:      actor.ID,
+		Actor:        actor,
+		Conversation: conv,
+		InReplyToID: func() *snowflake.ID {
+			if parent != nil {
+				return &parent.ID
+			}
+			return nil
+		}(),
+		InReplyToActorID: func() *snowflake.ID {
+			if parent != nil {
+				return &parent.ActorID
+			}
+			return nil
+		}(),
+		URI:         fmt.Sprintf("https://%s/users/%s/%d", actor.Domain, actor.Name, id),
+		Sensitive:   sensitive,
+		SpoilerText: spoilterText,
+		Visibility:  visibility,
+		Language:    language,
+		Note:        note,
+	}
+	return &status, s.db.Create(&status).Error
+}
+
+// conversation returns the conversation of the parent, or a new conversation if parent is nil.
+func conversation(parent *Status, visibility Visibility) *Conversation {
+	if parent != nil {
+		return parent.Conversation
+	}
+	return &Conversation{
+		Visibility: visibility,
+	}
+}
+
 // PreloadStatus preloads all of a Status' relations and associations.
 func PreloadStatus(query *gorm.DB) *gorm.DB {
 	return query.Preload("Attachments").

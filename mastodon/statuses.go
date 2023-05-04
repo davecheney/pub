@@ -2,7 +2,6 @@ package mastodon
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -22,60 +21,41 @@ func StatusesCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	var toot struct {
-		Status      string        `json:"status" schema:"status"`
-		InReplyToID *snowflake.ID `json:"in_reply_to_id,string" schema:"in_reply_to_id"`
-		Sensitive   bool          `json:"sensitive" schema:"sensitive"`
-		SpoilerText string        `json:"spoiler_text" schema:"spoiler_text"`
-		Visibility  string        `json:"visibility" schema:"visibility"`
-		Language    string        `json:"language" schema:"language"`
-		ScheduledAt *time.Time    `json:"scheduled_at,omitempty" schema:"scheduled_at"`
+		Status      string       `json:"status" schema:"status,required"`
+		InReplyToID snowflake.ID `json:"in_reply_to_id,string" schema:"in_reply_to_id"`
+		Sensitive   bool         `json:"sensitive" schema:"sensitive"`
+		SpoilerText string       `json:"spoiler_text" schema:"spoiler_text"`
+		Visibility  string       `json:"visibility" schema:"visibility"`
+		Language    string       `json:"language" schema:"language"`
+		ScheduledAt *time.Time   `json:"scheduled_at,omitempty" schema:"scheduled_at"`
 	}
 	if err := httpx.Params(r, &toot); err != nil {
 		return err
 	}
 
-	var parent models.Status
-	var conv *models.Conversation
-	if toot.InReplyToID != nil {
-		if err := env.DB.Preload("Conversation").Take(&parent, *toot.InReplyToID).Error; err != nil {
+	var parent *models.Status
+	if toot.InReplyToID != 0 {
+		var st models.Status
+		if err := env.DB.Preload("Conversation").Take(&st, toot.InReplyToID).Error; err != nil {
 			return httpx.Error(http.StatusBadRequest, err)
 		}
-		conv = parent.Conversation
-	} else {
-		conv = &models.Conversation{
-			Visibility: models.Visibility(toot.Visibility),
-		}
+		parent = &st
 	}
 
-	createdAt := time.Now()
-	id := snowflake.TimeToID(createdAt)
-	status := models.Status{
-		ID:               id,
-		UpdatedAt:        createdAt,
-		ActorID:          user.ActorID,
-		Actor:            user.Actor,
-		Conversation:     conv,
-		InReplyToID:      idOrNil(parent.ID),
-		InReplyToActorID: idOrNil(parent.ActorID),
-		URI:              fmt.Sprintf("https://%s/users/%s/%d", user.Actor.Domain, user.Actor.Name, id),
-		Sensitive:        toot.Sensitive,
-		SpoilerText:      toot.SpoilerText,
-		Visibility:       models.Visibility(toot.Visibility),
-		Language:         toot.Language,
-		Note:             toot.Status,
-	}
-	if err := env.DB.Create(&status).Error; err != nil {
+	status, err := models.NewStatuses(env.DB).Create(
+		user.Actor,
+		parent,
+		models.Visibility(toot.Visibility),
+		toot.Sensitive,
+		toot.SpoilerText,
+		toot.Language,
+		toot.Status,
+	)
+	if err != nil {
 		return err
 	}
 	serialise := Serialiser{req: r}
-	return to.JSON(w, serialise.Status(&status))
-}
-
-func idOrNil(id snowflake.ID) *snowflake.ID {
-	if id == 0 {
-		return nil
-	}
-	return &id
+	return to.JSON(w, serialise.Status(status))
 }
 
 func StatusesReblogCreate(env *Env, w http.ResponseWriter, r *http.Request) error {

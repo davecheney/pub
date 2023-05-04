@@ -135,6 +135,63 @@ func TestStatuses(t *testing.T) {
 			require.NotNil(status.Conversation)
 			require.NotEmpty(status.Conversation.ID)
 		})
+	})
 
+	t.Run("Create", func(t *testing.T) {
+		t.Run("Create status without parent generates new conversation", func(t *testing.T) {
+			require := require.New(t)
+			tx := db.Begin()
+			defer tx.Rollback()
+
+			alice := MockActor(t, tx, "alice", "example.com")
+			status, err := NewStatuses(tx).Create(
+				alice,
+				nil,
+				"public",
+				false,
+				"",
+				"en",
+				"Hello world",
+			)
+			require.NoError(err)
+			require.NotNil(status)
+			require.EqualValues("Hello world", status.Note)
+			require.NotNil(status.Conversation)
+			require.EqualValues("public", status.Conversation.Visibility)
+
+			var conv Conversation
+			err = tx.First(&conv, status.ConversationID).Error
+			require.NoError(err)
+			require.Equal(status.ConversationID, conv.ID)
+		})
+		t.Run("Create status with parent uses parent conversation", func(t *testing.T) {
+			require := require.New(t)
+			tx := db.Begin()
+			defer tx.Rollback()
+
+			alice := MockActor(t, tx, "alice", "example.com")
+			parent := MockStatus(t, tx, alice, "Hello world")
+			status, err := NewStatuses(tx).Create(
+				alice,
+				parent,
+				"public",
+				false,
+				"",
+				"en",
+				"Hello world to you too",
+			)
+			require.NoError(err)
+			require.NotNil(status)
+			require.EqualValues("Hello world to you too", status.Note)
+			require.NotNil(status.Conversation)
+			require.EqualValues("public", status.Conversation.Visibility)
+			require.EqualValues(parent.ConversationID, status.ConversationID)
+
+			// there should be only one conversation in the db
+			var convs []Conversation
+			err = tx.Find(&convs).Error
+			require.NoError(err)
+			require.Len(convs, 1)
+		})
 	})
 }
