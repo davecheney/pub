@@ -111,6 +111,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			r.Get("/instance/peers", httpx.HandlerFunc(envFn, mastodon.InstancesPeersShow))
 			r.Get("/instance/activity", httpx.HandlerFunc(envFn, mastodon.InstancesActivityShow))
 			r.Get("/instance/domain_blocks", httpx.HandlerFunc(envFn, mastodon.InstancesDomainBlocksShow))
+			r.Get("/instance/rules", httpx.HandlerFunc(envFn, mastodon.InstancesRulesShow))
 			r.Get("/markers", httpx.HandlerFunc(envFn, mastodon.MarkersIndex))
 			r.Post("/markers", httpx.HandlerFunc(envFn, mastodon.MarkersCreate))
 			r.Get("/mutes", httpx.HandlerFunc(envFn, mastodon.MutesIndex))
