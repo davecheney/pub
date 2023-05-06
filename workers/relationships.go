@@ -40,7 +40,7 @@ func relationshipRequestScope(db *gorm.DB) *gorm.DB {
 }
 
 func processRelationshipRequest(log *slog.Logger, db *gorm.DB, request *models.RelationshipRequest) error {
-	log.Info("", "request", request.ID, "actor_id", request.Actor.ID, "target_id", request.Target.ID, "action", request.Action)
+	log.Info("processRelationshipRequest", "request", request.ID, "actor_id", request.Actor.ID, "target_id", request.Target.ID, "action", request.Action)
 	accounts := models.NewAccounts(db)
 	account, err := accounts.AccountForActor(request.Actor)
 	if err != nil {

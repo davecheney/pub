@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/davecheney/pub/activitypub/activities"
 	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/streaming"
 	"github.com/davecheney/pub/internal/to"
 	"github.com/davecheney/pub/models"
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"golang.org/x/exp/slog"
@@ -155,13 +155,7 @@ func Follow(ctx context.Context, follower *models.Account, target *models.Actor)
 	if err != nil {
 		return err
 	}
-	return c.Post(ctx, inbox, map[string]any{
-		"@context": "https://www.w3.org/ns/activitystreams",
-		"id":       uuid.New().String(),
-		"type":     "Follow",
-		"object":   target.URI,
-		"actor":    follower.Actor.URI,
-	})
+	return c.Post(ctx, inbox, activities.Follow(follower.Actor, target))
 }
 
 // Unfollow sends an unfollow request from the Account to the Target Actor's inbox.
@@ -174,17 +168,7 @@ func Unfollow(ctx context.Context, follower *models.Account, target *models.Acto
 	if err != nil {
 		return err
 	}
-	return c.Post(ctx, inbox, map[string]any{
-		"@context": "https://www.w3.org/ns/activitystreams",
-		"id":       uuid.New().String(),
-		"type":     "Undo",
-		"object": map[string]any{
-			"type":   "Follow",
-			"object": target.URI,
-			"actor":  follower.Actor.URI,
-		},
-		"actor": follower.Actor.URI,
-	})
+	return c.Post(ctx, inbox, activities.Unfollow(follower.Actor, target))
 }
 
 // Like sends a like request from the Account to the Statuses Actor's inbox.
@@ -197,13 +181,7 @@ func Like(ctx context.Context, liker *models.Account, target *models.Status) err
 	if err != nil {
 		return err
 	}
-	return c.Post(ctx, inbox, map[string]any{
-		"@context": "https://www.w3.org/ns/activitystreams",
-		"id":       uuid.New().String(),
-		"type":     "Like",
-		"object":   target.URI,
-		"actor":    liker.Actor.URI,
-	})
+	return c.Post(ctx, inbox, activities.Like(liker.Actor, target.URI))
 }
 
 // Unlike sends an undo like request from the Account to the Statuses Actor's inbox.
@@ -216,15 +194,5 @@ func Unlike(ctx context.Context, liker *models.Account, target *models.Status) e
 	if err != nil {
 		return err
 	}
-	return c.Post(ctx, inbox, map[string]any{
-		"@context": "https://www.w3.org/ns/activitystreams",
-		"id":       uuid.New().String(),
-		"type":     "Undo",
-		"object": map[string]any{
-			"type":   "Like",
-			"object": target.URI,
-			"actor":  liker.Actor.URI,
-		},
-		"actor": liker.Actor.URI,
-	})
+	return c.Post(ctx, inbox, activities.Unlike(liker.Actor, target.URI))
 }
