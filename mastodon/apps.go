@@ -13,7 +13,7 @@ import (
 func AppsCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var params struct {
 		ClientName   string `json:"client_name" schema:"client_name,required"`
-		Website      string `json:"website" schema:"website,required"`
+		Website      string `json:"website" schema:"website"`
 		RedirectURIs string `json:"redirect_uris" schema:"redirect_uris,required"`
 		Scopes       string `json:"scopes" schema:"scopes,required"`
 	}
