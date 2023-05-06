@@ -65,6 +65,17 @@ func (a *Actor) AfterUpdate(tx *gorm.DB) error {
 	return forEach(tx, a.maybeScheduleRefresh)
 }
 
+func (a *Actor) AfterSave(tx *gorm.DB) error {
+	peer := &Peer{
+		Domain: a.Domain,
+	}
+	// save peer ignore if exists
+	return tx.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "domain"}},
+		DoNothing: true,
+	}).Create(peer).Error
+}
+
 func (a *Actor) updateInstanceDomainsCount(tx *gorm.DB) error {
 	return tx.Model(&Instance{}).Where("1 = 1").UpdateColumns(map[string]interface{}{
 		"domains_count": tx.Select("COUNT(distinct domain)").Model(&Actor{}),

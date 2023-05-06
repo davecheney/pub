@@ -99,7 +99,7 @@ func instancesIndex(env *Env, w http.ResponseWriter, r *http.Request, serialiser
 
 func InstancesPeersShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var domains []string
-	if err := env.DB.Model(&models.Actor{}).Group("Domain").Where("Domain != ?", r.Host).Pluck("domain", &domains).Error; err != nil {
+	if err := env.DB.Model(&models.Peer{}).Group("Domain").Where("Domain != ?", r.Host).Pluck("domain", &domains).Error; err != nil {
 		return err
 	}
 	return to.JSON(w, domains)
