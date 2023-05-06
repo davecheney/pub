@@ -1,6 +1,7 @@
 package wellknown
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -8,15 +9,21 @@ import (
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/to"
 	"github.com/davecheney/pub/models"
+	"github.com/go-chi/chi/v5"
 	"gorm.io/gorm"
 )
 
 func NodeInfoIndex(env *activitypub.Env, w http.ResponseWriter, r *http.Request) error {
+	w.Header().Set("cache-control", "max-age=259200, public")
 	return to.JSON(w, map[string]any{
-		"links": []map[string]any{
-			{
+		"links": []any{
+			map[string]any{
 				"rel":  "http://nodeinfo.diaspora.software/ns/schema/2.0",
 				"href": fmt.Sprintf("https://%s/nodeinfo/2.0", r.Host),
+			},
+			map[string]any{
+				"rel":  "http://nodeinfo.diaspora.software/ns/schema/2.1",
+				"href": fmt.Sprintf("https://%s/nodeinfo/2.1", r.Host),
 			},
 		},
 	})
@@ -30,32 +37,61 @@ func NodeInfoShow(env *activitypub.Env, w http.ResponseWriter, r *http.Request) 
 		}
 		return err
 	}
-	return to.JSON(w, serializeNodeInfo(&instance))
+	switch chi.URLParam(r, "version") {
+	case "2.0":
+		// https://github.com/jhass/nodeinfo/blob/main/schemas/2.0/schema.json
+		w.Header().Set("cache-control", "max-age=259200, public")
+		return to.JSON(w, map[string]any{
+			"version": "2.0",
+			"software": map[string]any{
+				"name":    "https://github.com/davecheney/pub",
+				"version": "0.0.0-devel",
+			},
+			"protocols":         protocols(),
+			"services":          services(),
+			"usage":             usage(),
+			"openRegistrations": false,
+			"metadata":          metadata(),
+		})
+	case "2.1":
+		w.Header().Set("cache-control", "max-age=259200, public")
+		return to.JSON(w, map[string]any{
+			"version": "2.1",
+			"software": map[string]any{
+				"name":       "pub",
+				"version":    "0.0.0-devel",
+				"repository": "https://github.com/davecheney/pub",
+			},
+			"protocols":         protocols(),
+			"services":          services(),
+			"usage":             usage(),
+			"openRegistrations": false,
+			"metadata":          metadata(),
+		})
+	default:
+		return httpx.Error(http.StatusNotFound, errors.New("unsupported version: "+chi.URLParam(r, "version")))
+	}
 }
 
-func serializeNodeInfo(i *models.Instance) map[string]any {
+func metadata() map[string]any {
+	return map[string]any{}
+}
+
+func protocols() []any {
+	return []any{
+		"activitypub",
+	}
+}
+
+func services() map[string]any {
 	return map[string]any{
-		"version": "2.0", // https://github.com/jhass/nodeinfo/blob/main/schemas/2.0/schema.json
-		"software": map[string]any{
-			"name":    "https://github.com/davecheney/pub",
-			"version": "0.0.0-devel",
-		},
-		"protocols": []string{
-			"activitypub",
-		},
-		"services": map[string]any{
-			"outbound": []any{},
-			"inbound":  []any{},
-		},
-		"usage": map[string]any{
-			"users": map[string]any{
-				"total":          i.AccountsCount,
-				"activeMonth":    0,
-				"activeHalfyear": 0,
-			},
-			"localPosts": i.StatusesCount,
-		},
-		"openRegistrations": false,
-		"metadata":          map[string]any{},
+		"inbound":  []any{},
+		"outbound": []any{},
+	}
+}
+
+func usage() map[string]any {
+	return map[string]any{
+		"users": map[string]any{},
 	}
 }
