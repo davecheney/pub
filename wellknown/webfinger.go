@@ -3,6 +3,7 @@ package wellknown
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/davecheney/pub/activitypub"
 	"github.com/davecheney/pub/internal/httpx"
@@ -13,7 +14,16 @@ import (
 )
 
 func WebfingerShow(env *activitypub.Env, w http.ResponseWriter, r *http.Request) error {
-	acct, err := webfinger.Parse(r.URL.Query().Get("resource"))
+	resource := r.URL.Query().Get("resource")
+	parts := strings.Split(resource, ":")
+	if len(parts) != 2 {
+		return httpx.Error(http.StatusBadRequest, fmt.Errorf("invalid resource %q", resource))
+	}
+	if parts[0] != "acct" {
+		return httpx.Error(http.StatusBadRequest, fmt.Errorf("invalid resource %q", resource))
+	}
+
+	acct, err := webfinger.Parse(parts[1])
 	if err != nil {
 		return httpx.Error(http.StatusBadRequest, err)
 	}
@@ -24,24 +34,19 @@ func WebfingerShow(env *activitypub.Env, w http.ResponseWriter, r *http.Request)
 		}
 		return err
 	}
-	self := acct.ID()
+	w.Header().Set("cache-control", "max-age=3600, public")
 	return to.JSON(w, map[string]any{
-		"subject": acct.String(),
+		"subject": fmt.Sprintf("acct:%s@%s", actor.Name, actor.Domain),
 		"aliases": []string{
-			self,
+			actor.URI,
 		},
-		"links": []map[string]any{
-			{
-				"rel":  "http://webfinger.net/rel/profile-page",
-				"type": "text/html",
-				"href": acct.Webfinger(),
-			},
-			{
+		"links": []any{
+			map[string]any{
 				"rel":  "self",
 				"type": "application/activity+json",
-				"href": self,
+				"href": actor.URI,
 			},
-			{
+			map[string]any{
 				"rel":      "http://ostatus.org/schema/1.0/subscribe",
 				"template": fmt.Sprintf("https://%s/authorize_interaction?uri={uri}", actor.Domain),
 			},

@@ -91,21 +91,27 @@ func (a *Acct) Fetch(ctx context.Context) (*Webfinger, error) {
 	return &webfinger, err
 }
 
-func Parse(acct string) (*Acct, error) {
-	u, err := url.Parse(acct)
+func Parse(query string) (*Acct, error) {
+	// Remove the leading @, if there's one.
+	query = strings.TrimPrefix(query, "@")
+
+	// In case the handle has been URL encoded
+	query, err := url.QueryUnescape(query)
 	if err != nil {
 		return nil, err
 	}
-	if u.Scheme != "acct" {
-		return nil, fmt.Errorf("invalid scheme: %s", u.Scheme)
+	parts := strings.SplitN(query, "@", 2)
+	switch len(parts) {
+	case 1:
+		return &Acct{
+			User: parts[0],
+		}, nil
+	case 2:
+		return &Acct{
+			User: parts[0],
+			Host: parts[1],
+		}, nil
+	default:
+		return nil, fmt.Errorf("invalid acct: %q", query)
 	}
-	parts := strings.SplitN(u.Opaque, "@", 2)
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid opaque: %s", u.Opaque)
-	}
-
-	return &Acct{
-		User: parts[0],
-		Host: parts[1],
-	}, nil
 }
