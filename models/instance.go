@@ -18,7 +18,7 @@ type Instance struct {
 	UpdatedAt        time.Time
 	Domain           string `gorm:"size:64;uniqueIndex"`
 	AdminID          *snowflake.ID
-	Admin            *Account `gorm:"constraint:OnDelete:CASCADE;<-:create;"` // the admin account for this instance
+	Admin            *Account `gorm:"foreignKey:AdminID;constraint:OnDelete:CASCADE;<-:create;"` // the admin account for this instance
 	SourceURL        string
 	Title            string `gorm:"size:64"`
 	ShortDescription string
