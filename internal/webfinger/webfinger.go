@@ -92,6 +92,8 @@ func (a *Acct) Fetch(ctx context.Context) (*Webfinger, error) {
 }
 
 func Parse(query string) (*Acct, error) {
+	// Remove the leading acct:, if there's one.
+	query = strings.TrimPrefix(query, "acct:")
 	// Remove the leading @, if there's one.
 	query = strings.TrimPrefix(query, "@")
 

@@ -22,7 +22,7 @@ type Status struct {
 	Conversation     *Conversation `gorm:"constraint:OnDelete:CASCADE;"`
 	InReplyToID      *snowflake.ID `gorm:"index"`
 	InReplyToActorID *snowflake.ID
-	Sensitive        bool
+	Sensitive        bool       `gorm:"not null;default:false"`
 	SpoilerText      string     `gorm:"size:128"`
 	Visibility       Visibility `gorm:"not null"`
 	Language         string     `gorm:"size:2"`
@@ -211,11 +211,8 @@ func (s *Statuses) FindByURI(uri string) (*Status, error) {
 
 func (s *Statuses) FindByID(id snowflake.ID) (*Status, error) {
 	var status Status
-	query := s.db.Joins("Actor").Scopes(PreloadStatus)
-	if err := query.First(&status, id).Error; err != nil {
-		return nil, err
-	}
-	return &status, nil
+	err := s.db.Joins("Actor").Preload("Conversation").Scopes(PreloadStatus).Take(&status, "statuses.id = ?", id).Error
+	return &status, err
 }
 
 func (s *Statuses) Create(actor *Actor, parent *Status, visibility Visibility, sensitive bool, spoilterText, language, note string) (*Status, error) {

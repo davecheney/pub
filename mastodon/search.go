@@ -1,11 +1,8 @@
 package mastodon
 
 import (
-	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 
 	"github.com/davecheney/pub/activitypub"
@@ -54,28 +51,18 @@ func searchAccounts(env *Env, w http.ResponseWriter, r *http.Request, q string, 
 			q = "acct:" + user + "@" + u.Host
 			fallthrough
 		case strings.Contains(q, "@"):
-			re := regexp.MustCompile(`(?P<prefix>acct:)?(?P<user>[a-z0-9_]+)@(?P<host>[a-z0-9_.-]+)`)
-			matches := re.FindStringSubmatch(q)
-			if len(matches) == 0 {
-				return httpx.Error(http.StatusBadRequest, errors.New("invalid acct: "+q))
-			}
-			user := matches[2]
-			host := matches[3]
-			q = "acct:" + user + "@" + host
-			fmt.Println("webfinger", q)
-			acct := webfinger.Acct{
-				User: user,
-				Host: host,
-			}
-			wf, err := acct.Fetch(r.Context())
+			acct, err := webfinger.Parse(q)
 			if err != nil {
-				fmt.Println("acct.Fetch", acct, wf, err)
 				return httpx.Error(http.StatusBadRequest, err)
 			}
-			q, err = wf.ActivityPub()
+			wf, err := acct.Fetch(env.DB.Statement.Context)
 			if err != nil {
-				fmt.Println("wf.ActivityPub", err)
-				return httpx.Error(http.StatusBadRequest, err)
+				return httpx.Error(http.StatusInternalServerError, err)
+			}
+			for _, link := range wf.Links {
+				if link.Rel == "self" {
+					q = link.Href
+				}
 			}
 		}
 		// find admin of this request's domain

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/davecheney/pub/internal/snowflake"
-	"github.com/davecheney/pub/internal/webfinger"
+
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
@@ -86,8 +86,7 @@ func (a *Actor) maybeScheduleRefresh(tx *gorm.DB) error {
 	if !a.needsRefresh() {
 		return nil
 	}
-	acct := webfinger.Acct{User: a.Name, Host: a.Domain}
-	fmt.Println("scheduling refresh for", acct.String())
+	fmt.Println("scheduling refresh for", a.URI)
 	return NewActors(tx).Refresh(a)
 }
 

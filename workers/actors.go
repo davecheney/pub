@@ -8,6 +8,7 @@ import (
 
 	"github.com/carlmjohnson/requests"
 	"github.com/davecheney/pub/activitypub"
+	"github.com/davecheney/pub/internal/webfinger"
 	"github.com/davecheney/pub/models"
 	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
@@ -60,7 +61,28 @@ func (a *actorRefresher) processActorRefresh(db *gorm.DB, request *models.ActorR
 	orig := request.Actor
 	ctx, cancel := context.WithTimeout(db.Statement.Context, 5*time.Second)
 	defer cancel()
-	updated, err := activitypub.NewRemoteActorFetcher(a.signAs).Fetch(ctx, request.Actor.URI)
+
+	acct := webfinger.Acct{
+		User: request.Actor.Name,
+		Host: request.Actor.Domain,
+	}
+	wf, err := acct.Fetch(db.Statement.Context)
+	if err != nil {
+		a.logger.Error("error fetching webfinger", "acct", acct.String(), "error", err)
+		return err
+	}
+	var target string
+	for _, link := range wf.Links {
+		if link.Rel == "self" {
+			target = link.Href
+			break
+		}
+	}
+	if target == "" {
+		return fmt.Errorf("no self link for %q", request.Actor.Acct())
+	}
+
+	updated, err := activitypub.NewRemoteActorFetcher(a.signAs).Fetch(ctx, target)
 	if err != nil {
 		var respErr *requests.ResponseError
 		if errors.As(err, &respErr) {
