@@ -51,7 +51,7 @@ func (e *Env) authenticate(r *http.Request) (*models.Account, error) {
 }
 
 func linkHeader(w http.ResponseWriter, r *http.Request, newest, oldest snowflake.ID) {
-	w.Header().Add("Link", fmt.Sprintf(`<https://%s%s?max_id=%d>; rel="next", <https://%s%s?min_id=%d>; rel="prev"`, r.Host, r.URL.Path, oldest, r.Host, r.URL.Path, newest))
+	w.Header().Add("Link", fmt.Sprintf(`<https://%[1]s%[2]s?max_id=%[3]d>; rel="next", <https://%[1]s%[2]s?min_id=%[4]d>; rel="prev"`, r.Host, r.URL.Path, oldest, newest))
 }
 
 func stringOrDefault(s string, def string) string {
