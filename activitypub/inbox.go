@@ -183,6 +183,7 @@ func (i *inboxProcessor) processAnnounce(act *Activity) error {
 		ID:        snowflake.TimeToID(publishedAt),
 		UpdatedAt: updatedAt,
 		ActorID:   actor.ID,
+		Actor:     actor,
 		Conversation: &models.Conversation{
 			Visibility: "public",
 		},
@@ -191,7 +192,7 @@ func (i *inboxProcessor) processAnnounce(act *Activity) error {
 		ReblogID:   &original.ID,
 	}
 
-	return i.db.Create(status).Error
+	return i.db.Save(status).Error
 }
 
 func (i *inboxProcessor) processAdd(act *Activity) error {
