@@ -112,6 +112,7 @@ func TokenCreate(env *activitypub.Env, w http.ResponseWriter, r *http.Request) e
 		Code         string `json:"code" schema:"code"`
 		RedirectURI  string `json:"redirect_uri" schema:"redirect_uri,required"`
 		Scope        string `json:"scope" schema:"scope"`
+		Scopes       string `json:"scopes" schema:"scopes"` // mona 🤦
 	}
 	if err := httpx.Params(r, &params); err != nil {
 		return err
