@@ -9,6 +9,7 @@ func AllTables() []interface{} {
 		&Application{},
 		&Conversation{},
 		&Instance{}, &InstanceRule{},
+		&Object{},
 		&Peer{},
 		&PushSubscription{},
 		&Reaction{}, &ReactionRequest{},

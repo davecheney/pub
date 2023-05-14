@@ -154,10 +154,18 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	})
 
 	envFn := func(r *http.Request) *activitypub.Env {
+		reqctx := r.Context()
+		var instance models.Instance
+		if err := db.Joins("Admin").Preload("Admin.Actor").Take(&instance, "domain = ?", r.Host).Error; err != nil {
+			ctx.Logger.Error("failed to find instance for domain", "domain", r.Host, "error", err)
+			return nil
+		}
+
 		return &activitypub.Env{
-			DB:     db.WithContext(r.Context()),
-			Mux:    &mux,
-			Logger: ctx.Logger,
+			DB:       db.WithContext(reqctx),
+			Mux:      &mux,
+			Logger:   ctx.Logger,
+			Instance: &instance,
 		}
 	}
 

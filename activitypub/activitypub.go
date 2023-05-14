@@ -22,7 +22,8 @@ import (
 type Env struct {
 	*gorm.DB
 	*streaming.Mux
-	Logger *slog.Logger
+	Logger   *slog.Logger
+	Instance *models.Instance
 }
 
 func (e *Env) Log() *slog.Logger {

@@ -46,7 +46,7 @@ func (i *InboxController) Create(env *Env, w http.ResponseWriter, r *http.Reques
 	processor := &inboxProcessor{
 		logger: env.Logger.With("instance", instance.Domain),
 		req:    r,
-		db:     i.db,
+		db:     env.DB,
 		signAs: instance.Admin,
 	}
 
@@ -259,6 +259,13 @@ func (i *inboxProcessor) processRemovePin(act *Activity) error {
 }
 
 func (i *inboxProcessor) processCreate(create map[string]any) error {
+	var obj = &models.Object{
+		Properties: create,
+	}
+	if err := i.db.Create(obj).Error; err != nil {
+		return err
+	}
+
 	typ := stringFromAny(create["type"])
 	switch typ {
 	case "Note", "Question":
