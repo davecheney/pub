@@ -77,10 +77,10 @@ func TestRelationships(t *testing.T) {
 		require.NoError(err)
 
 		var following, follower Relationship
-		err = tx.Where("actor_id = ? AND target_id = ?", alice.ID, bob.ID).First(&following).Error
+		err = tx.Where("actor_id = ? AND target_id = ?", alice.ObjectID, bob.ObjectID).First(&following).Error
 		require.NoError(err)
 		require.True(following.Following)
-		err = tx.Where("actor_id = ? AND target_id = ?", bob.ID, alice.ID).First(&follower).Error
+		err = tx.Where("actor_id = ? AND target_id = ?", bob.ObjectID, alice.ObjectID).First(&follower).Error
 		require.NoError(err)
 		require.True(follower.FollowedBy)
 
@@ -88,9 +88,9 @@ func TestRelationships(t *testing.T) {
 		require.NoError(err)
 
 		// Check if the relationship is deleted
-		err = tx.Where("actor_id = ? AND target_id = ?", alice.ID, bob.ID).First(&following).Error
+		err = tx.Where("actor_id = ? AND target_id = ?", alice.ObjectID, bob.ObjectID).First(&following).Error
 		require.Error(err)
-		err = tx.Where("actor_id = ? AND target_id = ?", bob.ID, alice.ID).First(&follower).Error
+		err = tx.Where("actor_id = ? AND target_id = ?", bob.ObjectID, alice.ObjectID).First(&follower).Error
 		require.Error(err)
 	})
 }

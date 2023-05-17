@@ -57,7 +57,7 @@ func (a *actorRefresher) processActorRefresh(db *gorm.DB, request *models.ActorR
 		// ignore local actors
 		return nil
 	}
-	a.logger.Info("processActorRefresh", slog.String("uri", request.Actor.URI), slog.Int("attempt", int(request.Attempts)+1))
+	a.logger.Info("processActorRefresh", slog.String("uri", request.Actor.URI()), slog.Int("attempt", int(request.Attempts)+1))
 	orig := request.Actor
 	ctx, cancel := context.WithTimeout(db.Statement.Context, 5*time.Second)
 	defer cancel()
@@ -89,7 +89,7 @@ func (a *actorRefresher) processActorRefresh(db *gorm.DB, request *models.ActorR
 			switch respErr.StatusCode {
 			case 404, 410:
 				// actor is gone
-				a.logger.Info("actor is gone", slog.String("uri", request.Actor.URI), slog.Int("attempt", int(request.Attempts)+1), slog.Int("status", respErr.StatusCode))
+				a.logger.Info("actor is gone", slog.String("uri", request.Actor.URI()), slog.Int("attempt", int(request.Attempts)+1), slog.Int("status", respErr.StatusCode))
 				// deleting the actor deletes the refresh request
 				return db.Delete(request.Actor).Error
 			}
@@ -100,10 +100,10 @@ func (a *actorRefresher) processActorRefresh(db *gorm.DB, request *models.ActorR
 	// RemoteActorFetcher.Fetch will have created a new snowflake ID for the updated record
 	// even if the created-at date has not changed because of the random component of the ID.
 	// We need to update the ID to match the original record.
-	updated.ID = orig.ID
+	updated.ObjectID = orig.ObjectID
 	return db.Transaction(func(tx *gorm.DB) error {
 		// delete actor attributes
-		if err := tx.Where("actor_id = ?", orig.ID).Delete(&models.ActorAttribute{}).Error; err != nil {
+		if err := tx.Where("actor_id = ?", orig.ObjectID).Delete(&models.ActorAttribute{}).Error; err != nil {
 			return err
 		}
 		// save updated actor

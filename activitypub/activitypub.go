@@ -32,7 +32,7 @@ func (e *Env) Log() *slog.Logger {
 
 func Followers(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var followers []*models.Relationship
-	query := env.DB.Joins("JOIN actors ON actors.id = relationships.target_id and actors.name = ? and actors.domain = ?", chi.URLParam(r, "name"), r.Host)
+	query := env.DB.Joins("JOIN actors ON actors.object_id = relationships.target_id and actors.name = ? and actors.domain = ?", chi.URLParam(r, "name"), r.Host)
 	if err := query.Model(&models.Relationship{}).Preload("Actor").Find(&followers, "following = true").Error; err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func Followers(env *Env, w http.ResponseWriter, r *http.Request) error {
 		"orderedItems": algorithms.Map(
 			followers,
 			func(r *models.Relationship) string {
-				return r.Actor.URI
+				return r.Actor.URI()
 			},
 		),
 	})
@@ -52,7 +52,7 @@ func Followers(env *Env, w http.ResponseWriter, r *http.Request) error {
 
 func Following(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var following []*models.Relationship
-	query := env.DB.Joins("JOIN actors ON actors.id = relationships.actor_id and actors.name = ? and actors.domain = ?", chi.URLParam(r, "name"), r.Host)
+	query := env.DB.Joins("JOIN actors ON actors.object_id = relationships.actor_id and actors.name = ? and actors.domain = ?", chi.URLParam(r, "name"), r.Host)
 	if err := query.Model(&models.Relationship{}).Preload("Target").Find(&following, "following = true").Error; err != nil {
 		return err
 	}
@@ -64,15 +64,15 @@ func Following(env *Env, w http.ResponseWriter, r *http.Request) error {
 		"orderedItems": algorithms.Map(
 			following,
 			func(r *models.Relationship) string {
-				return r.Target.URI
+				return r.Target.URI()
 			},
 		),
 	})
 }
 
 func CollectionsShow(env *Env, w http.ResponseWriter, r *http.Request) error {
-	var actor models.Actor
-	if err := env.DB.Take(&actor, "name = ? and domain = ?", chi.URLParam(r, "name"), r.Host).Error; err != nil {
+	_, err := models.NewActors(env.DB).Find(chi.URLParam(r, "name"), r.Host)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return httpx.Error(http.StatusNotFound, err)
 		}
@@ -150,7 +150,7 @@ func parseBool(r *http.Request, key string) bool {
 func Follow(ctx context.Context, follower *models.Account, target *models.Actor) error {
 	inbox := target.Inbox()
 	if inbox == "" {
-		return fmt.Errorf("no inbox found for %s", target.URI)
+		return fmt.Errorf("no inbox found for %s", target.URI())
 	}
 	c, err := NewClient(follower)
 	if err != nil {
@@ -163,7 +163,7 @@ func Follow(ctx context.Context, follower *models.Account, target *models.Actor)
 func Unfollow(ctx context.Context, follower *models.Account, target *models.Actor) error {
 	inbox := target.Inbox()
 	if inbox == "" {
-		return fmt.Errorf("no inbox found for %s", target.URI)
+		return fmt.Errorf("no inbox found for %s", target.URI())
 	}
 	c, err := NewClient(follower)
 	if err != nil {
@@ -176,24 +176,24 @@ func Unfollow(ctx context.Context, follower *models.Account, target *models.Acto
 func Like(ctx context.Context, liker *models.Account, target *models.Status) error {
 	inbox := target.Actor.Inbox()
 	if inbox == "" {
-		return fmt.Errorf("no inbox found for %s", target.Actor.URI)
+		return fmt.Errorf("no inbox found for %s", target.Actor.URI())
 	}
 	c, err := NewClient(liker)
 	if err != nil {
 		return err
 	}
-	return c.Post(ctx, inbox, activities.Like(liker.Actor, target.URI))
+	return c.Post(ctx, inbox, activities.Like(liker.Actor, target.URI()))
 }
 
 // Unlike sends an undo like request from the Account to the Statuses Actor's inbox.
 func Unlike(ctx context.Context, liker *models.Account, target *models.Status) error {
 	inbox := target.Actor.Inbox()
 	if inbox == "" {
-		return fmt.Errorf("no inbox found for %s", target.Actor.URI)
+		return fmt.Errorf("no inbox found for %s", target.Actor.URI())
 	}
 	c, err := NewClient(liker)
 	if err != nil {
 		return err
 	}
-	return c.Post(ctx, inbox, activities.Unlike(liker.Actor, target.URI))
+	return c.Post(ctx, inbox, activities.Unlike(liker.Actor, target.URI()))
 }

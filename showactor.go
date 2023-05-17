@@ -26,7 +26,7 @@ func (s *ShowActorCmd) Run(ctx *Context) error {
 		return fmt.Errorf("failed to find actor %s: %w", s.Actor, err)
 	}
 
-	req, _ := http.NewRequest("GET", actor.URI, nil)
+	req, _ := http.NewRequest("GET", actor.URI(), nil)
 	ser := mastodon.NewSerialiser(req)
 	return json.MarshalFull(os.Stdout, ser.Account(actor))
 }

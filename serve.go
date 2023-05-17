@@ -19,7 +19,6 @@ import (
 	"github.com/davecheney/pub/models"
 	"github.com/davecheney/pub/oauth"
 	"github.com/davecheney/pub/wellknown"
-	"github.com/davecheney/pub/workers"
 	"github.com/pkg/group"
 	"gorm.io/gorm"
 
@@ -154,18 +153,17 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	})
 
 	envFn := func(r *http.Request) *activitypub.Env {
-		reqctx := r.Context()
-		var instance models.Instance
-		if err := db.Joins("Admin").Preload("Admin.Actor").Take(&instance, "domain = ?", r.Host).Error; err != nil {
+		instance, err := models.NewInstances(db).FindByDomain(r.Host)
+		if err != nil {
 			ctx.Logger.Error("failed to find instance for domain", "domain", r.Host, "error", err)
 			return nil
 		}
 
 		return &activitypub.Env{
-			DB:       db.WithContext(reqctx),
+			DB:       db.WithContext(context.WithValue(r.Context(), "instance", instance)),
 			Mux:      &mux,
 			Logger:   ctx.Logger,
-			Instance: &instance,
+			Instance: instance,
 		}
 	}
 
@@ -238,17 +236,17 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		return svr.ListenAndServe()
 	})
 
-	g.Add(workers.NewRelationshipRequestProcessor(ctx.Logger, db))
-	g.Add(workers.NewReactionRequestProcessor(db))
-	g.Add(workers.NewStatusAttachmentRequestProcessor(db))
+	// g.Add(workers.NewRelationshipRequestProcessor(ctx.Logger, db))
+	// g.Add(workers.NewReactionRequestProcessor(db))
+	// g.Add(workers.NewStatusAttachmentRequestProcessor(db))
 
 	// ActorRefreshProcessor needs an admin account to sign the activitypub requests.
 	// Pick _an_ admin account, it doesn't matter which one.
-	var admin models.Account
-	if err := db.Joins("Actor", "name = ? and type = ?", "admin", "LocalService").Take(&admin).Error; err != nil {
-		return err
-	}
-	g.Add(workers.NewActorRefreshProcessor(db, &admin, ctx.Logger.With("worker", "ActorRefreshProcessor")))
+	// var admin models.Account
+	// if err := db.Joins("Actor", "name = ? and type = ?", "admin", "LocalService").Take(&admin).Error; err != nil {
+	// 	return err
+	// }
+	// g.Add(workers.NewActorRefreshProcessor(db, &admin, ctx.Logger.With("worker", "ActorRefreshProcessor")))
 
 	return g.Wait()
 }

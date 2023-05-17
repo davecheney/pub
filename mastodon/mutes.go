@@ -18,12 +18,12 @@ func MutesIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	}
 	var mutes []*models.Relationship
 	query := env.DB.Joins("Target").Scopes(models.PaginateRelationship(r))
-	if err := query.Find(&mutes, "actor_id = ? and muting = true", user.Actor.ID).Error; err != nil {
+	if err := query.Find(&mutes, "actor_id = ? and muting = true", user.Actor.ObjectID).Error; err != nil {
 		return err
 	}
 
 	if len(mutes) > 0 {
-		linkHeader(w, r, mutes[0].Target.ID, mutes[len(mutes)-1].Target.ID)
+		linkHeader(w, r, mutes[0].Target.ObjectID, mutes[len(mutes)-1].Target.ObjectID)
 	}
 	serialise := Serialiser{req: r}
 	return to.JSON(w, algorithms.Map(algorithms.Map(mutes, relationshipTarget), serialise.Account))

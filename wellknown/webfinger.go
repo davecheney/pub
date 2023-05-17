@@ -27,8 +27,8 @@ func WebfingerShow(env *activitypub.Env, w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		return httpx.Error(http.StatusBadRequest, err)
 	}
-	var actor models.Actor
-	if err := env.DB.First(&actor, "name = ? AND domain = ?", acct.User, r.Host).Error; err != nil {
+	actor, err := models.NewActors(env.DB).Find(acct.User, r.Host)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return httpx.Error(http.StatusNotFound, err)
 		}
@@ -38,13 +38,13 @@ func WebfingerShow(env *activitypub.Env, w http.ResponseWriter, r *http.Request)
 	return to.JSON(w, map[string]any{
 		"subject": fmt.Sprintf("acct:%s@%s", actor.Name, actor.Domain),
 		"aliases": []string{
-			actor.URI,
+			actor.URI(),
 		},
 		"links": []any{
 			map[string]any{
 				"rel":  "self",
 				"type": "application/activity+json",
-				"href": actor.URI,
+				"href": actor.URI(),
 			},
 			map[string]any{
 				"rel":      "http://ostatus.org/schema/1.0/subscribe",

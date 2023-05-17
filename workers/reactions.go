@@ -36,7 +36,7 @@ func reactionRequestScope(db *gorm.DB) *gorm.DB {
 }
 
 func processReactionRequest(db *gorm.DB, request *models.ReactionRequest) error {
-	fmt.Println("ReactionRequestProcessor: actor:", request.Actor.URI, "target:", request.Target.URI, "action:", request.Action)
+	fmt.Println("ReactionRequestProcessor: actor:", request.Actor.URI(), "target:", request.Target.URI(), "action:", request.Action)
 
 	accounts := models.NewAccounts(db)
 	account, err := accounts.AccountForActor(request.Actor)
@@ -49,7 +49,7 @@ func processReactionRequest(db *gorm.DB, request *models.ReactionRequest) error 
 		if err := models.NewActors(db).Refresh(request.Target.Actor); err != nil {
 			return err
 		}
-		return fmt.Errorf("no inbox for actor %q", request.Target.Actor.URI)
+		return fmt.Errorf("no inbox for actor %q", request.Target.Actor.URI())
 	}
 
 	switch request.Action {

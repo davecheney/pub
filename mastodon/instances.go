@@ -87,14 +87,14 @@ func InstancesIndexV2(env *Env, w http.ResponseWriter, r *http.Request) error {
 }
 
 func instancesIndex(env *Env, w http.ResponseWriter, r *http.Request, serialiser func(*models.Instance) map[string]any) error {
-	var instance models.Instance
-	if err := env.DB.Where("domain = ?", r.Host).Preload("Admin").Preload("Admin.Actor").Preload("Rules").Take(&instance).Error; err != nil {
+	instance, err := models.NewInstances(env.DB).FindByDomain(r.Host)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return httpx.Error(http.StatusNotFound, err)
 		}
 		return err
 	}
-	return to.JSON(w, serialiser(&instance))
+	return to.JSON(w, serialiser(instance))
 }
 
 func InstancesPeersShow(env *Env, w http.ResponseWriter, r *http.Request) error {

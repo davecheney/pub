@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/davecheney/pub/activitypub"
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/to"
 	"github.com/davecheney/pub/internal/webfinger"
@@ -65,13 +64,7 @@ func searchAccounts(env *Env, w http.ResponseWriter, r *http.Request, q string, 
 				}
 			}
 		}
-		// find admin of this request's domain
-		var instance models.Instance
-		if err := env.DB.Joins("Admin").Preload("Admin.Actor").Where("domain = ?", r.Host).First(&instance).Error; err != nil {
-			return httpx.Error(http.StatusInternalServerError, err)
-		}
-		fetcher := activitypub.NewRemoteActorFetcher(instance.Admin)
-		actor, err = models.NewActors(env.DB).FindOrCreate(q, fetcher.Fetch)
+		actor, err = models.NewActors(env.DB).FindOrCreateByURI(q)
 	default:
 		actor, err = models.NewActors(env.DB).FindByURI(q)
 	}
@@ -96,12 +89,7 @@ func searchStatuses(env *Env, w http.ResponseWriter, r *http.Request, q string) 
 	switch r.URL.Query().Get("resolve") == "true" {
 	case true:
 		// find admin of this request's domain
-		var instance models.Instance
-		if err := env.DB.Joins("Admin").Preload("Admin.Actor").Where("domain = ?", r.Host).First(&instance).Error; err != nil {
-			return httpx.Error(http.StatusInternalServerError, err)
-		}
-		fetcher := activitypub.NewRemoteStatusFetcher(instance.Admin, env.DB)
-		status, err = models.NewStatuses(env.DB).FindOrCreate(q, fetcher.Fetch)
+		status, err = models.NewStatuses(env.DB).FindOrCreateByURI(q)
 	default:
 		status, err = models.NewStatuses(env.DB).FindByURI(q)
 	}

@@ -1,7 +1,6 @@
 package models
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/davecheney/pub/internal/crypto"
@@ -82,7 +81,7 @@ func NewAccounts(db *gorm.DB) *Accounts {
 
 func (a *Accounts) AccountForActor(actor *Actor) (*Account, error) {
 	var account Account
-	if err := a.db.Joins("Actor").First(&account, "actor_id = ?", actor.ID).Error; err != nil {
+	if err := a.db.Joins("Actor").First(&account, "actor_id = ?", actor.ObjectID).Error; err != nil {
 		return nil, err
 	}
 	return &account, nil
@@ -102,33 +101,41 @@ func (a *Accounts) Create(instance *Instance, name, email, password string) (*Ac
 			return err
 		}
 
-		var userRole AccountRole
-		if err := tx.Where("name = ?", "admin").FirstOrCreate(&userRole, AccountRole{
-			Name:        "user",
-			Position:    10,
-			Permissions: 65535,
-		}).Error; err != nil {
+		obj := &Object{
+			Properties: map[string]any{
+				"id":                "https://" + instance.Domain + "/u/" + name,
+				"type":              "Person",
+				"published":         snowflake.Now().ToTime().Format(time.RFC3339),
+				"preferredUsername": name,
+				"displayName":       name,
+				"publicKey": map[string]any{
+					"id":           "https://" + instance.Domain + "/u/admin#main-key",
+					"owner":        "https://" + instance.Domain + "/u/admin",
+					"publicKeyPem": string(keypair.PublicKey),
+				},
+			},
+		}
+		if err := tx.Create(&obj).Error; err != nil {
+			return err
+		}
+		actor, err := NewActors(tx).FindByURI(obj.URI)
+		if err != nil {
 			return err
 		}
 
 		account = Account{
-			ID:       snowflake.Now(),
-			Instance: instance,
-			Actor: &Actor{
-				ID:          snowflake.Now(),
-				Name:        name,
-				Domain:      instance.Domain,
-				URI:         fmt.Sprintf("https://%s/u/%s", instance.Domain, name),
-				Type:        "LocalPerson",
-				DisplayName: name,
-				Avatar:      "https://avatars.githubusercontent.com/u/1024?v=4",
-				Header:      "https://avatars.githubusercontent.com/u/1024?v=4",
-				PublicKey:   keypair.PublicKey,
-			},
+			ID:                snowflake.Now(),
+			Instance:          instance,
+			ActorID:           actor.ObjectID,
+			Actor:             actor,
 			Email:             email,
 			EncryptedPassword: passwd,
 			PrivateKey:        keypair.PrivateKey,
-			RoleID:            userRole.ID,
+			Role: &AccountRole{
+				Name:        "user",
+				Position:    10,
+				Permissions: 65535,
+			},
 		}
 		return tx.Create(&account).Error
 	})

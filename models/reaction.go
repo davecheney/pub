@@ -32,7 +32,7 @@ func (r *Reaction) AfterSave(tx *gorm.DB) error {
 
 // updateStatusCount updates the favourites_count and reblogs_count fields on the status.
 func (r *Reaction) updateStatusCount(tx *gorm.DB) error {
-	status := &Status{ID: r.StatusID}
+	status := &Status{ObjectID: r.StatusID}
 	favouritesCount := tx.Select("COUNT(*)").Where("status_id = ? and favourited = true", r.StatusID).Table("reactions")
 	reblogsCount := tx.Select("COUNT(*)").Where("status_id = ? and reblogged = true", r.StatusID).Table("reactions")
 	return tx.Model(status).UpdateColumns(map[string]interface{}{
@@ -192,16 +192,15 @@ func (r *Reactions) Reblog(status *Status, actor *Actor) (*Status, error) {
 
 		id := snowflake.Now()
 		reblog = Status{
-			ID:      id,
-			ActorID: actor.ID,
-			Actor:   actor,
+			ObjectID: id,
+			ActorID:  actor.ObjectID,
+			Actor:    actor,
 			Conversation: &Conversation{
 				Visibility: "public",
 			},
 			Visibility: "public",
-			ReblogID:   &status.ID,
+			ReblogID:   &status.ObjectID,
 			Reblog:     status,
-			URI:        fmt.Sprintf("%s/statuses/%d", actor.URI, id),
 			Reaction:   reaction,
 		}
 		return tx.Create(&reblog).Error
@@ -222,7 +221,7 @@ func (r *Reactions) Unreblog(status *Status, actor *Actor) (*Status, error) {
 			return err
 		}
 
-		if err := tx.Where("reblog_id = ? AND actor_id = ?", status.ID, actor.ID).Preload("Actor").First(&reblog).Error; err != nil {
+		if err := tx.Where("reblog_id = ? AND actor_id = ?", status.ObjectID, actor.ObjectID).Preload("Actor").First(&reblog).Error; err != nil {
 			return err
 		}
 		return tx.Delete(&reblog).Error
@@ -231,9 +230,9 @@ func (r *Reactions) Unreblog(status *Status, actor *Actor) (*Status, error) {
 
 func findOrCreateReaction(tx *gorm.DB, status *Status, actor *Actor) (*Reaction, error) {
 	status.Reaction = &Reaction{
-		StatusID: status.ID,
+		StatusID: status.ObjectID,
 		Status:   status,
-		ActorID:  actor.ID,
+		ActorID:  actor.ObjectID,
 		Actor:    actor,
 	}
 	return status.Reaction, tx.FirstOrCreate(status.Reaction).Error

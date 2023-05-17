@@ -43,16 +43,16 @@ func (f *FetchActorCmd) Run(ctx *Context) error {
 		return fmt.Errorf("failed to fetch actor: %w", err)
 	}
 
-	if !orig.ID.ToTime().Equal(updated.ID.ToTime()) {
-		return fmt.Errorf("actor ID changed from %v to %v", orig.ID, updated.ID)
+	if !orig.ObjectID.ToTime().Equal(updated.ObjectID.ToTime()) {
+		return fmt.Errorf("actor ID changed from %v to %v", orig.ObjectID, updated.ObjectID)
 	}
 
 	// RemoteActorFetcher.Fetch will have created a new snowflake ID for the updated record
 	// even if the created-at date has not changed because of the random component of the ID.
 	// We need to update the ID to match the original record.
-	updated.ID = orig.ID
+	updated.ObjectID = orig.ObjectID
 
-	req, _ := http.NewRequest("GET", updated.URI, nil)
+	req, _ := http.NewRequest("GET", updated.URI(), nil)
 	ser := mastodon.NewSerialiser(req)
 	json.MarshalFull(os.Stdout, map[string]any{
 		"original": ser.Account(orig),
@@ -61,7 +61,7 @@ func (f *FetchActorCmd) Run(ctx *Context) error {
 
 	return db.Transaction(func(tx *gorm.DB) error {
 		// delete actor attributes
-		if err := tx.Where("actor_id = ?", orig.ID).Delete(&models.ActorAttribute{}).Error; err != nil {
+		if err := tx.Where("actor_id = ?", orig.ObjectID).Delete(&models.ActorAttribute{}).Error; err != nil {
 			return err
 		}
 		// save updated actor

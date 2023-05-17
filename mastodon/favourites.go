@@ -60,7 +60,7 @@ func FavouritesIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	var favourited []*models.Status
-	query := env.DB.Joins("JOIN reactions ON reactions.status_id = statuses.id and reactions.actor_id = ? and reactions.favourited = ?", user.Actor.ID, true)
+	query := env.DB.Joins("JOIN reactions ON reactions.status_id = statuses.id and reactions.actor_id = ? and reactions.favourited = ?", user.Actor.ObjectID, true)
 	query = query.Preload("Actor")
 	query = query.Scopes(models.PaginateStatuses(r), models.PreloadStatus, models.PreloadReaction(user.Actor))
 	if err := query.Find(&favourited).Error; err != nil {
@@ -68,7 +68,7 @@ func FavouritesIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if len(favourited) > 0 {
-		linkHeader(w, r, favourited[0].ID, favourited[len(favourited)-1].ID)
+		linkHeader(w, r, favourited[0].ObjectID, favourited[len(favourited)-1].ObjectID)
 	}
 	serialise := Serialiser{req: r}
 	return to.JSON(w, algorithms.Map(favourited, serialise.Status))

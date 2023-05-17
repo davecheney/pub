@@ -21,7 +21,7 @@ func Outbox(env *Env, w http.ResponseWriter, r *http.Request) error {
 
 func outboxIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var count int64
-	query := env.DB.Joins("JOIN actors ON actors.id = statuses.actor_id and actors.name = ? and actors.domain = ?", chi.URLParam(r, "name"), r.Host)
+	query := env.DB.Joins("JOIN actors ON actors.object_id = statuses.actor_id and actors.name = ? and actors.domain = ?", chi.URLParam(r, "name"), r.Host)
 	if err := query.Model(&models.Status{}).Count(&count).Error; err != nil {
 		return err
 	}
@@ -59,14 +59,14 @@ func outboxShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 		"partOf": fmt.Sprintf("https://%s%s", r.Host, r.URL.Path),
 	}
 	var statuses []*models.Status
-	query := env.DB.Joins("JOIN actors ON actors.id = statuses.actor_id and actors.name = ? and actors.domain = ?", chi.URLParam(r, "name"), r.Host)
-	query = query.Scopes(models.PaginateStatuses(r), models.PreloadStatus).Preload("Actor")
+	query := env.DB.Joins("JOIN actors ON actors.object_id = statuses.actor_id and actors.name = ? and actors.domain = ?", chi.URLParam(r, "name"), r.Host)
+	query = query.Scopes(models.PaginateStatuses(r), models.PreloadStatus)
 	if err := query.Find(&statuses).Error; err != nil {
 		return err
 	}
 	if len(statuses) > 0 {
-		resp["next"] = fmt.Sprintf("https://%s%s?max_id=%d&page=true", r.Host, r.URL.Path, statuses[0].ID)
-		resp["prev"] = fmt.Sprintf("https://%s%s?min_id=%d&page=true", r.Host, r.URL.Path, statuses[len(statuses)-1].ID)
+		resp["next"] = fmt.Sprintf("https://%s%s?max_id=%d&page=true", r.Host, r.URL.Path, statuses[0].ObjectID)
+		resp["prev"] = fmt.Sprintf("https://%s%s?min_id=%d&page=true", r.Host, r.URL.Path, statuses[len(statuses)-1].ObjectID)
 	}
 	resp["orderedItems"] = algorithms.Map(statuses, statusToItem)
 	return to.JSON(w, resp)
@@ -74,10 +74,10 @@ func outboxShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 
 func statusToItem(s *models.Status) *Item {
 	return &Item{
-		ID:        s.URI,
+		ID:        s.URI(),
 		Type:      statusType(s),
-		Actor:     s.Actor.URI,
-		Published: s.ID.ToTime().Format("2006-01-02T15:04:05Z"),
+		Actor:     s.Actor.URI(),
+		Published: s.ObjectID.ToTime().Format("2006-01-02T15:04:05Z"),
 		To:        statusTo(s),
 		CC:        statusCC(s),
 		Object:    statusToObject(s),
@@ -105,14 +105,14 @@ func statusTo(s *models.Status) []string {
 	if s.Visibility == "public" {
 		return []string{"https://www.w3.org/ns/activitystreams#Public"}
 	}
-	return []string{s.Actor.URI}
+	return []string{s.Actor.URI()}
 }
 
 func statusCC(s *models.Status) []string {
 	if s.ReblogID != nil {
 		return []string{
-			s.Reblog.Actor.URI,
-			s.Actor.URI + "/followers",
+			s.Reblog.Actor.URI(),
+			s.Actor.URI() + "/followers",
 		}
 	}
 	return []string{}

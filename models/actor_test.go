@@ -19,17 +19,17 @@ func TestActors(t *testing.T) {
 		require.NoError(err)
 
 		var req ActorRefreshRequest
-		require.NoError(tx.First(&req, "actor_id = ?", alice.ID).Error)
-		require.Equal(alice.ID, req.ActorID)
+		require.NoError(tx.First(&req, "actor_id = ?", alice.ObjectID).Error)
+		require.Equal(alice.ObjectID, req.ActorID)
 
 		// Refreshing again should not create a new request
 		err = NewActors(tx).Refresh(alice)
 		require.NoError(err)
-		require.NoError(tx.First(&req, "actor_id = ?", alice.ID).Error)
-		require.Equal(alice.ID, req.ActorID)
+		require.NoError(tx.First(&req, "actor_id = ?", alice.ObjectID).Error)
+		require.Equal(alice.ObjectID, req.ActorID)
 		// require one row
 		var count int64
-		require.NoError(tx.Model(&ActorRefreshRequest{ActorID: alice.ID}).Count(&count).Error)
+		require.NoError(tx.Model(&ActorRefreshRequest{ActorID: alice.ObjectID}).Count(&count).Error)
 		require.Equal(int64(1), count)
 	})
 }

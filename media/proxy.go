@@ -22,10 +22,11 @@ func Avatar(env *models.Env, w http.ResponseWriter, r *http.Request) error {
 	if err := env.DB.Take(&actor, chi.URLParam(r, "id")).Error; err != nil {
 		return httpx.Error(http.StatusNotFound, err)
 	}
-	if actor.Avatar == "" {
-		return httpx.Error(http.StatusNotFound, fmt.Errorf("no avatar for actor %q", actor.ID))
+	avatar := actor.Avatar()
+	if avatar == "" {
+		return httpx.Error(http.StatusNotFound, fmt.Errorf("no avatar for actor %q", actor.ObjectID))
 	}
-	return stream(w, actor.Avatar)
+	return stream(w, avatar)
 }
 
 func Header(env *models.Env, w http.ResponseWriter, r *http.Request) error {
@@ -33,10 +34,11 @@ func Header(env *models.Env, w http.ResponseWriter, r *http.Request) error {
 	if err := env.DB.Take(&actor, chi.URLParam(r, "id")).Error; err != nil {
 		return httpx.Error(http.StatusNotFound, err)
 	}
-	if actor.Header == "" {
-		return httpx.Error(http.StatusNotFound, fmt.Errorf("no header for actor %q", actor.ID))
+	header := actor.Header()
+	if header == "" {
+		return httpx.Error(http.StatusNotFound, fmt.Errorf("no header for actor %q", actor.ObjectID))
 	}
-	return stream(w, actor.Header)
+	return stream(w, header)
 }
 
 func Original(env *models.Env, w http.ResponseWriter, r *http.Request) error {

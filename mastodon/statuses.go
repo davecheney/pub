@@ -113,7 +113,7 @@ func StatusesDestroy(env *Env, w http.ResponseWriter, r *http.Request) error {
 		}
 		return err
 	}
-	if status.ActorID != actor.ID {
+	if status.ActorID != actor.ObjectID {
 		return httpx.Error(http.StatusForbidden, errors.New("forbidden"))
 	}
 	if err := env.DB.Delete(&status).Error; err != nil {
@@ -130,8 +130,8 @@ func StatusesShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	}
 	var status models.Status
 	query := env.DB.Joins("Actor").Scopes(models.PreloadStatus)
-	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
-	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ID)
+	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ObjectID) // reactions
+	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ObjectID)
 	if err := query.Take(&status, chi.URLParam(r, "id")).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return httpx.Error(http.StatusNotFound, err)
@@ -149,8 +149,8 @@ func StatusesHistoryShow(env *Env, w http.ResponseWriter, r *http.Request) error
 	}
 	var status models.Status
 	query := env.DB.Joins("Actor").Scopes(models.PreloadStatus)
-	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
-	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ID)
+	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ObjectID) // reactions
+	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ObjectID)
 	if err := query.Take(&status, chi.URLParam(r, "id")).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return httpx.Error(http.StatusNotFound, err)
@@ -175,7 +175,7 @@ func StatusesFavouritesShow(env *Env, w http.ResponseWriter, r *http.Request) er
 	}
 
 	if len(favouriters) > 0 {
-		linkHeader(w, r, favouriters[0].ID, favouriters[len(favouriters)-1].ID)
+		linkHeader(w, r, favouriters[0].ObjectID, favouriters[len(favouriters)-1].ObjectID)
 	}
 	serialise := Serialiser{req: r}
 	return to.JSON(w, algorithms.Map(favouriters, serialise.Account))
@@ -195,7 +195,7 @@ func StatusesReblogsShow(env *Env, w http.ResponseWriter, r *http.Request) error
 	}
 
 	if len(rebloggers) > 0 {
-		linkHeader(w, r, rebloggers[0].ID, rebloggers[len(rebloggers)-1].ID)
+		linkHeader(w, r, rebloggers[0].ObjectID, rebloggers[len(rebloggers)-1].ObjectID)
 	}
 	serialise := Serialiser{req: r}
 	return to.JSON(w, algorithms.Map(rebloggers, serialise.Account))
@@ -219,13 +219,13 @@ func StatusesContextsShow(env *Env, w http.ResponseWriter, r *http.Request) erro
 	// load conversation statuses
 	var statuses []models.Status
 	query = env.DB.Joins("Actor").Scopes(models.PreloadStatus)
-	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
-	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ID)
+	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ObjectID) // reactions
+	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ObjectID)
 	if err := query.Where(&models.Status{ConversationID: status.ConversationID}).Find(&statuses).Error; err != nil {
 		return err
 	}
 
-	ancestors, descendants := thread(status.ID, statuses)
+	ancestors, descendants := thread(status.ObjectID, statuses)
 	serialise := Serialiser{req: r}
 	return to.JSON(w, struct {
 		Ancestors   []*Status `json:"ancestors"`
@@ -246,7 +246,7 @@ func thread(id snowflake.ID, statuses []models.Status) ([]*models.Status, []*mod
 	}
 	ids := make(map[snowflake.ID]*link)
 	for i := range statuses {
-		ids[statuses[i].ID] = &link{status: &statuses[i]}
+		ids[statuses[i].ObjectID] = &link{status: &statuses[i]}
 	}
 
 	for _, l := range ids {

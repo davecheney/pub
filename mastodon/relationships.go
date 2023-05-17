@@ -30,7 +30,7 @@ func RelationshipsShow(env *Env, w http.ResponseWriter, req *http.Request) error
 			continue
 		}
 		var rel models.Relationship
-		if err := env.DB.Preload("Target").FirstOrInit(&rel, models.Relationship{ActorID: user.Actor.ID, TargetID: tid}).Error; err != nil {
+		if err := env.DB.Preload("Target").FirstOrInit(&rel, models.Relationship{ActorID: user.Actor.ObjectID, TargetID: tid}).Error; err != nil {
 			return err
 		}
 		resp = append(resp, serialise.Relationship(&rel))

@@ -47,16 +47,16 @@ func AccountsStatusesShow(env *Env, w http.ResponseWriter, r *http.Request) erro
 		models.MaybeExcludeReblogs(r),
 		models.MaybePinned(r),
 	)
-	query = query.Preload("Reaction", &models.Reaction{ActorID: user.Actor.ID}) // reactions
-	query = query.Preload("Reblog.Reaction", &models.Reaction{ActorID: user.Actor.ID})
-	if err := query.Find(&statuses, "statuses.actor_id = ?", chi.URLParam(r, "id")).Error; err != nil {
+	query = query.Preload("Reaction", &models.Reaction{ActorID: user.Actor.ObjectID}) // reactions
+	query = query.Preload("Reblog.Reaction", &models.Reaction{ActorID: user.Actor.ObjectID})
+	if err := query.Where("statuses.actor_id = ?", chi.URLParam(r, "id")).Find(&statuses).Error; err != nil {
 		return err
 	}
 
 	sortStatuses(statuses) // PaginateStatuses doesn't sort, so we have to do it ourselves.
 
 	if len(statuses) > 0 {
-		linkHeader(w, r, statuses[0].ID, statuses[len(statuses)-1].ID)
+		linkHeader(w, r, statuses[0].ObjectID, statuses[len(statuses)-1].ObjectID)
 	}
 	seralise := Serialiser{req: r}
 	return to.JSON(w, algorithms.Map(statuses, seralise.Status))
@@ -111,12 +111,12 @@ func AccountsUpdateCredentials(env *Env, w http.ResponseWriter, r *http.Request)
 		return httpx.Error(http.StatusBadRequest, err)
 	}
 
-	if r.Form.Get("display_name") != "" {
-		account.Actor.DisplayName = r.Form.Get("display_name")
-	}
-	if r.Form.Get("note") != "" {
-		account.Actor.Note = r.Form.Get("note")
-	}
+	// if r.Form.Get("display_name") != "" {
+	// 	account.Actor.DisplayName = r.Form.Get("display_name")
+	// }
+	// if r.Form.Get("note") != "" {
+	// 	account.Actor.Note = r.Form.Get("note")
+	// }
 
 	if err := env.DB.Save(account).Error; err != nil {
 		return err
@@ -166,7 +166,7 @@ func AccountsFamiliarFollowersShow(env *Env, w http.ResponseWriter, req *http.Re
 		}
 		followers := env.DB.Select("target_id").Where("actor_id = ? and following = true", id).Table("relationships")
 		var commonFollowers []*models.Relationship
-		if err := env.DB.Preload("Target").Preload("Target.Attributes").Where("actor_id = ? and following = true and target_id in (?)", user.Actor.ID, followers).Find(&commonFollowers).Error; err != nil {
+		if err := env.DB.Preload("Target").Preload("Target.Attributes").Where("actor_id = ? and following = true and target_id in (?)", user.Actor.ObjectID, followers).Find(&commonFollowers).Error; err != nil {
 			return httpx.Error(http.StatusInternalServerError, err)
 		}
 		resp = append(resp, FamiliarFollowers{

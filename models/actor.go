@@ -1,7 +1,7 @@
 package models
 
 import (
-	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -14,26 +14,56 @@ import (
 )
 
 type Actor struct {
-	snowflake.ID   `gorm:"primarykey;autoIncrement:false"`
-	UpdatedAt      time.Time `gorm:"autoUpdateTime:false"`
-	Type           ActorType `gorm:"default:'Person';not null"`
-	URI            string    `gorm:"uniqueIndex;size:128;not null"`
-	Name           string    `gorm:"size:64;uniqueIndex:idx_actor_name_domain;not null"`
-	Domain         string    `gorm:"size:64;uniqueIndex:idx_actor_name_domain;not null"`
-	DisplayName    string    `gorm:"size:128;not null"`
-	Locked         bool      `gorm:"default:false;not null"`
-	Note           string    `gorm:"type:text"` // max 2^16
-	FollowersCount int32     `gorm:"default:0;not null"`
-	FollowingCount int32     `gorm:"default:0;not null"`
-	StatusesCount  int32     `gorm:"default:0;not null"`
+	ObjectID       snowflake.ID `gorm:"primarykey;autoIncrement:false"`
+	Object         *ActorObject `gorm:"constraint:OnDelete:CASCADE;<-:false"`
+	UpdatedAt      time.Time    `gorm:"autoUpdateTime:false"`
+	Type           ActorType    `gorm:"default:'Person';not null"`
+	Name           string       `gorm:"size:64;uniqueIndex:idx_actor_name_domain;not null"`
+	Domain         string       `gorm:"size:64;uniqueIndex:idx_actor_name_domain;not null"`
+	FollowersCount int32        `gorm:"default:0;not null"`
+	FollowingCount int32        `gorm:"default:0;not null"`
+	StatusesCount  int32        `gorm:"default:0;not null"`
 	LastStatusAt   time.Time
-	Avatar         string            `gorm:"size:255"`
-	Header         string            `gorm:"size:255"`
-	PublicKey      []byte            `gorm:"size:16384;type:blob;not null"`
-	Attributes     []*ActorAttribute `gorm:"constraint:OnDelete:CASCADE;"`
-	InboxURL       string            `gorm:"size:255;not null;default:''"`
-	OutboxURL      string            `gorm:"size:255;not null;default:''"`
-	SharedInboxURL string            `gorm:"size:255;not null;default:''"`
+}
+
+type ActorObject struct {
+	ID         snowflake.ID
+	Type       string
+	URI        string
+	Properties struct {
+		Type string `json:"type"`
+		// The Actor's unique global identifier.
+		ID                string `json:"id"`
+		Inbox             string `json:"inbox"`
+		Outbox            string `json:"outbox"`
+		PreferredUsername string `json:"preferredUsername"`
+		Name              string `json:"name"`
+		Summary           string `json:"summary"`
+		Icon              struct {
+			Type      string `json:"type"`
+			MediaType string `json:"mediaType"`
+			URL       string `json:"url"`
+		} `json:"icon"`
+		Image struct {
+			Type      string `json:"type"`
+			MediaType string `json:"mediaType"`
+			URL       string `json:"url"`
+		} `json:"image"`
+		Endpoints struct {
+			SharedInbox string `json:"sharedInbox"`
+		} `json:"endpoints"`
+		ManuallyApprovesFollowers bool `json:"manuallyApprovesFollowers"`
+		PublicKey                 struct {
+			ID           string `json:"id"`
+			Owner        string `json:"owner"`
+			PublicKeyPem string `json:"publicKeyPem"`
+		} `json:"publicKey"`
+		Attachments []ActorAttribute `json:"attachment"`
+	} `gorm:"serializer:json;not null"`
+}
+
+func (ActorObject) TableName() string {
+	return "objects"
 }
 
 type ActorType string
@@ -51,19 +81,63 @@ func (ActorType) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 
 // Inbox returns the actor's inbox URL, or shared inbox URL if applicable.
 func (a *Actor) Inbox() string {
-	if a.SharedInboxURL != "" {
-		return a.SharedInboxURL
+	if a.SharedInboxURL() != "" {
+		return a.SharedInboxURL()
 	}
-	return a.InboxURL
+	return a.InboxURL()
+}
+
+func (a *Actor) Attributes() []ActorAttribute {
+	return a.Object.Properties.Attachments
+}
+
+func (a *Actor) Avatar() string {
+	return a.Object.Properties.Icon.URL
+}
+
+func (a *Actor) DisplayName() string {
+	return a.Object.Properties.Name
+}
+
+func (a *Actor) Header() string {
+	return a.Object.Properties.Image.URL
+}
+
+func (a *Actor) InboxURL() string {
+	return a.Object.Properties.Inbox
+}
+
+func (a *Actor) Locked() bool {
+	return a.Object.Properties.ManuallyApprovesFollowers
+}
+
+func (a *Actor) SharedInboxURL() string {
+	return a.Object.Properties.Endpoints.SharedInbox
+}
+
+func (a *Actor) OutboxURL() string {
+	return a.Object.Properties.Outbox
+}
+
+func (a *Actor) PublicKey() []byte {
+	return []byte(a.Object.Properties.PublicKey.PublicKeyPem)
+}
+
+func (a *Actor) Note() string {
+	return a.Object.Properties.Summary
+}
+
+func (a *Actor) URI() string {
+	return a.Object.Properties.ID
 }
 
 func (a *Actor) AfterCreate(tx *gorm.DB) error {
 	return forEach(tx, a.updateInstanceDomainsCount)
 }
 
-func (a *Actor) AfterUpdate(tx *gorm.DB) error {
-	return forEach(tx, a.maybeScheduleRefresh)
-}
+// func (a *Actor) AfterUpdate(tx *gorm.DB) error {
+// 	return forEach(tx, a.maybeScheduleRefresh)
+// }
 
 func (a *Actor) AfterSave(tx *gorm.DB) error {
 	peer := &Peer{
@@ -82,20 +156,20 @@ func (a *Actor) updateInstanceDomainsCount(tx *gorm.DB) error {
 	}).Error // update domain count on all instances.
 }
 
-func (a *Actor) maybeScheduleRefresh(tx *gorm.DB) error {
-	if !a.needsRefresh() {
-		return nil
-	}
-	fmt.Println("scheduling refresh for", a.URI)
-	return NewActors(tx).Refresh(a)
-}
+// func (a *Actor) maybeScheduleRefresh(tx *gorm.DB) error {
+// 	if !a.needsRefresh() {
+// 		return nil
+// 	}
+// 	fmt.Println("scheduling refresh for", a.URI())
+// 	return NewActors(tx).Refresh(a)
+// }
 
-func (a *Actor) needsRefresh() bool {
-	if a.OutboxURL == "" || (a.InboxURL == "" && a.SharedInboxURL == "") {
-		return true
-	}
-	return false
-}
+// func (a *Actor) needsRefresh() bool {
+// 	if a.OutboxURL() == "" || (a.InboxURL() == "" && a.SharedInboxURL() == "") {
+// 		return true
+// 	}
+// 	return false
+// }
 
 func (a *Actor) Acct() string {
 	if a.IsLocal() {
@@ -143,18 +217,11 @@ func (a *Actor) ActorType() string {
 }
 
 func (a *Actor) PublicKeyID() string {
-	return fmt.Sprintf("%s#main-key", a.URI)
+	return fmt.Sprintf("%s#main-key", a.URI())
 }
 
 func (a *Actor) URL() string {
 	return fmt.Sprintf("https://%s/@%s", a.Domain, a.Name)
-}
-
-type ActorAttribute struct {
-	ID      uint32       `gorm:"primarykey"`
-	ActorID snowflake.ID `gorm:"index;not null"`
-	Name    string       `gorm:"size:255;not null"`
-	Value   string       `gorm:"type:text;not null"`
 }
 
 type Actors struct {
@@ -165,31 +232,60 @@ func NewActors(db *gorm.DB) *Actors {
 	return &Actors{db: db}
 }
 
-// FindOrCreate finds an account by its URI, or creates it if it doesn't exist.
-func (a *Actors) FindOrCreate(uri string, createFn func(context.Context, string) (*Actor, error)) (*Actor, error) {
-	// use find to avoid record not found error in case of empty result
-	var actors []Actor
-	if err := a.db.Limit(1).Find(&actors, "uri = ?", uri).Error; err != nil {
-		return nil, err
-	}
-	if len(actors) > 0 {
-		// found cached key
-		return &actors[0], nil
-	}
-
-	acc, err := createFn(a.db.Statement.Context, uri)
-	if err != nil {
-		return nil, err
-	}
-	err = a.db.Create(acc).Error
-	return acc, err
+// Find finds an account by its name and domain.
+func (a *Actors) Find(name, domain string) (*Actor, error) {
+	var actor Actor
+	return &actor, a.db.Scopes(PreloadActor).Where("name = ? AND domain = ?", name, domain).Take(&actor).Error
 }
 
 // FindByURI returns an account by its URI if it exists locally.
 func (a *Actors) FindByURI(uri string) (*Actor, error) {
-	var actor Actor
-	err := a.db.Scopes(PreloadActor).Where("URI = ?", uri).Take(&actor).Error
-	return &actor, err
+	var actor []Actor
+	if err := a.db.Scopes(PreloadActor).Joins("JOIN objects ON objects.id = actors.object_id").Where("objects.uri = ?", uri).Find(&actor).Error; err != nil {
+		return nil, err
+	}
+	if len(actor) == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return &actor[0], nil
+}
+
+func (a *Actors) FindOrCreateByURI(uri string) (*Actor, error) {
+	actor, err := a.FindByURI(uri)
+	if err == nil {
+		// found
+		return actor, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		// something went wrong
+		return nil, err
+	}
+	// not found, create
+	props, err := a.fetchObject(uri)
+	if err != nil {
+		return nil, err
+	}
+	obj := &Object{
+		Properties: props,
+	}
+	if err := a.db.Create(obj).Error; err != nil {
+		return nil, err
+	}
+	return a.FindByURI(uri)
+}
+
+func (a *Actors) fetchObject(uri string) (map[string]any, error) {
+	ctx := a.db.Statement.Context
+	instance, ok := ctx.Value("instance").(*Instance)
+	if !ok {
+		return nil, errors.New("no instance in context")
+	}
+	client, err := NewClient(instance.Admin)
+	if err != nil {
+		return nil, err
+	}
+	var obj map[string]any
+	return obj, client.Fetch(ctx, uri, &obj)
 }
 
 // Refesh schedules a refresh of an actor's data.
@@ -202,7 +298,7 @@ func (a *Actors) Refresh(actor *Actor) error {
 			"attempts", // resets the attempts counter
 		}),
 	})
-	return db.Create(&ActorRefreshRequest{ActorID: actor.ID}).Error
+	return db.Create(&ActorRefreshRequest{ActorID: actor.ObjectID}).Error
 }
 
 type Request struct {
@@ -255,7 +351,7 @@ func MaybeExcludeReblogs(r *http.Request) func(db *gorm.DB) *gorm.DB {
 func MaybePinned(r *http.Request) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if pinned := parseBool(r, "pinned"); pinned {
-			db = db.Joins("JOIN reactions ON reactions.status_id = statuses.id AND reactions.pinned = true AND reactions.actor_id = statuses.actor_id")
+			db = db.Joins("JOIN reactions ON reactions.status_id = statuses.object_id AND reactions.pinned = true AND reactions.actor_id = statuses.actor_id")
 		}
 		return db
 	}
@@ -263,7 +359,7 @@ func MaybePinned(r *http.Request) func(db *gorm.DB) *gorm.DB {
 
 // PreloadActor preloads all of an Actor's relations and associations.
 func PreloadActor(query *gorm.DB) *gorm.DB {
-	return query.Preload("Attributes")
+	return query.Preload("Object")
 }
 
 // parseBool parses a boolean value from a request parameter.

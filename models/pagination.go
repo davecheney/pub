@@ -27,7 +27,7 @@ func PaginateActors(r *http.Request) func(db *gorm.DB) *gorm.DB {
 
 		switch q.Get("order") {
 		case "new":
-			db = db.Order("id desc")
+			db = db.Order("object_id desc")
 		case "active":
 			db = db.Order("last_status_at desc")
 		}
@@ -50,15 +50,15 @@ func PaginateConversation(r *http.Request) func(db *gorm.DB) *gorm.DB {
 
 		sinceID, _ := strconv.Atoi(r.URL.Query().Get("since_id"))
 		if sinceID > 0 {
-			db = db.Where("statuses.id > ?", sinceID)
+			db = db.Where("statuses.object_id > ?", sinceID)
 		}
 		minID, _ := strconv.Atoi(r.URL.Query().Get("min_id"))
 		if minID > 0 {
-			db = db.Where("statuses.id > ?", minID)
+			db = db.Where("statuses.object_id > ?", minID)
 		}
 		maxID, _ := strconv.Atoi(r.URL.Query().Get("max_id"))
 		if maxID > 0 {
-			db = db.Where("statuses.id < ?", maxID)
+			db = db.Where("statuses.object_id < ?", maxID)
 		}
 		return db
 	}
@@ -124,20 +124,20 @@ func PaginateStatuses(r *http.Request) func(db *gorm.DB) *gorm.DB {
 		switch minID {
 		case "":
 			// no min_id provided, so we'll sort descending
-			db = db.Order("statuses.id desc")
+			db = db.Order("statuses.object_id desc")
 			if maxID != "" {
-				db = db.Where("statuses.id < ?", maxID)
+				db = db.Where("statuses.object_id < ?", maxID)
 			}
 			if sinceID != "" {
-				db = db.Where("statuses.id > ?", sinceID)
+				db = db.Where("statuses.object_id > ?", sinceID)
 			}
 		default:
 			// min_id provided, so we'll sort ascending
 			// since_id is ignored
-			db = db.Order("statuses.id asc")
-			db = db.Where("statuses.id > ?", minID)
+			db = db.Order("statuses.object_id asc")
+			db = db.Where("statuses.object_id > ?", minID)
 			if maxID != "" {
-				db = db.Where("statuses.id < ?", maxID)
+				db = db.Where("statuses.object_id < ?", maxID)
 			}
 		}
 		return db

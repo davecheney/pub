@@ -24,6 +24,7 @@ var cli struct {
 	DSN    string `help:"data source name" default:"pub:pub@tcp(localhost:3306)/pub"`
 
 	AutoMigrate          AutoMigrateCmd          `cmd:"" help:"Automigrate the database."`
+	BackfillActors       BackfillActorsCmd       `cmd:"" help:"Backfill actors."`
 	CreateAccount        CreateAccountCmd        `cmd:"" help:"Create a new account."`
 	CreateInstance       CreateInstanceCmd       `cmd:"" help:"Create a new instance."`
 	DeleteAccount        DeleteAccountCmd        `cmd:"" help:"Delete an account."`
@@ -39,7 +40,7 @@ func main() {
 	ctx := kong.Parse(&cli)
 	err := ctx.Run(&Context{
 		Debug:  cli.LogSQL,
-		Logger: slog.New(slog.NewTextHandler(os.Stderr)),
+		Logger: slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{})),
 		Config: gorm.Config{
 			Logger: logger.Default.LogMode(func() logger.LogLevel {
 				if cli.LogSQL {

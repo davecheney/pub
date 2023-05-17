@@ -1,7 +1,6 @@
 package models
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/davecheney/pub/internal/crypto"
@@ -44,6 +43,12 @@ func NewInstances(db *gorm.DB) *Instances {
 	return &Instances{db: db}
 }
 
+// FindByDomain finds an instance by domain.
+func (i *Instances) FindByDomain(domain string) (*Instance, error) {
+	var instance Instance
+	return &instance, i.db.Preload("Admin").Preload("Admin.Actor").Preload("Admin.Actor.Object").Where("domain = ?", domain).Take(&instance).Error
+}
+
 // Create creates a new instance, complete with an admin account.
 func (i *Instances) Create(domain, title, description, adminEmail string) (*Instance, error) {
 	var instance Instance
@@ -78,36 +83,44 @@ func (i *Instances) Create(domain, title, description, adminEmail string) (*Inst
 			return err
 		}
 
-		var adminRole AccountRole
-		if err := tx.Where("name = ?", "admin").FirstOrCreate(&adminRole, AccountRole{
-			Name:        "admin",
-			Position:    1,
-			Permissions: 0xFFFFFFFF,
-			Highlighted: true,
-		}).Error; err != nil {
-			return err
+		obj := &Object{
+			Properties: map[string]any{
+				"id":                "https://" + domain + "/u/admin",
+				"type":              "Service",
+				"published":         snowflake.Now().ToTime().Format(time.RFC3339),
+				"preferredUsername": "admin",
+				"displayName":       "admin",
+				"publicKey": map[string]any{
+					"id":           "https://" + domain + "/u/admin#main-key",
+					"owner":        "https://" + domain + "/u/admin",
+					"publicKeyPem": string(kp.PublicKey),
+				},
+			},
 		}
 
+		if err := tx.Create(&obj).Error; err != nil {
+			return err
+		}
+		actor, err := NewActors(tx).FindByURI(obj.URI)
+		if err != nil {
+			return err
+		}
+		actor.Type = "LocalService"
+
 		adminAccount := Account{
-			ID:       snowflake.Now(),
-			Instance: &instance,
-			Actor: &Actor{
-				ID:          snowflake.Now(),
-				Type:        "LocalService",
-				URI:         fmt.Sprintf("https://%s/u/%s", domain, "admin"),
-				Name:        "admin",
-				Domain:      instance.Domain,
-				DisplayName: "admin",
-				Locked:      false,
-				Note:        "The admin account for " + domain,
-				Avatar:      "https://avatars.githubusercontent.com/u/1024?v=4",
-				Header:      "https://avatars.githubusercontent.com/u/1024?v=4",
-				PublicKey:   kp.PublicKey,
-			},
+			ID:                snowflake.Now(),
+			Instance:          &instance,
+			ActorID:           actor.ObjectID,
+			Actor:             actor,
 			Email:             adminEmail,
 			EncryptedPassword: encrypted,
 			PrivateKey:        kp.PrivateKey,
-			RoleID:            adminRole.ID,
+			Role: &AccountRole{
+				Name:        "admin",
+				Position:    1,
+				Permissions: 0xFFFFFFFF,
+				Highlighted: true,
+			},
 		}
 		if err := tx.Create(&adminAccount).Error; err != nil {
 			return err

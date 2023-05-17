@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/davecheney/pub/internal/algorithms"
@@ -75,21 +74,14 @@ func (f *RemoteActorFetcher) Fetch(ctx context.Context, uri string) (*models.Act
 	}
 
 	return &models.Actor{
-		ID:             snowflake.TimeToID(published),
-		Type:           models.ActorType(actor.Type),
-		Name:           actor.PreferredUsername,
-		Domain:         u.Host,
-		URI:            actor.ID,
-		DisplayName:    actor.Name,
-		Locked:         actor.ManuallyApprovesFollowers,
-		Note:           actor.Summary,
-		Avatar:         actor.Icon.URL,
-		Header:         actor.Image.URL,
-		InboxURL:       actor.Inbox,
-		OutboxURL:      actor.Outbox,
-		SharedInboxURL: actor.Endpoints.SharedInbox,
-		PublicKey:      []byte(actor.PublicKey.PublicKeyPem),
-		Attributes:     attachmentsToActorAttributes(actor.Attachments),
+		ObjectID: snowflake.TimeToID(published),
+		Type:     models.ActorType(actor.Type),
+		Name:     actor.PreferredUsername,
+		Domain:   u.Host,
+		// URI:    actor.ID,
+		// Avatar: actor.Icon.URL,
+		// Header:     actor.Image.URL,
+		// Attributes: attachmentsToActorAttributes(actor.Attachments),
 	}, nil
 }
 
@@ -178,74 +170,68 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 	}
 	var inReplyTo *models.Status
 	if status.InReplyTo != "" {
-		inReplyTo, err = models.NewStatuses(f.db).FindOrCreate(status.InReplyTo, f.Fetch)
+		inReplyTo, err = models.NewStatuses(f.db).FindOrCreateByURI(status.InReplyTo)
 		if err != nil {
 			return nil, err
 		}
 		conv = inReplyTo.Conversation
 	}
 
-	actors := NewRemoteActorFetcher(f.signAs)
-	actor, err := models.NewActors(f.db).FindOrCreate(status.AttributedTo, actors.Fetch)
+	actor, err := models.NewActors(f.db).FindOrCreateByURI(status.AttributedTo)
 	if err != nil {
 		return nil, err
 	}
 
 	st := &models.Status{
-		ID:               snowflake.TimeToID(status.Published),
+		ObjectID:         snowflake.TimeToID(status.Published),
 		UpdatedAt:        status.Updated,
-		ActorID:          actor.ID,
+		ActorID:          actor.ObjectID,
 		Actor:            actor,
 		Conversation:     conv,
 		InReplyToID:      inReplyToID(inReplyTo),
 		InReplyToActorID: inReplyToActorID(inReplyTo),
-		Sensitive:        status.Sensitive,
-		SpoilerText:      status.Summary,
 		Visibility:       conv.Visibility,
-		URI:              status.ID,
-		Note:             status.Content,
-		Attachments:      attachmentsToStatusAttachments(status.Attachments),
 	}
 
-	for _, tag := range status.Tags {
-		switch tag.Type {
-		case "Mention":
-			mention, err := models.NewActors(f.db).FindOrCreate(tag.Href, actors.Fetch)
-			if err != nil {
-				return nil, err
-			}
-			st.Mentions = append(st.Mentions, models.StatusMention{
-				StatusID: st.ID,
-				ActorID:  mention.ID,
-				Actor:    mention,
-			})
-		case "Hashtag":
-			st.Tags = append(st.Tags, models.StatusTag{
-				StatusID: st.ID,
-				Tag: &models.Tag{
-					Name: strings.TrimLeft(tag.Name, "#"),
-				},
-			})
-		}
-	}
+	// for _, tag := range status.Tags {
+	// 	switch tag.Type {
+	// 	case "Mention":
+	// 		mention, err := models.NewActors(f.db).FindOrCreate(tag.Href, actors.Fetch)
+	// 		if err != nil {
+	// 			return nil, err
+	// 		}
+	// 		st.Mentions = append(st.Mentions, models.StatusMention{
+	// 			StatusID: st.ID,
+	// 			ActorID:  mention.ID,
+	// 			Actor:    mention,
+	// 		})
+	// 	case "Hashtag":
+	// 		st.Tags = append(st.Tags, models.StatusTag{
+	// 			StatusID: st.ID,
+	// 			Tag: &models.Tag{
+	// 				Name: strings.TrimLeft(tag.Name, "#"),
+	// 			},
+	// 		})
+	// 	}
+	// }
 
-	if len(status.OneOf) > 0 {
-		poll := &models.StatusPoll{
-			StatusID:  st.ID,
-			ExpiresAt: status.EndTime,
-			Multiple:  false,
-		}
-		for _, option := range status.OneOf {
-			if option.Type != "Note" {
-				return nil, fmt.Errorf("invalid poll option type: %q", option.Type)
-			}
-			poll.Options = append(poll.Options, models.StatusPollOption{
-				Title: option.Name,
-				Count: option.Replies.TotalItems,
-			})
-		}
-		st.Poll = poll
-	}
+	// if len(status.OneOf) > 0 {
+	// 	poll := &models.StatusPoll{
+	// 		StatusID:  st.ID,
+	// 		ExpiresAt: status.EndTime,
+	// 		Multiple:  false,
+	// 	}
+	// 	for _, option := range status.OneOf {
+	// 		if option.Type != "Note" {
+	// 			return nil, fmt.Errorf("invalid poll option type: %q", option.Type)
+	// 		}
+	// 		poll.Options = append(poll.Options, models.StatusPollOption{
+	// 			Title: option.Name,
+	// 			Count: option.Replies.TotalItems,
+	// 		})
+	// 	}
+	// 	st.Poll = poll
+	// }
 
 	return st, nil
 }

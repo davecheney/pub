@@ -66,7 +66,7 @@ func TestAccounts(t *testing.T) {
 		require.NoError(err)
 
 		var actor Actor
-		err = tx.Where("id = ?", account.ActorID).First(&actor).Error
+		err = tx.Where(&Actor{ObjectID: account.ActorID}).First(&actor).Error
 		require.NoError(err)
 		require.NotNil(actor)
 	})

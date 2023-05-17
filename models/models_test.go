@@ -3,6 +3,7 @@ package models
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/davecheney/pub/internal/crypto"
 	"github.com/davecheney/pub/internal/snowflake"
@@ -24,42 +25,41 @@ func MockActor(t *testing.T, tx *gorm.DB, name, domain string, opts ...func(*Act
 	t.Helper()
 	require := require.New(t)
 
-	kp, err := crypto.GenerateRSAKeypair()
+	_, err := crypto.GenerateRSAKeypair()
 	require.NoError(err)
 
-	actor := &Actor{
-		ID:          snowflake.Now(),
-		URI:         fmt.Sprintf("https://%s/%s", domain, name),
-		Name:        name,
-		Domain:      domain,
-		DisplayName: name,
-		Avatar:      "https://avatars.githubusercontent.com/u/1024?v=4",
-		Header:      "https://avatars.githubusercontent.com/u/1024?v=4",
-		PublicKey:   kp.PublicKey,
+	obj := &Object{
+		Properties: map[string]any{
+			"published":         time.Now().Format(time.RFC3339),
+			"id":                fmt.Sprintf("https://%s/%s", domain, name),
+			"type":              "Person",
+			"preferredUsername": name,
+			"displayName":       name,
+		},
 	}
-	for _, opt := range opts {
-		opt(actor)
-	}
-	require.NoError(tx.Create(actor).Error)
-	return actor
+	require.NoError(tx.Create(&obj).Error)
+	var actor Actor
+	require.NoError(tx.Scopes(PreloadActor).Where(&Actor{ObjectID: obj.ID}).Take(&actor).Error)
+	return &actor
 }
 
 func MockStatus(t *testing.T, tx *gorm.DB, actor *Actor, note string) *Status {
 	t.Helper()
 	require := require.New(t)
 
-	id := snowflake.Now()
-	status := &Status{
-		ID:      id,
-		URI:     fmt.Sprintf("https://%s/status/%d", actor.Domain, id),
-		ActorID: actor.ID,
-		Conversation: &Conversation{
-			Visibility: "public",
+	obj := &Object{
+		Properties: map[string]any{
+			"published":    time.Now().Format(time.RFC3339),
+			"id":           fmt.Sprintf("https://%s/status/%d", actor.Domain, snowflake.Now()),
+			"type":         "Note",
+			"attributedTo": actor.URI(),
+			"content":      note,
 		},
-		Note: note,
 	}
-	require.NoError(tx.Create(status).Error)
-	return status
+	require.NoError(tx.Create(&obj).Error)
+	var status Status
+	require.NoError(tx.Scopes(PreloadStatus).Where(&Status{ObjectID: obj.ID}).Take(&status).Error)
+	return &status
 }
 
 func MockInstance(t *testing.T, tx *gorm.DB, domain string) *Instance {

@@ -31,8 +31,7 @@ func TestInstances(t *testing.T) {
 		err := tx.Delete(&instance).Error
 		require.NoError(err)
 
-		var i Instance
-		err = tx.First(&i, "domain = ?", instance.Domain).Error
+		_, err = NewInstances(tx).FindByDomain(instance.Domain)
 		require.Error(err)
 		require.Equal("record not found", err.Error())
 	})

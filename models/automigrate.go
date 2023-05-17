@@ -4,7 +4,7 @@ package models
 func AllTables() []interface{} {
 	return []interface{}{
 		&ActivitypubRefresh{}, &ActivitypubOutboxRequest{},
-		&Actor{}, &ActorAttribute{}, &ActorRefreshRequest{},
+		&Actor{}, &ActorRefreshRequest{},
 		&Account{}, &AccountList{}, &AccountListMember{}, &AccountRole{}, &AccountMarker{}, &AccountPreferences{},
 		&Application{},
 		&Conversation{},

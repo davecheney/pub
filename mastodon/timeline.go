@@ -17,14 +17,14 @@ func TimelinesHome(env *Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	following := env.DB.Select("target_id").Where(&models.Relationship{ActorID: user.Actor.ID, Following: true}).Table("relationships")
+	following := env.DB.Select("target_id").Where(&models.Relationship{ActorID: user.Actor.ObjectID, Following: true}).Table("relationships")
 
 	var statuses []*models.Status
 	// TODO stop copying and pasting this query
 	scope := env.DB.Joins("Actor").Scopes(models.PaginateStatuses(r), models.PreloadStatus).
 		Where("(actor_id IN (?) AND in_reply_to_actor_id is null) or (actor_id in (?) and in_reply_to_actor_id IN (?))", following, following, following)
-	query := scope.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
-	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ID)
+	query := scope.Preload("Reaction", "actor_id = ?", user.Actor.ObjectID) // reactions
+	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ObjectID)
 	if err := query.Find(&statuses).Error; err != nil {
 		return httpx.Error(http.StatusInternalServerError, err)
 	}
@@ -32,7 +32,7 @@ func TimelinesHome(env *Env, w http.ResponseWriter, r *http.Request) error {
 	sortStatuses(statuses) // PaginateStatuses doesn't sort, so we have to do it ourselves.
 
 	if len(statuses) > 0 {
-		linkHeader(w, r, statuses[0].ID, statuses[len(statuses)-1].ID)
+		linkHeader(w, r, statuses[0].ObjectID, statuses[len(statuses)-1].ObjectID)
 	}
 	serialise := Serialiser{req: r}
 	return to.JSON(w, algorithms.Map(statuses, serialise.Status))
@@ -46,8 +46,8 @@ func TimelinesPublic(env *Env, w http.ResponseWriter, r *http.Request) error {
 	query := env.DB.Scopes(models.PaginateStatuses(r), publicStatuses, localOnly(r), models.PreloadStatus)
 	// localOnly handles the join to the actors table
 	if authenticated {
-		query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
-		query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ID)
+		query = query.Preload("Reaction", "actor_id = ?", user.Actor.ObjectID) // reactions
+		query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ObjectID)
 	}
 	if err := query.Find(&statuses).Error; err != nil {
 		return httpx.Error(http.StatusInternalServerError, err)
@@ -56,7 +56,7 @@ func TimelinesPublic(env *Env, w http.ResponseWriter, r *http.Request) error {
 	sortStatuses(statuses) // PaginateStatuses doesn't sort, so we have to do it ourselves.
 
 	if len(statuses) > 0 {
-		linkHeader(w, r, statuses[0].ID, statuses[len(statuses)-1].ID)
+		linkHeader(w, r, statuses[0].ObjectID, statuses[len(statuses)-1].ObjectID)
 	}
 	serialise := Serialiser{req: r}
 	return to.JSON(w, algorithms.Map(statuses, serialise.Status))
@@ -89,8 +89,8 @@ func TimelinesListShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var statuses []*models.Status
 	scope := env.DB.Scopes(models.PaginateStatuses(r), models.PreloadStatus).Where("(actor_id IN (?) AND in_reply_to_actor_id is null) or (actor_id in (?) and in_reply_to_actor_id IN (?))", listMembers, listMembers, listMembers)
 	query := scope.Joins("Actor")
-	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
-	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ID)
+	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ObjectID) // reactions
+	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ObjectID)
 	if err := query.Find(&statuses).Error; err != nil {
 		return httpx.Error(http.StatusInternalServerError, err)
 	}
@@ -98,7 +98,7 @@ func TimelinesListShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	sortStatuses(statuses) // PaginateStatuses doesn't sort, so we have to do it ourselves.
 
 	if len(statuses) > 0 {
-		linkHeader(w, r, statuses[0].ID, statuses[len(statuses)-1].ID)
+		linkHeader(w, r, statuses[0].ObjectID, statuses[len(statuses)-1].ObjectID)
 	}
 	serialise := Serialiser{req: r}
 	return to.JSON(w, algorithms.Map(statuses, serialise.Status))
@@ -117,8 +117,8 @@ func TimelinesTagShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	tag := env.DB.Select("id").Where("name = ?", chi.URLParam(r, "tag")).Table("tags")
 	query := scope.Joins("JOIN status_tags ON status_tags.status_id = statuses.id").Where("status_tags.tag_id = (?)", tag)
 	query = query.Preload("Actor").Scopes(models.PreloadStatus)
-	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ID) // reactions
-	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ID)
+	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ObjectID) // reactions
+	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ObjectID)
 	if err := query.Find(&statuses).Error; err != nil {
 		return httpx.Error(http.StatusInternalServerError, err)
 	}
@@ -126,7 +126,7 @@ func TimelinesTagShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	sortStatuses(statuses) // PaginateStatuses doesn't sort, so we have to do it ourselves.
 
 	if len(statuses) > 0 {
-		linkHeader(w, r, statuses[0].ID, statuses[len(statuses)-1].ID)
+		linkHeader(w, r, statuses[0].ObjectID, statuses[len(statuses)-1].ObjectID)
 	}
 	serialise := Serialiser{req: r}
 	return to.JSON(w, algorithms.Map(statuses, serialise.Status))

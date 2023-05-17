@@ -68,21 +68,21 @@ type Source struct {
 
 func (s *Serialiser) Account(a *models.Actor) *Account {
 	return &Account{
-		ID:             a.ID,
+		ID:             a.ObjectID,
 		Username:       a.Name,
 		Acct:           a.Acct(),
-		DisplayName:    a.DisplayName,
-		Locked:         a.Locked,
+		DisplayName:    a.DisplayName(),
+		Locked:         a.Locked(),
 		Bot:            a.IsBot(),
 		Discoverable:   true, // TODO
 		Group:          a.IsGroup(),
-		CreatedAt:      a.ID.ToTime().Round(time.Hour).Format("2006-01-02T00:00:00.000Z"),
-		Note:           a.Note,
+		CreatedAt:      a.ObjectID.ToTime().Round(time.Hour).Format("2006-01-02T00:00:00.000Z"),
+		Note:           a.Note(),
 		URL:            fmt.Sprintf("https://%s/@%s", a.Domain, a.Name),
-		Avatar:         stringOrDefault(a.Avatar, s.urlFor("/avatar.jpg")),
-		AvatarStatic:   stringOrDefault(a.Avatar, s.urlFor("/avatar.jpg")),
-		Header:         stringOrDefault(a.Header, s.urlFor("/header.jpg")),
-		HeaderStatic:   stringOrDefault(a.Header, s.urlFor("/header.jpg")),
+		Avatar:         stringOrDefault(a.Avatar(), s.urlFor("/avatar.jpg")),
+		AvatarStatic:   stringOrDefault(a.Avatar(), s.urlFor("/avatar.jpg")),
+		Header:         stringOrDefault(a.Header(), s.urlFor("/header.jpg")),
+		HeaderStatic:   stringOrDefault(a.Header(), s.urlFor("/header.jpg")),
 		FollowersCount: a.FollowersCount,
 		FollowingCount: a.FollowingCount,
 		StatusesCount:  a.StatusesCount,
@@ -94,7 +94,7 @@ func (s *Serialiser) Account(a *models.Actor) *Account {
 			return &st
 		}(),
 		Emojis: make([]map[string]any, 0), // must be an empty array -- not null
-		Fields: algorithms.Map(a.Attributes, func(a *models.ActorAttribute) Field {
+		Fields: algorithms.Map(a.Attributes(), func(a models.ActorAttribute) Field {
 			return Field{
 				Name:  a.Name,
 				Value: a.Value,
@@ -110,7 +110,7 @@ func (s *Serialiser) CredentialAccount(a *models.Account) *CredentialAccount {
 			Privacy:   "public",
 			Sensitive: false,
 			Language:  "en",
-			Note:      a.Actor.Note,
+			Note:      a.Actor.Note(),
 		},
 		Role: s.Role(a.Role),
 	}
@@ -215,15 +215,21 @@ func (s *Serialiser) Status(st *models.Status) *Status {
 	if st == nil {
 		return nil
 	}
-	createdAt := st.ID.ToTime()
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("panic in Status: %+v: %v\n", st, r)
+
+		}
+	}()
+	createdAt := st.ObjectID.ToTime()
 	return &Status{
-		ID:                 st.ID,
+		ID:                 st.ObjectID,
 		CreatedAt:          createdAt.Round(time.Second).Format("2006-01-02T15:04:05.000Z"),
 		EditedAt:           maybeEditedAt(createdAt, st.UpdatedAt),
 		InReplyToID:        st.InReplyToID,
 		InReplyToAccountID: st.InReplyToActorID,
-		Sensitive:          st.Sensitive,
-		SpoilerText:        st.SpoilerText,
+		Sensitive:          st.Sensitive(),
+		SpoilerText:        st.SpoilerText(),
 		Visibility: func() models.Visibility {
 			if st.Visibility == "limited" {
 				return "private"
@@ -231,37 +237,38 @@ func (s *Serialiser) Status(st *models.Status) *Status {
 			return st.Visibility
 		}(),
 		Language: func() any {
+			// todo return nil if no language
 			if st.Reblog != nil {
 				return nil
 			}
-			if st.Language == "" {
+			if st.Language() == "" {
 				return "en"
 			}
-			return st.Language
+			return st.Language()
 		}(),
-		URI: st.URI,
+		URI: st.URI(),
 		URL: func() any {
 			if st.Reblog != nil {
 				return nil
 			}
-			return st.URI
+			return st.URI()
 		}(),
-		RepliesCount:     st.RepliesCount,
-		ReblogsCount:     st.ReblogsCount,
-		FavouritesCount:  st.FavouritesCount,
-		Favourited:       st.Reaction != nil && st.Reaction.Favourited,
-		Reblogged:        st.Reaction != nil && st.Reaction.Reblogged,
-		Muted:            st.Reaction != nil && st.Reaction.Muted,
-		Bookmarked:       st.Reaction != nil && st.Reaction.Bookmarked,
-		Content:          st.Note,
-		Reblog:           s.Status(st.Reblog),
-		Account:          s.Account(st.Actor),
-		MediaAttachments: s.MediaAttachments(st.Attachments),
-		Mentions:         s.Mentions(st.Mentions),
-		Tags:             s.Tags(st.Tags),
-		Emojis:           nil,
-		Card:             nil,
-		Poll:             s.Poll(st.Poll),
+		RepliesCount:    st.RepliesCount,
+		ReblogsCount:    st.ReblogsCount,
+		FavouritesCount: st.FavouritesCount,
+		Favourited:      st.Reaction != nil && st.Reaction.Favourited,
+		Reblogged:       st.Reaction != nil && st.Reaction.Reblogged,
+		Muted:           st.Reaction != nil && st.Reaction.Muted,
+		Bookmarked:      st.Reaction != nil && st.Reaction.Bookmarked,
+		Content:         st.Note(),
+		Reblog:          s.Status(st.Reblog),
+		Account:         s.Account(st.Actor),
+		// MediaAttachments: s.MediaAttachments(st.Attachments),
+		// Mentions:         s.Mentions(st.Mentions),
+		// Tags:             s.Tags(st.Tags),
+		Emojis: nil,
+		Card:   nil,
+		// Poll:             s.Poll(st.Poll),
 	}
 }
 
@@ -292,7 +299,7 @@ func (s *Serialiser) Mentions(mentions []models.StatusMention) []*Mention {
 		),
 		func(a *models.Actor) *Mention {
 			return &Mention{
-				ID:       a.ID,
+				ID:       a.ObjectID,
 				URL:      a.URL(),
 				Acct:     a.Acct(),
 				Username: a.Name,
@@ -490,19 +497,19 @@ type StatusEdit struct {
 
 func (s *Serialiser) StatusEdit(st *models.Status) *StatusEdit {
 	return &StatusEdit{
-		Content:     st.Note,
-		SpoilerText: st.SpoilerText,
-		Sensitive:   st.Sensitive,
+		Content:     st.Note(),
+		SpoilerText: st.SpoilerText(),
+		Sensitive:   st.Sensitive(),
 		CreatedAt: func() time.Time {
-			createdAt := st.ID.ToTime()
+			createdAt := st.ObjectID.ToTime()
 			if st.UpdatedAt.After(createdAt) {
 				return st.UpdatedAt
 			}
 			return createdAt
 		}().Format("2006-01-02T15:04:05.006Z"),
-		Account:          s.Account(st.Actor),
-		Poll:             s.Poll(st.Poll),
-		MediaAttachments: s.MediaAttachments(st.Attachments),
+		Account: s.Account(st.Actor),
+		// Poll:             s.Poll(st.Poll),
+		// MediaAttachments: s.MediaAttachments(st.Attachments),
 	}
 }
 

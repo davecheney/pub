@@ -1,6 +1,7 @@
 package activitypub
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/x509"
 	"encoding/pem"
@@ -21,21 +22,13 @@ import (
 )
 
 func NewInbox(db *gorm.DB) *InboxController {
-	return &InboxController{
-		db: db,
-	}
+	return &InboxController{}
 }
 
 type InboxController struct {
-	db *gorm.DB
 }
 
 func (i *InboxController) Create(env *Env, w http.ResponseWriter, r *http.Request) error {
-	instance, err := i.findInstance(r.Host)
-	if err != nil {
-		return err
-	}
-
 	var act Activity
 	if err := json.UnmarshalFull(r.Body, &act); err != nil {
 		return httpx.Error(http.StatusBadRequest, err)
@@ -44,10 +37,10 @@ func (i *InboxController) Create(env *Env, w http.ResponseWriter, r *http.Reques
 	// if we need to make an activity pub request, we need to sign it with the
 	// instance's admin account.
 	processor := &inboxProcessor{
-		logger: env.Logger.With("instance", instance.Domain),
+		logger: env.Logger.With("instance", env.Instance.Domain),
 		req:    r,
 		db:     env.DB,
-		signAs: instance.Admin,
+		signAs: env.Instance.Admin,
 	}
 
 	if err := processor.processActivity(&act); err != nil {
@@ -55,17 +48,6 @@ func (i *InboxController) Create(env *Env, w http.ResponseWriter, r *http.Reques
 	}
 	w.WriteHeader(http.StatusAccepted)
 	return nil
-}
-
-func (i *InboxController) findInstance(domain string) (*models.Instance, error) {
-	var instance models.Instance
-	if err := i.db.Joins("Admin").Preload("Admin.Actor").Take(&instance, "domain = ?", domain).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, httpx.Error(http.StatusNotFound, err)
-		}
-		return nil, err
-	}
-	return &instance, nil
 }
 
 type inboxProcessor struct {
@@ -88,7 +70,8 @@ func (i *inboxProcessor) processActivity(act *Activity) error {
 		// Delete is a special case, as we may not have the actor in our database.
 		// In that case, check the actor exists locally, and if it does, then
 		// validate the signature.
-		return i.processDelete(act)
+		// return i.processDelete(act)
+		return nil
 	default:
 		if err := i.validateSignature(); err != nil {
 			return httpx.Error(http.StatusUnauthorized, err)
@@ -162,34 +145,46 @@ func (i *inboxProcessor) processUndoFollow(body map[string]any) error {
 
 func (i *inboxProcessor) processAnnounce(act *Activity) error {
 	target := stringFromAny(act.Object)
-	statusFetcher := NewRemoteStatusFetcher(i.signAs, i.db)
-	original, err := models.NewStatuses(i.db).FindOrCreate(target, statusFetcher.Fetch)
+	original, err := models.NewStatuses(i.db).FindOrCreateByURI(target)
+	if err != nil {
+		return err
+	}
+	actor, err := models.NewActors(i.db).FindOrCreateByURI(stringFromAny(act.Actor))
 	if err != nil {
 		return err
 	}
 
-	actorFetcher := NewRemoteActorFetcher(i.signAs)
-	actor, err := models.NewActors(i.db).FindOrCreate(stringFromAny(act.Actor), actorFetcher.Fetch)
-	if err != nil {
+	var buf bytes.Buffer
+	if err := json.MarshalFull(&buf, act); err != nil {
 		return err
 	}
 
-	publishedAt, updatedAt := act.Published, act.Updated
+	var props map[string]any
+	if err := json.UnmarshalFull(&buf, &props); err != nil {
+		return err
+	}
+	obj := &models.Object{
+		Properties: props,
+	}
+	if err := i.db.Create(&obj).Error; err != nil {
+		return err
+	}
+
+	updatedAt := act.Updated
 	if updatedAt.IsZero() {
-		updatedAt = publishedAt
+		updatedAt = obj.ID.ToTime()
 	}
 
 	status := &models.Status{
-		ID:        snowflake.TimeToID(publishedAt),
+		ObjectID:  obj.ID,
 		UpdatedAt: updatedAt,
-		ActorID:   actor.ID,
+		ActorID:   actor.ObjectID,
 		Actor:     actor,
 		Conversation: &models.Conversation{
 			Visibility: "public",
 		},
-		URI:        act.ID,
 		Visibility: "public",
-		ReblogID:   &original.ID,
+		ReblogID:   &original.ObjectID,
 	}
 
 	return i.db.Save(status).Error
@@ -216,7 +211,7 @@ func (i *inboxProcessor) processAddPin(act *Activity) error {
 		if err != nil {
 			return err
 		}
-		if status.ActorID != actor.ID {
+		if status.ActorID != actor.ObjectID {
 			return errors.New("actor is not the author of the status")
 		}
 		_, err = models.NewReactions(i.db).Pin(status, actor)
@@ -247,7 +242,7 @@ func (i *inboxProcessor) processRemovePin(act *Activity) error {
 		if err != nil {
 			return err
 		}
-		if status.ActorID != actor.ID {
+		if status.ActorID != actor.ObjectID {
 			return errors.New("actor is not the author of the status")
 		}
 		reactions := models.NewReactions(i.db)
@@ -265,14 +260,15 @@ func (i *inboxProcessor) processCreate(create map[string]any) error {
 	if err := i.db.Create(obj).Error; err != nil {
 		return err
 	}
+	return nil
 
-	typ := stringFromAny(create["type"])
-	switch typ {
-	case "Note", "Question":
-		return i.processCreateNote(create)
-	default:
-		return fmt.Errorf("unknown create object type: %q", typ)
-	}
+	// typ := stringFromAny(create["type"])
+	// switch typ {
+	// case "Note", "Question":
+	// 	return i.processCreateNote(create)
+	// default:
+	// 	return fmt.Errorf("unknown create object type: %q", typ)
+	// }
 }
 
 func (i *inboxProcessor) processCreateNote(create map[string]any) error {
@@ -284,8 +280,7 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 		return nil
 	case gorm.ErrRecordNotFound:
 		// we don't have this status
-		actors := NewRemoteActorFetcher(i.signAs)
-		actor, err := models.NewActors(i.db).FindOrCreate(stringFromAny(create["attributedTo"]), actors.Fetch)
+		actor, err := models.NewActors(i.db).FindOrCreateByURI(stringFromAny(create["attributedTo"]))
 		if err != nil {
 			return err
 		}
@@ -300,8 +295,7 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 		}
 		var inReplyTo *models.Status
 		if inReplyToAtomUri, ok := create["inReplyTo"].(string); ok {
-			statuses := NewRemoteStatusFetcher(i.signAs, i.db)
-			inReplyTo, err = models.NewStatuses(i.db).FindOrCreate(inReplyToAtomUri, statuses.Fetch)
+			inReplyTo, err = models.NewStatuses(i.db).FindOrCreateByURI(inReplyToAtomUri)
 			if err != nil {
 				return err
 			}
@@ -309,51 +303,45 @@ func (i *inboxProcessor) processCreateNote(create map[string]any) error {
 		}
 
 		status := models.Status{
-			ID:               snowflake.TimeToID(publishedAt),
+			ObjectID:         snowflake.TimeToID(publishedAt),
 			UpdatedAt:        updatedAt,
-			ActorID:          actor.ID,
+			ActorID:          actor.ObjectID,
 			Actor:            actor,
 			Conversation:     conv,
-			URI:              uri,
 			InReplyToID:      inReplyToID(inReplyTo),
 			InReplyToActorID: inReplyToActorID(inReplyTo),
-			Sensitive:        boolFromAny(create["sensitive"]),
-			SpoilerText:      stringFromAny(create["summary"]),
 			Visibility:       conv.Visibility,
-			Language:         "en",
-			Note:             stringFromAny(create["content"]),
-			Attachments:      attachmentsToStatusAttachments(anyToSlice(create["attachment"])),
 		}
-		for _, tag := range anyToSlice(create["tag"]) {
-			t := mapFromAny(tag)
-			switch t["type"] {
-			case "Mention":
-				mention, err := models.NewActors(i.db).FindOrCreate(stringFromAny(t["href"]), actors.Fetch)
-				if err != nil {
-					return err
-				}
-				status.Mentions = append(status.Mentions, models.StatusMention{
-					StatusID: status.ID,
-					ActorID:  mention.ID,
-					Actor:    mention,
-				})
-			case "Hashtag":
-				status.Tags = append(status.Tags, models.StatusTag{
-					StatusID: status.ID,
-					Tag: &models.Tag{
-						Name: strings.TrimLeft(stringFromAny(t["name"]), "#"),
-					},
-				})
-			}
-		}
+		// for _, tag := range anyToSlice(create["tag"]) {
+		// 	t := mapFromAny(tag)
+		// 	switch t["type"] {
+		// 	case "Mention":
+		// 		mention, err := models.NewActors(i.db).FindOrCreate(stringFromAny(t["href"]), actors.Fetch)
+		// 		if err != nil {
+		// 			return err
+		// 		}
+		// 		status.Mentions = append(status.Mentions, models.StatusMention{
+		// 			StatusID: status.ID,
+		// 			ActorID:  mention.ID,
+		// 			Actor:    mention,
+		// 		})
+		// 	case "Hashtag":
+		// 		status.Tags = append(status.Tags, models.StatusTag{
+		// 			StatusID: status.ID,
+		// 			Tag: &models.Tag{
+		// 				Name: strings.TrimLeft(stringFromAny(t["name"]), "#"),
+		// 			},
+		// 		})
+		// 	}
+		// }
 
-		if _, ok := create["oneOf"]; ok {
-			status.Poll, err = objToStatusPoll(create)
-			if err != nil {
-				return err
-			}
-			status.Poll.StatusID = status.ID
-		}
+		// if _, ok := create["oneOf"]; ok {
+		// 	status.Poll, err = objToStatusPoll(create)
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	status.Poll.StatusID = status.ID
+		// }
 		return i.db.Create(&status).Error
 	default:
 		// something else happened
@@ -378,7 +366,7 @@ func publishedAndUpdated(obj map[string]any) (time.Time, time.Time, error) {
 
 func inReplyToID(inReplyTo *models.Status) *snowflake.ID {
 	if inReplyTo != nil {
-		return &inReplyTo.ID
+		return &inReplyTo.ObjectID
 	}
 	return nil
 }
@@ -462,8 +450,7 @@ func (i *inboxProcessor) processUpdate(update map[string]any) error {
 
 func (i *inboxProcessor) processUpdateStatus(update map[string]any) error {
 	id := stringFromAny(update["id"])
-	statusFetcher := NewRemoteStatusFetcher(i.signAs, i.db)
-	status, err := models.NewStatuses(i.db).FindOrCreate(id, statusFetcher.Fetch)
+	status, err := models.NewStatuses(i.db).FindOrCreateByURI(id)
 	if err != nil {
 		return err
 	}
@@ -473,20 +460,20 @@ func (i *inboxProcessor) processUpdateStatus(update map[string]any) error {
 	}
 
 	status.UpdatedAt = updatedAt
-	status.Note = stringFromAny(update["content"])
-	if status.Poll != nil {
-		if err := i.db.Delete(status.Poll).Error; err != nil {
-			return err
-		}
-	}
+	// status.Note = stringFromAny(update["content"])
+	// if status.Poll != nil {
+	// 	if err := i.db.Delete(status.Poll).Error; err != nil {
+	// 		return err
+	// 	}
+	// }
 
-	if _, ok := update["oneOf"]; ok {
-		status.Poll, err = objToStatusPoll(update)
-		if err != nil {
-			return err
-		}
-		status.Poll.StatusID = status.ID
-	}
+	// if _, ok := update["oneOf"]; ok {
+	// 	status.Poll, err = objToStatusPoll(update)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	status.Poll.StatusID = status.ID
+	// }
 
 	// TODO handle attachments
 	upsert := clause.OnConflict{
@@ -524,18 +511,11 @@ func objToStatusPoll(obj map[string]any) (*models.StatusPoll, error) {
 
 func (i *inboxProcessor) processUpdateActor(update map[string]any) error {
 	id := stringFromAny(update["id"])
-	actorFetcher := NewRemoteActorFetcher(i.signAs)
-	actor, err := models.NewActors(i.db).FindOrCreate(id, actorFetcher.Fetch)
+	actor, err := models.NewActors(i.db).FindOrCreateByURI(id)
 	if err != nil {
 		return err
 	}
 	actor.Name = stringFromAny(update["preferredUsername"])
-	actor.DisplayName = stringFromAny(update["name"])
-	actor.Locked = boolFromAny(update["manuallyApprovesFollowers"])
-	actor.Note = stringFromAny(update["summary"])
-	actor.Avatar = stringFromAny(mapFromAny(update["icon"])["url"])
-	actor.Header = stringFromAny(mapFromAny(update["image"])["url"])
-	actor.PublicKey = []byte(stringFromAny(mapFromAny(update["publicKey"])["publicKeyPem"]))
 
 	// todo update attributes
 
@@ -604,12 +584,11 @@ func (i *inboxProcessor) validateSignature() error {
 }
 
 func (i *inboxProcessor) getKey(keyID string) (crypto.PublicKey, error) {
-	fetcher := NewRemoteActorFetcher(i.signAs)
-	actor, err := models.NewActors(i.db).FindOrCreate(trimKeyId(keyID), fetcher.Fetch)
+	actor, err := models.NewActors(i.db).FindOrCreateByURI(trimKeyId(keyID))
 	if err != nil {
 		return nil, err
 	}
-	return pemToPublicKey(actor.PublicKey)
+	return pemToPublicKey(actor.PublicKey())
 }
 
 func visiblity(obj map[string]any) string {

@@ -18,7 +18,7 @@ func BookmarksIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	var bookmarked []*models.Status
-	query := env.DB.Joins("JOIN reactions ON reactions.status_id = statuses.id and reactions.actor_id = ? and reactions.bookmarked = ?", user.Actor.ID, true)
+	query := env.DB.Joins("JOIN reactions ON reactions.status_id = statuses.id and reactions.actor_id = ? and reactions.bookmarked = ?", user.Actor.ObjectID, true)
 	query = query.Preload("Actor")
 	query = query.Scopes(models.PreloadStatus, models.PreloadReaction(user.Actor), models.PaginateStatuses(r))
 	if err := query.Find(&bookmarked).Error; err != nil {
@@ -26,7 +26,7 @@ func BookmarksIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	if len(bookmarked) > 0 {
-		linkHeader(w, r, bookmarked[0].ID, bookmarked[len(bookmarked)-1].ID)
+		linkHeader(w, r, bookmarked[0].ObjectID, bookmarked[len(bookmarked)-1].ObjectID)
 	}
 	serialise := Serialiser{req: r}
 	return to.JSON(w, algorithms.Map(bookmarked, serialise.Status))

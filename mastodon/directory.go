@@ -11,7 +11,7 @@ import (
 
 func DirectoryIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var actors []*models.Actor
-	query := env.DB.Scopes(models.PaginateActors(r), isLocal(r))
+	query := env.DB.Scopes(models.PaginateActors(r), isLocal(r), models.PreloadActor)
 	if err := query.Find(&actors).Error; err != nil {
 		return err
 	}

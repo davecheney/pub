@@ -41,7 +41,7 @@ func (e *Env) authenticate(r *http.Request) (*models.Account, error) {
 		return nil, httpx.Error(http.StatusUnauthorized, errors.New("missing bearer token"))
 	}
 	var token models.Token
-	if err := e.DB.Joins("Account").Preload("Account.Actor").Preload("Account.Role").Take(&token, "access_token = ?", bearer).Error; err != nil {
+	if err := e.DB.Joins("Account").Preload("Account.Actor").Preload("Account.Actor.Object").Preload("Account.Role").Take(&token, "access_token = ?", bearer).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, httpx.Error(http.StatusUnauthorized, err)
 		}
@@ -64,6 +64,6 @@ func stringOrDefault(s string, def string) string {
 // sortStatuses sorts the statuses by their ID, in descending order.
 func sortStatuses(statuses []*models.Status) {
 	sort.SliceStable(statuses, func(i, j int) bool {
-		return statuses[i].ID > statuses[j].ID
+		return statuses[i].ObjectID > statuses[j].ObjectID
 	})
 }

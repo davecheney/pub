@@ -11,8 +11,9 @@ import (
 )
 
 func UsersShow(env *Env, w http.ResponseWriter, r *http.Request) error {
-	var actor models.Actor
-	if err := env.DB.First(&actor, "name = ? and domain = ?", chi.URLParam(r, "name"), r.Host).Error; err != nil {
+	name := chi.URLParam(r, "name")
+	actor, err := models.NewActors(env.DB).Find(name, r.Host)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return httpx.Error(http.StatusNotFound, err)
 		}
@@ -78,26 +79,26 @@ func UsersShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 				},
 			},
 		},
-		"id":                        actor.URI,
+		"id":                        actor.URI(),
 		"type":                      actor.ActorType(),
-		"following":                 actor.URI + "/following",
-		"followers":                 actor.URI + "/followers",
-		"inbox":                     actor.URI + "/inbox",
-		"outbox":                    actor.URI + "/outbox",
-		"featured":                  actor.URI + "/collections/featured",
-		"featuredTags":              actor.URI + "/collections/tags",
-		"preferredUsername":         actor.Name,
-		"name":                      actor.DisplayName,
-		"summary":                   actor.Note,
+		"following":                 actor.URI() + "/following",
+		"followers":                 actor.URI() + "/followers",
+		"inbox":                     actor.URI() + "/inbox",
+		"outbox":                    actor.URI() + "/outbox",
+		"featured":                  actor.URI() + "/collections/featured",
+		"featuredTags":              actor.URI() + "/collections/tags",
+		"preferredUsername":         name,
+		"name":                      name,
+		"summary":                   actor.Note(),
 		"url":                       actor.URL(),
-		"manuallyApprovesFollowers": actor.Locked,
-		"discoverable":              false,                                            // mastodon sets this to false
-		"published":                 actor.ID.ToTime().Format("2006-01-02T00:00:00Z"), // spec says round created_at to nearest day
-		"devices":                   actor.URI + "/collections/devices",
+		"manuallyApprovesFollowers": actor.Locked(),
+		"discoverable":              false,                                                  // mastodon sets this to false
+		"published":                 actor.ObjectID.ToTime().Format("2006-01-02T00:00:00Z"), // spec says round created_at to nearest day
+		"devices":                   actor.URI() + "/collections/devices",
 		"publicKey": map[string]any{
 			"id":           actor.PublicKeyID(),
-			"owner":        actor.URI,
-			"publicKeyPem": string(actor.PublicKey),
+			"owner":        actor.URI(),
+			"publicKeyPem": string(actor.PublicKey()),
 		},
 		"tag":        []any{},
 		"attachment": []any{},
@@ -107,7 +108,7 @@ func UsersShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 		"icon": map[string]any{
 			"type":      "Image",
 			"mediaType": "image/jpeg",
-			"url":       actor.Avatar,
+			"url":       actor.Avatar(),
 		},
 	})
 }
