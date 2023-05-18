@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/snowflake"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
@@ -40,11 +41,23 @@ type StatusObject struct {
 	Properties struct {
 		Type string `json:"type"`
 		// The Actor's unique global identifier.
-		ID        string `json:"id"`
-		Content   string `json:"content"`
-		Sensitive bool   `json:"sensitive"` // as:sensitive
-		Summary   string `json:"summary"`
+		ID         string             `json:"id"`
+		Content    string             `json:"content"`
+		Sensitive  bool               `json:"sensitive"` // as:sensitive
+		Summary    string             `json:"summary"`
+		Attachment []StatusAttachment `json:"attachment"`
 	} `gorm:"serializer:json;not null"`
+}
+
+type StatusAttachment struct {
+	Type       string    `json:"type"`
+	MediaType  string    `json:"mediaType"`
+	URL        string    `json:"url"`
+	Name       string    `json:"name"`
+	Width      int       `json:"width"`
+	Height     int       `json:"height"`
+	Blurhash   string    `json:"blurhash"`
+	FocalPoint []float64 `json:"focalPoint"`
 }
 
 func (StatusObject) TableName() string {
@@ -57,6 +70,34 @@ func (st *Status) AfterCreate(tx *gorm.DB) error {
 		st.updateRepliesCount,
 		st.updateReblogsCount,
 	)
+}
+
+func (st *Status) Attachments() []*Attachment {
+	return algorithms.Map(st.Object.Properties.Attachment, func(a StatusAttachment) *Attachment {
+		return &Attachment{
+			MediaType: a.MediaType,
+			URL:       a.URL,
+			Name:      a.Name,
+			Width:     a.Width,
+			Height:    a.Height,
+			Blurhash:  a.Blurhash,
+			FocalPoint: FocalPoint{
+				X: func() float64 {
+					if len(a.FocalPoint) == 0 {
+						return 0
+					}
+					return a.FocalPoint[0]
+				}(),
+				Y: func() float64 {
+					if len(a.FocalPoint) < 2 {
+						return 0
+					}
+					return a.FocalPoint[1]
+				}(),
+			},
+		}
+	})
+
 }
 
 func (st *Status) Language() string {
@@ -214,7 +255,7 @@ func (s *Statuses) FindOrCreateByURI(uri string) (*Status, error) {
 		return nil, err
 	}
 	// not found, create
-	props, err := s.fetchObject(uri)
+	props, err := fetchObject(s.db.Statement.Context, uri)
 	if err != nil {
 		return nil, err
 	}
@@ -225,20 +266,6 @@ func (s *Statuses) FindOrCreateByURI(uri string) (*Status, error) {
 		return nil, err
 	}
 	return s.FindByURI(uri)
-}
-
-func (s *Statuses) fetchObject(uri string) (map[string]any, error) {
-	ctx := s.db.Statement.Context
-	instance, ok := ctx.Value("instance").(*Instance)
-	if !ok {
-		return nil, errors.New("no instance in context")
-	}
-	client, err := NewClient(instance.Admin)
-	if err != nil {
-		return nil, err
-	}
-	var obj map[string]any
-	return obj, client.Fetch(ctx, uri, &obj)
 }
 
 func (s *Statuses) FindByURI(uri string) (*Status, error) {
@@ -307,7 +334,7 @@ func PreloadStatus(query *gorm.DB) *gorm.DB {
 	// Preload("Mentions").Preload("Mentions.Actor").Preload("Mentions.Actor.Object").
 	return query.Preload("Object").Preload("Actor").Preload("Actor.Object").
 		// Preload("Tags").Preload("Tags.Tag").
-		Preload("Reblog").
+		Preload("Reblog").Preload("Reblog.Object").
 		Preload("Reblog.Actor").Preload("Reblog.Actor.Object")
 	// Preload("Reblog.Attachments").
 	// Preload("Reblog.Poll").Preload("Reblog.Poll.Options").

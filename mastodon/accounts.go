@@ -17,7 +17,7 @@ func AccountsShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	var actor models.Actor
-	if err := env.DB.Scopes(models.PreloadActor).Take(&actor, "id = ? ", chi.URLParam(r, "id")).Error; err != nil {
+	if err := env.DB.Scopes(models.PreloadActor).Take(&actor, "object_id = ? ", chi.URLParam(r, "id")).Error; err != nil {
 		return httpx.Error(http.StatusNotFound, err)
 	}
 	serialise := Serialiser{req: r}
@@ -47,8 +47,8 @@ func AccountsStatusesShow(env *Env, w http.ResponseWriter, r *http.Request) erro
 		models.MaybeExcludeReblogs(r),
 		models.MaybePinned(r),
 	)
-	query = query.Preload("Reaction", &models.Reaction{ActorID: user.Actor.ObjectID}) // reactions
-	query = query.Preload("Reblog.Reaction", &models.Reaction{ActorID: user.Actor.ObjectID})
+	query = query.Preload("Reaction", &models.Reaction{ActorID: user.Actor.ObjectID}).Preload("Reaction.Actor").Preload("Reaction.Actor.Object") // reactions
+	query = query.Preload("Reblog.Reaction", &models.Reaction{ActorID: user.Actor.ObjectID}).Preload("Reblog.Reaction.Actor").Preload("Reblog.Reaction.Actor.Object")
 	if err := query.Where("statuses.actor_id = ?", chi.URLParam(r, "id")).Find(&statuses).Error; err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func AccountsFollowersShow(env *Env, w http.ResponseWriter, r *http.Request) err
 	}
 
 	var followers []*models.Relationship
-	if err := env.DB.Scopes(models.PaginateRelationship(r)).Preload("Target").Where("actor_id = ? and followed_by = true", chi.URLParam(r, "id")).Find(&followers).Error; err != nil {
+	if err := env.DB.Scopes(models.PaginateRelationship(r), models.PreloadRelationshipTarget).Where("actor_id = ? and followed_by = true", chi.URLParam(r, "id")).Find(&followers).Error; err != nil {
 		return err
 	}
 
@@ -90,7 +90,7 @@ func AccountsFollowingShow(env *Env, w http.ResponseWriter, r *http.Request) err
 		return err
 	}
 	var following []*models.Relationship
-	if err := env.DB.Scopes(models.PaginateRelationship(r)).Preload("Target").Preload("Target.Attributes").Where("actor_id = ? and following = true", chi.URLParam(r, "id")).Find(&following).Error; err != nil {
+	if err := env.DB.Scopes(models.PaginateRelationship(r), models.PreloadRelationshipTarget).Where("actor_id = ? and following = true", chi.URLParam(r, "id")).Find(&following).Error; err != nil {
 		return err
 	}
 
@@ -166,7 +166,7 @@ func AccountsFamiliarFollowersShow(env *Env, w http.ResponseWriter, req *http.Re
 		}
 		followers := env.DB.Select("target_id").Where("actor_id = ? and following = true", id).Table("relationships")
 		var commonFollowers []*models.Relationship
-		if err := env.DB.Preload("Target").Preload("Target.Attributes").Where("actor_id = ? and following = true and target_id in (?)", user.Actor.ObjectID, followers).Find(&commonFollowers).Error; err != nil {
+		if err := env.DB.Scopes(models.PreloadRelationshipTarget).Where("actor_id = ? and following = true and target_id in (?)", user.Actor.ObjectID, followers).Find(&commonFollowers).Error; err != nil {
 			return httpx.Error(http.StatusInternalServerError, err)
 		}
 		resp = append(resp, FamiliarFollowers{

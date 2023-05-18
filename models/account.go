@@ -81,7 +81,7 @@ func NewAccounts(db *gorm.DB) *Accounts {
 
 func (a *Accounts) AccountForActor(actor *Actor) (*Account, error) {
 	var account Account
-	if err := a.db.Joins("Actor").First(&account, "actor_id = ?", actor.ObjectID).Error; err != nil {
+	if err := a.db.Preload("Actor").Preload("Actor.Object").Where(&Account{ActorID: actor.ObjectID}).Take(&account).Error; err != nil {
 		return nil, err
 	}
 	return &account, nil

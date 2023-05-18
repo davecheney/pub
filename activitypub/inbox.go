@@ -144,21 +144,10 @@ func (i *inboxProcessor) processUndoFollow(body map[string]any) error {
 }
 
 func (i *inboxProcessor) processAnnounce(act *Activity) error {
-	target := stringFromAny(act.Object)
-	original, err := models.NewStatuses(i.db).FindOrCreateByURI(target)
-	if err != nil {
-		return err
-	}
-	actor, err := models.NewActors(i.db).FindOrCreateByURI(stringFromAny(act.Actor))
-	if err != nil {
-		return err
-	}
-
 	var buf bytes.Buffer
 	if err := json.MarshalFull(&buf, act); err != nil {
 		return err
 	}
-
 	var props map[string]any
 	if err := json.UnmarshalFull(&buf, &props); err != nil {
 		return err
@@ -166,28 +155,7 @@ func (i *inboxProcessor) processAnnounce(act *Activity) error {
 	obj := &models.Object{
 		Properties: props,
 	}
-	if err := i.db.Create(&obj).Error; err != nil {
-		return err
-	}
-
-	updatedAt := act.Updated
-	if updatedAt.IsZero() {
-		updatedAt = obj.ID.ToTime()
-	}
-
-	status := &models.Status{
-		ObjectID:  obj.ID,
-		UpdatedAt: updatedAt,
-		ActorID:   actor.ObjectID,
-		Actor:     actor,
-		Conversation: &models.Conversation{
-			Visibility: "public",
-		},
-		Visibility: "public",
-		ReblogID:   &original.ObjectID,
-	}
-
-	return i.db.Save(status).Error
+	return i.db.Create(&obj).Error
 }
 
 func (i *inboxProcessor) processAdd(act *Activity) error {
@@ -261,14 +229,6 @@ func (i *inboxProcessor) processCreate(create map[string]any) error {
 		return err
 	}
 	return nil
-
-	// typ := stringFromAny(create["type"])
-	// switch typ {
-	// case "Note", "Question":
-	// 	return i.processCreateNote(create)
-	// default:
-	// 	return fmt.Errorf("unknown create object type: %q", typ)
-	// }
 }
 
 func (i *inboxProcessor) processCreateNote(create map[string]any) error {
@@ -378,20 +338,20 @@ func inReplyToActorID(inReplyTo *models.Status) *snowflake.ID {
 	return nil
 }
 
-func objToStatusAttachment(obj map[string]any) *models.StatusAttachment {
-	return &models.StatusAttachment{
-		Attachment: models.Attachment{
-			ID:         snowflake.Now(),
-			MediaType:  stringFromAny(obj["mediaType"]),
-			URL:        stringFromAny(obj["url"]),
-			Name:       stringFromAny(obj["name"]),
-			Width:      intFromAny(obj["width"]),
-			Height:     intFromAny(obj["height"]),
-			Blurhash:   stringFromAny(obj["blurhash"]),
-			FocalPoint: focalPoint(obj),
-		},
-	}
-}
+// func objToStatusAttachment(obj map[string]any) *models.StatusAttachment {
+// 	return &models.StatusAttachment{
+// 		Attachment: models.Attachment{
+// 			ID:         snowflake.Now(),
+// 			MediaType:  stringFromAny(obj["mediaType"]),
+// 			URL:        stringFromAny(obj["url"]),
+// 			Name:       stringFromAny(obj["name"]),
+// 			Width:      intFromAny(obj["width"]),
+// 			Height:     intFromAny(obj["height"]),
+// 			Blurhash:   stringFromAny(obj["blurhash"]),
+// 			FocalPoint: focalPoint(obj),
+// 		},
+// 	}
+// }
 
 func focalPoint(obj map[string]any) models.FocalPoint {
 	focalPoint := anyToSlice(obj["focalPoint"])

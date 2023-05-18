@@ -108,7 +108,7 @@ func UsersShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 		"icon": map[string]any{
 			"type":      "Image",
 			"mediaType": "image/jpeg",
-			"url":       actor.Avatar(),
+			"url":       "https://media.hachyderm.io/accounts/headers/109/364/117/028/564/263/original/c6b5edf498087717.jpeg",
 		},
 	})
 }

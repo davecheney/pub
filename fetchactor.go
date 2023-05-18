@@ -3,13 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"os"
 
 	"github.com/davecheney/pub/activitypub"
-	"github.com/davecheney/pub/mastodon"
 	"github.com/davecheney/pub/models"
-	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 )
 
@@ -33,38 +29,14 @@ func (f *FetchActorCmd) Run(ctx *Context) error {
 		return fmt.Errorf("failed to find account: %w", err)
 	}
 
-	orig, err := models.NewActors(db).FindByURI(f.Actor)
+	var props map[string]any
+	client, err := activitypub.NewClient(account)
 	if err != nil {
-		return fmt.Errorf("failed to find actor: %w", err)
+		return fmt.Errorf("failed to create client: %w", err)
 	}
-
-	updated, err := activitypub.NewRemoteActorFetcher(account).Fetch(context.Background(), f.Actor)
-	if err != nil {
+	if err := client.Fetch(context.Background(), f.Actor, &props); err != nil {
 		return fmt.Errorf("failed to fetch actor: %w", err)
 	}
 
-	if !orig.ObjectID.ToTime().Equal(updated.ObjectID.ToTime()) {
-		return fmt.Errorf("actor ID changed from %v to %v", orig.ObjectID, updated.ObjectID)
-	}
-
-	// RemoteActorFetcher.Fetch will have created a new snowflake ID for the updated record
-	// even if the created-at date has not changed because of the random component of the ID.
-	// We need to update the ID to match the original record.
-	updated.ObjectID = orig.ObjectID
-
-	req, _ := http.NewRequest("GET", updated.URI(), nil)
-	ser := mastodon.NewSerialiser(req)
-	json.MarshalFull(os.Stdout, map[string]any{
-		"original": ser.Account(orig),
-		"updated":  ser.Account(updated),
-	})
-
-	return db.Transaction(func(tx *gorm.DB) error {
-		// delete actor attributes
-		if err := tx.Where("actor_id = ?", orig.ObjectID).Delete(&models.ActorAttribute{}).Error; err != nil {
-			return err
-		}
-		// save updated actor
-		return tx.Session(&gorm.Session{FullSaveAssociations: true}).Updates(updated).Error
-	})
+	return db.Create(&models.Object{Properties: props}).Error
 }

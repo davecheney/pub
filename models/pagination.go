@@ -93,6 +93,10 @@ func PaginateRelationship(r *http.Request) func(db *gorm.DB) *gorm.DB {
 	}
 }
 
+func PreloadRelationshipTarget(db *gorm.DB) *gorm.DB {
+	return db.Preload("Target").Preload("Target.Object")
+}
+
 func PaginateStatuses(r *http.Request) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		q := r.URL.Query()

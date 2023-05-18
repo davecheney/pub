@@ -215,12 +215,12 @@ func (s *Serialiser) Status(st *models.Status) *Status {
 	if st == nil {
 		return nil
 	}
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Printf("panic in Status: %+v: %v\n", st, r)
+	// defer func() {
+	// 	if r := recover(); r != nil {
+	// 		fmt.Printf("panic in Status: %+v: %v\n", st, r)
 
-		}
-	}()
+	// 	}
+	// }()
 	createdAt := st.ObjectID.ToTime()
 	return &Status{
 		ID:                 st.ObjectID,
@@ -253,17 +253,17 @@ func (s *Serialiser) Status(st *models.Status) *Status {
 			}
 			return st.URI()
 		}(),
-		RepliesCount:    st.RepliesCount,
-		ReblogsCount:    st.ReblogsCount,
-		FavouritesCount: st.FavouritesCount,
-		Favourited:      st.Reaction != nil && st.Reaction.Favourited,
-		Reblogged:       st.Reaction != nil && st.Reaction.Reblogged,
-		Muted:           st.Reaction != nil && st.Reaction.Muted,
-		Bookmarked:      st.Reaction != nil && st.Reaction.Bookmarked,
-		Content:         st.Note(),
-		Reblog:          s.Status(st.Reblog),
-		Account:         s.Account(st.Actor),
-		// MediaAttachments: s.MediaAttachments(st.Attachments),
+		RepliesCount:     st.RepliesCount,
+		ReblogsCount:     st.ReblogsCount,
+		FavouritesCount:  st.FavouritesCount,
+		Favourited:       st.Reaction != nil && st.Reaction.Favourited,
+		Reblogged:        st.Reaction != nil && st.Reaction.Reblogged,
+		Muted:            st.Reaction != nil && st.Reaction.Muted,
+		Bookmarked:       st.Reaction != nil && st.Reaction.Bookmarked,
+		Content:          st.Note(),
+		Reblog:           s.Status(st.Reblog),
+		Account:          s.Account(st.Actor),
+		MediaAttachments: s.MediaAttachments(st.Attachments()),
 		// Mentions:         s.Mentions(st.Mentions),
 		// Tags:             s.Tags(st.Tags),
 		Emojis: nil,
@@ -518,25 +518,21 @@ const (
 	PREVIEW_MAX_HEIGHT = 415
 )
 
-func (s *Serialiser) MediaAttachments(attachments []*models.StatusAttachment) []*MediaAttachment {
+func (s *Serialiser) MediaAttachments(attachments []*models.Attachment) []*MediaAttachment {
 	return algorithms.Map(
-		algorithms.Map(
-			attachments,
-			func(sa *models.StatusAttachment) *models.Attachment {
-				return &sa.Attachment
-			},
-		),
+		attachments,
 		s.mediaAttachment,
 	)
 }
 
 func (s *Serialiser) mediaAttachment(att *models.Attachment) *MediaAttachment {
 	return &MediaAttachment{
-		ID:         att.ID,
+		// ID:         att.ID,
 		Type:       att.ToType(),
 		URL:        s.mediaOriginalURL(att),
-		PreviewURL: s.mediaPreviewURL(att),
-		RemoteURL:  att.URL,
+		PreviewURL: s.mediaOriginalURL(att),
+		// PreviewURL: s.mediaPreviewURL(att),
+		RemoteURL: att.URL,
 		Meta: Meta{
 			Focus:    focus(att),
 			Original: originalMetaFormat(att),
@@ -606,9 +602,9 @@ func smallMetaFormat(att *models.Attachment) *MetaFormat {
 
 func (s *Serialiser) mediaOriginalURL(att *models.Attachment) string {
 	switch att.MediaType {
-	case "image/jpeg", "image/png", "image/gif", "image/webp":
-		// call through /media proxy to cache
-		return s.urlFor(fmt.Sprintf("/media/original/%d.%s", att.ID, att.Extension()))
+	// case "image/jpeg", "image/png", "image/gif", "image/webp":
+	// 	// call through /media proxy to cache
+	// 	return s.urlFor(fmt.Sprintf("/media/original/%d.%s", att.ID, att.Extension()))
 	default:
 		// otherwise return the remote URL
 		return att.URL
@@ -619,15 +615,15 @@ func (s *Serialiser) mediaPreviewURL(att *models.Attachment) string {
 	if att.Width < PREVIEW_MAX_WIDTH && att.Height < PREVIEW_MAX_HEIGHT {
 		return s.mediaOriginalURL(att)
 	}
-	ext := att.Extension()
+	// ext := att.Extension()
 	switch att.MediaType {
-	case "image/png", "image/webp":
-		// request a JPEG preview
-		ext = "jpg"
-		fallthrough
-	case "image/jpeg", "image/gif":
-		// call through /media proxy to cache
-		return s.urlFor(fmt.Sprintf("/media/preview/%d.%s", att.ID, ext))
+	// case "image/png", "image/webp":
+	// 	// request a JPEG preview
+	// 	ext = "jpg"
+	// 	fallthrough
+	// case "image/jpeg", "image/gif":
+	// 	// call through /media proxy to cache
+	// 	return s.urlFor(fmt.Sprintf("/media/preview/%d.%s", att.ID, ext))
 	default:
 		// no preview available
 		return ""

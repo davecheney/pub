@@ -188,9 +188,9 @@ func StatusesReblogsShow(env *Env, w http.ResponseWriter, r *http.Request) error
 	}
 
 	var rebloggers []*models.Actor
-	query := env.DB.Joins("JOIN statuses ON statuses.actor_id = actors.id and statuses.reblog_id = ?", chi.URLParam(r, "id"))
+	query := env.DB.Joins("JOIN statuses ON statuses.actor_id = actors.object_id and statuses.reblog_id = ?", chi.URLParam(r, "id"))
 	query = query.Scopes(models.PreloadActor, models.PaginateActors(r))
-	if err := query.Order("id desc").Find(&rebloggers).Error; err != nil {
+	if err := query.Find(&rebloggers).Error; err != nil {
 		return err
 	}
 

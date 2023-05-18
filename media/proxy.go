@@ -4,9 +4,6 @@ package media
 import (
 	"bufio"
 	"fmt"
-	"image"
-	"image/gif"
-	"image/jpeg"
 
 	"io"
 	"net/http"
@@ -14,7 +11,6 @@ import (
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/models"
 	"github.com/go-chi/chi/v5"
-	"github.com/nfnt/resize"
 )
 
 func Avatar(env *models.Env, w http.ResponseWriter, r *http.Request) error {
@@ -54,46 +50,46 @@ const (
 	PREVIEW_MAX_HEIGHT = 415
 )
 
-// Preview returns a preview of the attachment in the format requested by the
-// file extension in the URL.
-func Preview(env *models.Env, w http.ResponseWriter, r *http.Request) error {
-	var att models.StatusAttachment
+// // Preview returns a preview of the attachment in the format requested by the
+// // file extension in the URL.
+// func Preview(env *models.Env, w http.ResponseWriter, r *http.Request) error {
+// 	var att models.StatusAttachment
 
-	if err := env.DB.Take(&att, chi.URLParam(r, "id")).Error; err != nil {
-		return httpx.Error(http.StatusNotFound, err)
-	}
-	resp, err := http.DefaultClient.Get(fmt.Sprintf("https://%s/media/original/%d.%s", r.Host, att.ID, att.Extension()))
-	if err != nil {
-		return httpx.Error(http.StatusBadGateway, err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return httpx.Error(http.StatusBadGateway, fmt.Errorf("unexpected status code %d", resp.StatusCode))
-	}
+// 	if err := env.DB.Take(&att, chi.URLParam(r, "id")).Error; err != nil {
+// 		return httpx.Error(http.StatusNotFound, err)
+// 	}
+// 	resp, err := http.DefaultClient.Get(fmt.Sprintf("https://%s/media/original/%d.%s", r.Host, att.ID, att.Extension()))
+// 	if err != nil {
+// 		return httpx.Error(http.StatusBadGateway, err)
+// 	}
+// 	defer resp.Body.Close()
+// 	if resp.StatusCode != http.StatusOK {
+// 		return httpx.Error(http.StatusBadGateway, fmt.Errorf("unexpected status code %d", resp.StatusCode))
+// 	}
 
-	img, _, err := image.Decode(resp.Body)
-	if err != nil {
-		return httpx.Error(http.StatusBadGateway, err)
-	}
+// 	img, _, err := image.Decode(resp.Body)
+// 	if err != nil {
+// 		return httpx.Error(http.StatusBadGateway, err)
+// 	}
 
-	b := img.Bounds()
-	if b.Dx() > PREVIEW_MAX_WIDTH || b.Dy() > PREVIEW_MAX_HEIGHT {
-		img = resize.Thumbnail(PREVIEW_MAX_WIDTH, PREVIEW_MAX_HEIGHT, img, resize.Lanczos3)
-	}
-	switch ext := chi.URLParam(r, "ext"); ext {
-	case "jpg":
-		w.Header().Set("Content-Type", "image/jpeg")
-		return jpeg.Encode(w, img, nil)
-	// case "png":
-	// 	w.Header().Set("Content-Type", "image/png")
-	// 	return png.Encode(w, img)
-	case "gif":
-		w.Header().Set("Content-Type", "image/gif")
-		return gif.Encode(w, img, nil)
-	default:
-		return httpx.Error(http.StatusNotAcceptable, fmt.Errorf("unknown extension %q", ext))
-	}
-}
+// 	b := img.Bounds()
+// 	if b.Dx() > PREVIEW_MAX_WIDTH || b.Dy() > PREVIEW_MAX_HEIGHT {
+// 		img = resize.Thumbnail(PREVIEW_MAX_WIDTH, PREVIEW_MAX_HEIGHT, img, resize.Lanczos3)
+// 	}
+// 	switch ext := chi.URLParam(r, "ext"); ext {
+// 	case "jpg":
+// 		w.Header().Set("Content-Type", "image/jpeg")
+// 		return jpeg.Encode(w, img, nil)
+// 	// case "png":
+// 	// 	w.Header().Set("Content-Type", "image/png")
+// 	// 	return png.Encode(w, img)
+// 	case "gif":
+// 		w.Header().Set("Content-Type", "image/gif")
+// 		return gif.Encode(w, img, nil)
+// 	default:
+// 		return httpx.Error(http.StatusNotAcceptable, fmt.Errorf("unknown extension %q", ext))
+// 	}
+// }
 
 // stream streams the content of the url to the http.ResponseWriter.
 func stream(w http.ResponseWriter, url string) error {

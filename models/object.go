@@ -1,7 +1,6 @@
 package models
 
 import (
-	"bytes"
 	"context"
 	"crypto"
 	"crypto/rsa"
@@ -16,7 +15,6 @@ import (
 	"github.com/carlmjohnson/requests"
 	"github.com/davecheney/pub/internal/httpsig"
 	"github.com/davecheney/pub/internal/snowflake"
-	"github.com/go-json-experiment/json"
 	"gorm.io/gorm"
 )
 
@@ -24,7 +22,7 @@ import (
 type Object struct {
 	ID         snowflake.ID   `gorm:"primarykey;autoIncrement:false"`
 	Type       string         `gorm:"type:varchar(16);not null"`
-	URI        string         `gorm:"type:varchar(255);not null;unique_index"`
+	URI        string         `gorm:"type:varchar(255);not null;uniqueIndex"`
 	Properties map[string]any `gorm:"serializer:json;not null"`
 }
 
@@ -46,14 +44,21 @@ func (o *Object) maybeSetURI(tx *gorm.DB) error {
 func (o *Object) maybeSetID(tx *gorm.DB) error {
 	if o.ID == 0 {
 		published, ok := o.Properties["published"].(string)
-		if !ok {
-			return fmt.Errorf("object %s has no published date", o.URI)
+		switch o.Type {
+		case "Person", "Service":
+			if !ok || published == "" {
+				// misskey/calckey don't seem to set published for actors, so set the ID to now.
+				o.ID = snowflake.Now()
+				return nil
+			}
+			fallthrough
+		default:
+			publishedAt, err := time.Parse(time.RFC3339, published)
+			if err != nil {
+				return fmt.Errorf("object %s has invalid published date %s: %w", o.URI, published, err)
+			}
+			o.ID = snowflake.TimeToID(publishedAt)
 		}
-		publishedAt, err := time.Parse(time.RFC3339, published)
-		if err != nil {
-			return fmt.Errorf("object %s has invalid published date %s: %w", o.URI, published, err)
-		}
-		o.ID = snowflake.TimeToID(publishedAt)
 	}
 	return nil
 }
@@ -76,6 +81,8 @@ func (o *Object) AfterCreate(tx *gorm.DB) error {
 	case "Note", "Question":
 		// return o.maybeFetchActor(tx)
 		return o.maybeCreateStatus(tx)
+	case "Announce":
+		return o.maybeCreateReblog(tx)
 	default:
 		return nil
 	}
@@ -84,53 +91,14 @@ func (o *Object) AfterCreate(tx *gorm.DB) error {
 // maybeSaveActor updates the models.Actor table with the object's properties iff
 // the object is a Person or Service.
 func (o *Object) maybeSaveActor(tx *gorm.DB) error {
-	var actor struct {
-		Type string `json:"type"`
-		// The Actor's unique global identifier.
-		ID                string `json:"id"`
-		Inbox             string `json:"inbox"`
-		Outbox            string `json:"outbox"`
-		PreferredUsername string `json:"preferredUsername"`
-		Name              string `json:"name"`
-		Summary           string `json:"summary"`
-		Icon              struct {
-			Type      string `json:"type"`
-			MediaType string `json:"mediaType"`
-			URL       string `json:"url"`
-		} `json:"icon"`
-		Image struct {
-			Type      string `json:"type"`
-			MediaType string `json:"mediaType"`
-			URL       string `json:"url"`
-		} `json:"image"`
-		Endpoints struct {
-			SharedInbox string `json:"sharedInbox"`
-		} `json:"endpoints"`
-		ManuallyApprovesFollowers bool `json:"manuallyApprovesFollowers"`
-		PublicKey                 struct {
-			ID           string `json:"id"`
-			Owner        string `json:"owner"`
-			PublicKeyPem string `json:"publicKeyPem"`
-		} `json:"publicKey"`
-		Attachments []ActorAttribute `json:"attachment"`
-	}
-	var buf bytes.Buffer
-	if err := json.MarshalFull(&buf, o.Properties); err != nil {
-		return err
-	}
-	if err := json.Unmarshal(buf.Bytes(), &actor); err != nil {
-		return err
-	}
-
-	u, err := url.Parse(actor.ID)
+	u, err := url.Parse(o.URI)
 	if err != nil {
 		return err
 	}
-
 	a := &Actor{
 		ObjectID: o.ID,
-		Type:     ActorType(actor.Type),
-		Name:     actor.PreferredUsername,
+		Type:     ActorType(o.Type),
+		Name:     stringFromAny(o.Properties["preferredUsername"]),
 		Domain:   u.Host,
 	}
 	return tx.Save(a).Error
@@ -156,19 +124,85 @@ func (o *Object) maybeCreateStatus(tx *gorm.DB) error {
 	conv := &Conversation{
 		Visibility: Visibility(visiblity(o.Properties)),
 	}
+	var inReplyTo *Status
+	if replyTo, ok := o.Properties["inReplyTo"].(string); ok {
+		inReplyTo, err = NewStatuses(tx).FindOrCreateByURI(replyTo)
+		if err != nil {
+			return err
+		}
+		conv = inReplyTo.Conversation
+	}
+
+	var updatedAt time.Time
+	if updated, ok := o.Properties["updated"].(string); ok {
+		if updatedAt, err = time.Parse(time.RFC3339, updated); err != nil {
+			return fmt.Errorf("object %s has invalid updated date %s: %w", o.URI, updated, err)
+		}
+	}
 
 	status := Status{
+		ObjectID:         o.ID,
+		UpdatedAt:        updatedAt,
+		ActorID:          actor.ObjectID,
+		Actor:            actor,
+		Conversation:     conv,
+		Visibility:       conv.Visibility,
+		InReplyToID:      inReplyToID(inReplyTo),
+		InReplyToActorID: inReplyToActorID(inReplyTo),
+	}
+
+	return tx.Save(&status).Error
+}
+
+func (o *Object) maybeCreateReblog(tx *gorm.DB) error {
+	target, ok := o.Properties["object"].(string)
+	if !ok {
+		return fmt.Errorf("object %s has no target", o.URI)
+	}
+	original, err := NewStatuses(tx).FindOrCreateByURI(target)
+	if err != nil {
+		return err
+	}
+	actor, err := NewActors(tx).FindOrCreateByURI(stringFromAny(o.Properties["actor"]))
+	if err != nil {
+		return err
+	}
+
+	// updatedAt := act.Updated
+	// if updatedAt.IsZero() {
+	// 	updatedAt = obj.ID.ToTime()
+	// }
+
+	conv := &Conversation{
+		Visibility: Visibility(visiblity(o.Properties)),
+	}
+
+	status := &Status{
 		ObjectID: o.ID,
-		// UpdatedAt:        updatedAt,
+		// UpdatedAt: updatedAt,
 		ActorID:      actor.ObjectID,
 		Actor:        actor,
 		Conversation: conv,
 		Visibility:   conv.Visibility,
-		// InReplyToID:      inReplyToID(inReplyTo),
-		// InReplyToActorID: inReplyToActorID(inReplyTo),
+		ReblogID:     &original.ObjectID,
+		Reblog:       original,
 	}
 
-	return tx.Save(&status).Error
+	return tx.Save(status).Error
+}
+
+func inReplyToID(inReplyTo *Status) *snowflake.ID {
+	if inReplyTo != nil {
+		return &inReplyTo.ObjectID
+	}
+	return nil
+}
+
+func inReplyToActorID(inReplyTo *Status) *snowflake.ID {
+	if inReplyTo != nil {
+		return &inReplyTo.ActorID
+	}
+	return nil
 }
 
 func visiblity(obj map[string]any) string {
@@ -224,18 +258,17 @@ func (o *Object) fetchActor(tx *gorm.DB, uri string) error {
 	if !ok {
 		return fmt.Errorf("object %s has no attributedTo property", o.URI)
 	}
-	obj, err := fetchObject(tx, attributedTo)
+	obj, err := fetchObject(tx.Statement.Context, attributedTo)
 	if err != nil {
 		return err
 	}
 	return tx.Create(&Object{Properties: obj}).Error
 }
 
-func fetchObject(tx *gorm.DB, uri string) (map[string]any, error) {
-	ctx := tx.Statement.Context
+func fetchObject(ctx context.Context, uri string) (map[string]any, error) {
 	instance, ok := ctx.Value("instance").(*Instance)
 	if !ok {
-		return nil, errors.New("no instance in context")
+		return nil, fmt.Errorf("no instance in context, got %T", ctx.Value("instance"))
 	}
 
 	fmt.Println("fetching object:", "id", uri)

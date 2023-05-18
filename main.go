@@ -33,6 +33,7 @@ var cli struct {
 	Serve                ServeCmd                `cmd:"" help:"Serve a local web server."`
 	ShowActor            ShowActorCmd            `cmd:"" help:"Display an actor."`
 	SynchroniseFollowers SynchroniseFollowersCmd `cmd:"" help:"Synchronise followers."`
+	RerunObjectHooks     RerunObjectHooksCmd     `cmd:"" help:"Rerun object hooks."`
 	Follow               FollowCmd               `cmd:"" help:"Follow an object."`
 }
 

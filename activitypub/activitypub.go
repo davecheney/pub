@@ -33,7 +33,7 @@ func (e *Env) Log() *slog.Logger {
 func Followers(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var followers []*models.Relationship
 	query := env.DB.Joins("JOIN actors ON actors.object_id = relationships.target_id and actors.name = ? and actors.domain = ?", chi.URLParam(r, "name"), r.Host)
-	if err := query.Model(&models.Relationship{}).Preload("Actor").Find(&followers, "following = true").Error; err != nil {
+	if err := query.Model(&models.Relationship{}).Scopes(models.PreloadActor).Find(&followers, "following = true").Error; err != nil {
 		return err
 	}
 	return to.JSON(w, map[string]any{
@@ -53,7 +53,7 @@ func Followers(env *Env, w http.ResponseWriter, r *http.Request) error {
 func Following(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var following []*models.Relationship
 	query := env.DB.Joins("JOIN actors ON actors.object_id = relationships.actor_id and actors.name = ? and actors.domain = ?", chi.URLParam(r, "name"), r.Host)
-	if err := query.Model(&models.Relationship{}).Preload("Target").Find(&following, "following = true").Error; err != nil {
+	if err := query.Model(&models.Relationship{}).Scopes(models.PreloadRelationshipTarget).Find(&following, "following = true").Error; err != nil {
 		return err
 	}
 	return to.JSON(w, map[string]any{

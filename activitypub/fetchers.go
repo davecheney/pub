@@ -3,7 +3,6 @@ package activitypub
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"time"
 
 	"github.com/davecheney/pub/internal/algorithms"
@@ -11,79 +10,6 @@ import (
 	"github.com/davecheney/pub/models"
 	"gorm.io/gorm"
 )
-
-type RemoteActorFetcher struct {
-	// signAs is the account that will be used to sign the request
-	signAs *models.Account
-}
-
-func NewRemoteActorFetcher(signAs *models.Account) *RemoteActorFetcher {
-	return &RemoteActorFetcher{
-		signAs: signAs,
-	}
-}
-
-func (f *RemoteActorFetcher) Fetch(ctx context.Context, uri string) (*models.Actor, error) {
-	c, err := NewClient(f.signAs)
-	if err != nil {
-		return nil, err
-	}
-	var actor struct {
-		Type string `json:"type"`
-		// The Actor's unique global identifier.
-		ID                string `json:"id"`
-		Inbox             string `json:"inbox"`
-		Outbox            string `json:"outbox"`
-		PreferredUsername string `json:"preferredUsername"`
-		Name              string `json:"name"`
-		Summary           string `json:"summary"`
-		Icon              struct {
-			Type      string `json:"type"`
-			MediaType string `json:"mediaType"`
-			URL       string `json:"url"`
-		} `json:"icon"`
-		Image struct {
-			Type      string `json:"type"`
-			MediaType string `json:"mediaType"`
-			URL       string `json:"url"`
-		} `json:"image"`
-		Endpoints struct {
-			SharedInbox string `json:"sharedInbox"`
-		} `json:"endpoints"`
-		ManuallyApprovesFollowers bool      `json:"manuallyApprovesFollowers"`
-		Published                 time.Time `json:"published"`
-		PublicKey                 struct {
-			ID           string `json:"id"`
-			Owner        string `json:"owner"`
-			PublicKeyPem string `json:"publicKeyPem"`
-		} `json:"publicKey"`
-		Attachments []Attachment `json:"attachment"`
-	}
-	if err := c.Fetch(ctx, uri, &actor); err != nil {
-		return nil, err
-	}
-
-	published := actor.Published
-	if published.IsZero() {
-		published = time.Now()
-	}
-
-	u, err := url.Parse(actor.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &models.Actor{
-		ObjectID: snowflake.TimeToID(published),
-		Type:     models.ActorType(actor.Type),
-		Name:     actor.PreferredUsername,
-		Domain:   u.Host,
-		// URI:    actor.ID,
-		// Avatar: actor.Icon.URL,
-		// Header:     actor.Image.URL,
-		// Attributes: attachmentsToActorAttributes(actor.Attachments),
-	}, nil
-}
 
 func attachmentsToActorAttributes(attachments []Attachment) []*models.ActorAttribute {
 	return algorithms.Map(
@@ -236,12 +162,12 @@ func (f *RemoteStatusFetcher) Fetch(uri string) (*models.Status, error) {
 	return st, nil
 }
 
-func attachmentsToStatusAttachments(attachments []any) []*models.StatusAttachment {
-	return algorithms.Map(
-		algorithms.Map(
-			attachments,
-			mapFromAny,
-		),
-		objToStatusAttachment,
-	)
-}
+// func attachmentsToStatusAttachments(attachments []any) []*models.StatusAttachment {
+// 	return algorithms.Map(
+// 		algorithms.Map(
+// 			attachments,
+// 			mapFromAny,
+// 		),
+// 		objToStatusAttachment,
+// 	)
+// }
