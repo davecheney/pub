@@ -52,14 +52,14 @@ type StatusObject struct {
 }
 
 type StatusAttachment struct {
-	Type       string    `json:"type"`
-	MediaType  string    `json:"mediaType"`
-	URL        string    `json:"url"`
-	Name       string    `json:"name"`
-	Width      int       `json:"width"`
-	Height     int       `json:"height"`
-	Blurhash   string    `json:"blurhash"`
-	FocalPoint []float64 `json:"focalPoint"`
+	Type       string `json:"type"`
+	MediaType  string `json:"mediaType"`
+	URL        string `json:"url"`
+	Name       string `json:"name"`
+	Width      int    `json:"width"`
+	Height     int    `json:"height"`
+	Blurhash   string `json:"blurhash"`
+	FocalPoint any    `json:"focalPoint"`
 }
 
 func (StatusObject) TableName() string {
@@ -83,20 +83,20 @@ func (st *Status) Attachments() []*Attachment {
 			Width:     a.Width,
 			Height:    a.Height,
 			Blurhash:  a.Blurhash,
-			FocalPoint: FocalPoint{
-				X: func() float64 {
-					if len(a.FocalPoint) == 0 {
-						return 0
-					}
-					return a.FocalPoint[0]
-				}(),
-				Y: func() float64 {
-					if len(a.FocalPoint) < 2 {
-						return 0
-					}
-					return a.FocalPoint[1]
-				}(),
-			},
+			// FocalPoint: FocalPoint{
+			// 	X: func() float64 {
+			// 		if len(a.FocalPoint) == 0 {
+			// 			return 0
+			// 		}
+			// 		return a.FocalPoint[0]
+			// 	}(),
+			// 	Y: func() float64 {
+			// 		if len(a.FocalPoint) < 2 {
+			// 			return 0
+			// 		}
+			// 		return a.FocalPoint[1]
+			// 	}(),
+			// },
 		}
 	})
 

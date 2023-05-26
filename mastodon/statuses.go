@@ -168,11 +168,13 @@ func StatusesFavouritesShow(env *Env, w http.ResponseWriter, r *http.Request) er
 	}
 
 	var favouriters []*models.Actor
-	query := env.DB.Joins("JOIN reactions ON reactions.actor_id = actors.id and reactions.status_id = ? and reactions.favourited = ?", chi.URLParam(r, "id"), true)
+	query := env.DB.Joins("JOIN reactions ON reactions.actor_id = actors.object_id and reactions.status_id = ? and reactions.favourited = ?", chi.URLParam(r, "id"), true)
 	query = query.Scopes(models.PreloadActor, models.PaginateActors(r))
-	if err := query.Order("id desc").Find(&favouriters).Error; err != nil {
+	if err := query.Order("object_id desc").Find(&favouriters).Error; err != nil {
 		return err
 	}
+
+	sortActors(favouriters) // PaginateActors sorts by object_id asc when min_id provided, so we need to reverse it
 
 	if len(favouriters) > 0 {
 		linkHeader(w, r, favouriters[0].ObjectID, favouriters[len(favouriters)-1].ObjectID)
@@ -190,9 +192,11 @@ func StatusesReblogsShow(env *Env, w http.ResponseWriter, r *http.Request) error
 	var rebloggers []*models.Actor
 	query := env.DB.Joins("JOIN statuses ON statuses.actor_id = actors.object_id and statuses.reblog_id = ?", chi.URLParam(r, "id"))
 	query = query.Scopes(models.PreloadActor, models.PaginateActors(r))
-	if err := query.Find(&rebloggers).Error; err != nil {
+	if err := query.Order("object_id asc").Find(&rebloggers).Error; err != nil {
 		return err
 	}
+
+	sortActors(rebloggers) // PaginateActors sorts by object_id asc when min_id provided, so we need to reverse it
 
 	if len(rebloggers) > 0 {
 		linkHeader(w, r, rebloggers[0].ObjectID, rebloggers[len(rebloggers)-1].ObjectID)

@@ -22,14 +22,39 @@ func PaginateActors(r *http.Request) func(db *gorm.DB) *gorm.DB {
 		}
 		db = db.Limit(limit)
 
-		offset, _ := strconv.Atoi(q.Get("offset"))
-		db = db.Offset(offset)
+		// so there's a trick with min_id. If you pass a min_id, we need to find `limit` statuses that are above the min_id.
+		// We can do this by sorting by the latest and counting back until we either hit limit, or hit the min_id, but that
+		// creates a problem that if there are more that `limit` statuses between the min_id and the latest, we'll see the latest
+		// `limit`, not the _earliest_ `limit`.
+		//
+		// Mastodon seems to handle this by outsourcing the problem to redis, 'natch. We can't do that, so when min_id is passed,
+		// we'll sort ascending. This will work, but it creates the problem that all clients *probably* expect actors to be sorted
+		// in descending order, which again Mastodon does for free. The simplest way to handle this is to sort the actors in descending
+		// order, during rendering.
 
-		switch q.Get("order") {
-		case "new":
-			db = db.Order("object_id desc")
-		case "active":
-			db = db.Order("last_status_at desc")
+		// mostly based on https://github.com/mastodon/mastodon/blob/main/app/models/concerns/paginable.rb#L3
+
+		maxID := q.Get("max_id")
+		minID := q.Get("min_id")
+		sinceID := q.Get("since_id")
+		switch minID {
+		case "":
+			// no min_id provided, so we'll sort descending
+			db = db.Order("actors.object_id desc")
+			if maxID != "" {
+				db = db.Where("actors.object_id < ?", maxID)
+			}
+			if sinceID != "" {
+				db = db.Where("actors.object_id > ?", sinceID)
+			}
+		default:
+			// min_id provided, so we'll sort ascending
+			// since_id is ignored
+			db = db.Order("actors.object_id asc")
+			db = db.Where("actors.object_id > ?", minID)
+			if maxID != "" {
+				db = db.Where("actors.object_id < ?", maxID)
+			}
 		}
 		return db
 	}

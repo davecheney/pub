@@ -67,3 +67,10 @@ func sortStatuses(statuses []*models.Status) {
 		return statuses[i].ObjectID > statuses[j].ObjectID
 	})
 }
+
+// sortActors sorts the actors by their ID, in descending order.
+func sortActors(actors []*models.Actor) {
+	sort.SliceStable(actors, func(i, j int) bool {
+		return actors[i].ObjectID > actors[j].ObjectID
+	})
+}

@@ -18,12 +18,14 @@ func BookmarksIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	var bookmarked []*models.Status
-	query := env.DB.Joins("JOIN reactions ON reactions.status_id = statuses.id and reactions.actor_id = ? and reactions.bookmarked = ?", user.Actor.ObjectID, true)
+	query := env.DB.Joins("JOIN reactions ON reactions.status_id = statuses.object_id and reactions.actor_id = ? and reactions.bookmarked = ?", user.Actor.ObjectID, true)
 	query = query.Preload("Actor")
 	query = query.Scopes(models.PreloadStatus, models.PreloadReaction(user.Actor), models.PaginateStatuses(r))
 	if err := query.Find(&bookmarked).Error; err != nil {
 		return err
 	}
+
+	sortStatuses(bookmarked) // PaginateStatuses doesn't sort, so we have to do it ourselves.
 
 	if len(bookmarked) > 0 {
 		linkHeader(w, r, bookmarked[0].ObjectID, bookmarked[len(bookmarked)-1].ObjectID)

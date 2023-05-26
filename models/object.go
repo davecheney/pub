@@ -302,6 +302,7 @@ func (c *Client) Fetch(ctx context.Context, uri string, obj interface{}) error {
 			"application/ld+json",
 			"application/activity+json",
 			"application/json",
+			"text/html",                // flipboard.social ...
 			"application/octet-stream", // sigh
 		).
 		CheckStatus(http.StatusOK).

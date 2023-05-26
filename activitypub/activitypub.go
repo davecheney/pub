@@ -89,11 +89,6 @@ func CollectionsShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	})
 }
 
-func boolFromAny(v any) bool {
-	b, _ := v.(bool)
-	return b
-}
-
 func stringFromAny(v any) string {
 	s, _ := v.(string)
 	return s

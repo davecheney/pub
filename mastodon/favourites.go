@@ -60,12 +60,14 @@ func FavouritesIndex(env *Env, w http.ResponseWriter, r *http.Request) error {
 	}
 
 	var favourited []*models.Status
-	query := env.DB.Joins("JOIN reactions ON reactions.status_id = statuses.id and reactions.actor_id = ? and reactions.favourited = ?", user.Actor.ObjectID, true)
+	query := env.DB.Joins("JOIN reactions ON reactions.status_id = statuses.object_id and reactions.actor_id = ? and reactions.favourited = ?", user.Actor.ObjectID, true)
 	query = query.Preload("Actor")
 	query = query.Scopes(models.PaginateStatuses(r), models.PreloadStatus, models.PreloadReaction(user.Actor))
 	if err := query.Find(&favourited).Error; err != nil {
 		return err
 	}
+
+	sortStatuses(favourited) // PaginateStatuses doesn't sort, so we have to do it ourselves.
 
 	if len(favourited) > 0 {
 		linkHeader(w, r, favourited[0].ObjectID, favourited[len(favourited)-1].ObjectID)
