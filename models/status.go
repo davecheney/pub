@@ -69,14 +69,23 @@ func (st *StatusTags) UnmarshalJSON(b []byte) error {
 }
 
 type StatusAttachment struct {
-	Type       string `json:"type"`
-	MediaType  string `json:"mediaType"`
-	URL        string `json:"url"`
-	Name       string `json:"name"`
-	Width      int    `json:"width"`
-	Height     int    `json:"height"`
-	Blurhash   string `json:"blurhash"`
-	FocalPoint any    `json:"focalPoint"`
+	Type       string               `json:"type"`
+	MediaType  string               `json:"mediaType"`
+	URL        string               `json:"url"`
+	Name       string               `json:"name"`
+	Width      int                  `json:"width"`
+	Height     int                  `json:"height"`
+	Blurhash   string               `json:"blurhash"`
+	FocalPoint AttachmentFocalPoint `json:"focalPoint"`
+}
+
+type AttachmentFocalPoint []float64
+
+func (fp *AttachmentFocalPoint) UnmarshalJSON(b []byte) error {
+	var focalPoint []float64
+	json.Unmarshal(b, &focalPoint) // ignore error if focalPoint is malformed
+	*fp = focalPoint
+	return nil
 }
 
 func (StatusObject) TableName() string {

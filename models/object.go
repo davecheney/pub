@@ -298,14 +298,12 @@ func (c *Client) Fetch(ctx context.Context, uri string, obj interface{}) error {
 	return requests.URL(uri).
 		Accept(`application/ld+json; profile="https://www.w3.org/ns/activitystreams"`).
 		Transport(c).
+		CheckStatus(http.StatusOK). // check status first, so we don't get confused by the content type of an error page
 		CheckContentType(
 			"application/ld+json",
 			"application/activity+json",
 			"application/json",
-			"text/html",                // flipboard.social ...
-			"application/octet-stream", // sigh
 		).
-		CheckStatus(http.StatusOK).
 		ToJSON(obj).
 		Fetch(ctx)
 }
