@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"sync"
 
 	"github.com/davecheney/pub/models"
 	"gorm.io/gorm"
@@ -28,22 +27,22 @@ func (c *RerunObjectHooksCmd) Run(ctx *Context) error {
 		context.WithValue(db.Statement.Context, "instance", instance),
 	)
 	return db.FindInBatches(
-		&objs, 25, func(tx *gorm.DB, batch int) error {
-			var wg sync.WaitGroup
-			wg.Add(len(objs))
+		&objs, 100, func(tx *gorm.DB, batch int) error {
+			// var wg sync.WaitGroup
+			// wg.Add(len(objs))
 			for _, obj := range objs {
-				go func(obj *models.Object) {
-					db.Transaction(func(tx *gorm.DB) error {
-						defer wg.Done()
-						// ctx.Logger.Info("rerunning object hooks", "id", obj.ID, "type", obj.Type, "uri", obj.URI)
-						if err := obj.AfterCreate(tx); err != nil {
-							ctx.Logger.Error("failed to run object hooks", "id", obj.ID, "type", obj.Type, "uri", obj.URI, "error", err)
-						}
-						return nil
-					})
-				}(obj)
+				// go func(obj *models.Object) {
+				// db.Transaction(func(tx *gorm.DB) error {
+				// defer wg.Done()
+				// ctx.Logger.Info("rerunning object hooks", "id", obj.ID, "type", obj.Type, "uri", obj.URI)
+				if err := obj.AfterSave(tx); err != nil {
+					ctx.Logger.Error("failed to run object hooks", "id", obj.ID, "type", obj.Type, "uri", obj.URI, "error", err)
+				}
+				// return nil
+				// })
+				// }(obj)
 			}
-			wg.Wait()
+			// wg.Wait()
 			return nil
 		}).Error
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/snowflake"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
 )
 
@@ -46,6 +47,7 @@ type StatusObject struct {
 		Sensitive  bool               `json:"sensitive"` // as:sensitive
 		Summary    string             `json:"summary"`
 		Attachment []StatusAttachment `json:"attachment"`
+		Tag        []StatusTag        `json:"tag"`
 	} `gorm:"serializer:json;not null"`
 }
 
@@ -114,6 +116,10 @@ func (st *Status) Sensitive() bool {
 
 func (st *Status) SpoilerText() string {
 	return st.Object.Properties.Summary
+}
+
+func (st *Status) Tag() []StatusTag {
+	return st.Object.Properties.Tag
 }
 
 func (st *Status) URI() string {
@@ -231,10 +237,16 @@ type StatusMention struct {
 }
 
 type StatusTag struct {
-	StatusID snowflake.ID `gorm:"primarykey;autoIncrement:false"`
-	TagID    uint32       `gorm:"primarykey;autoIncrement:false"`
-	Tag      *Tag
+	Type string `json:"type"`
+	Name string `json:"name"`
+	HRef string `json:"href"`
 }
+
+// type StatusTag struct {
+// 	StatusID snowflake.ID `gorm:"primarykey;autoIncrement:false"`
+// 	TagID    uint32       `gorm:"primarykey;autoIncrement:false"`
+// 	Tag      *Tag
+// }
 
 type Statuses struct {
 	db *gorm.DB
@@ -262,7 +274,19 @@ func (s *Statuses) FindOrCreateByURI(uri string) (*Status, error) {
 	obj := &Object{
 		Properties: props,
 	}
-	if err := s.db.Create(obj).Error; err != nil {
+	if err := s.db.
+		Clauses(
+			clause.Returning{
+				Columns: []clause.Column{{Name: "id"}},
+			},
+			clause.OnConflict{
+				Columns: []clause.Column{{Name: "uri"}},
+				DoUpdates: clause.AssignmentColumns([]string{
+					"type",
+					"properties",
+				}),
+			}).
+		Save(obj).Error; err != nil {
 		return nil, err
 	}
 	return s.FindByURI(uri)
@@ -281,7 +305,7 @@ func (s *Statuses) FindByURI(uri string) (*Status, error) {
 
 func (s *Statuses) FindByID(id snowflake.ID) (*Status, error) {
 	var status Status
-	err := s.db.Preload("Conversation").Scopes(PreloadStatus).Take(&status, "statuses.id = ?", id).Error
+	err := s.db.Preload("Conversation").Scopes(PreloadStatus).Take(&status, "statuses.object_id = ?", id).Error
 	return &status, err
 }
 

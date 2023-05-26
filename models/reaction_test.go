@@ -97,8 +97,7 @@ func TestReactions(t *testing.T) {
 		require.NoError(err)
 		require.True(reaction.Reblogged)
 
-		var st Status
-		err = tx.Where("id = ?", status.ObjectID).First(&st).Error
+		st, err := NewStatuses(tx).FindByID(status.ObjectID)
 		require.NoError(err)
 		require.EqualValues(1, st.ReblogsCount)
 
@@ -109,7 +108,7 @@ func TestReactions(t *testing.T) {
 		require.NoError(err)
 		require.False(reaction.Reblogged)
 
-		err = tx.Where("id = ?", status.ObjectID).First(&st).Error
+		st, err = NewStatuses(tx).FindByID(status.ObjectID)
 		require.NoError(err)
 		require.EqualValues(0, st.ReblogsCount)
 	})

@@ -58,7 +58,7 @@ type ActorObject struct {
 			Owner        string `json:"owner"`
 			PublicKeyPem string `json:"publicKeyPem"`
 		} `json:"publicKey"`
-		Attachments []ActorAttribute `json:"attachment"`
+		Attachments []ActorAttachment `json:"attachment"`
 	} `gorm:"serializer:json;not null"`
 }
 
@@ -87,7 +87,7 @@ func (a *Actor) Inbox() string {
 	return a.InboxURL()
 }
 
-func (a *Actor) Attributes() []ActorAttribute {
+func (a *Actor) Attributes() []ActorAttachment {
 	return a.Object.Properties.Attachments
 }
 
@@ -261,7 +261,7 @@ func (a *Actors) FindOrCreateByURI(uri string) (*Actor, error) {
 		return nil, err
 	}
 	// not found, create
-	props, err := a.fetchObject(uri)
+	props, err := fetchObject(a.db.Statement.Context, uri)
 	if err != nil {
 		return nil, err
 	}
@@ -272,20 +272,6 @@ func (a *Actors) FindOrCreateByURI(uri string) (*Actor, error) {
 		return nil, err
 	}
 	return a.FindByURI(uri)
-}
-
-func (a *Actors) fetchObject(uri string) (map[string]any, error) {
-	ctx := a.db.Statement.Context
-	instance, ok := ctx.Value("instance").(*Instance)
-	if !ok {
-		return nil, errors.New("no instance in context")
-	}
-	client, err := NewClient(instance.Admin)
-	if err != nil {
-		return nil, err
-	}
-	var obj map[string]any
-	return obj, client.Fetch(ctx, uri, &obj)
 }
 
 // Refesh schedules a refresh of an actor's data.

@@ -25,22 +25,25 @@ func Params(r *http.Request, v interface{}) error {
 			return Error(http.StatusBadRequest, err)
 		}
 	case "POST", "PUT":
-		mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-		if err != nil {
-			return Error(http.StatusBadRequest, err)
-		}
-		switch mt {
-		case "application/json":
-			if err := json.UnmarshalFull(r.Body, v); err != nil {
-				return Error(http.StatusBadRequest, err)
-			}
-		case "":
+		ct := r.Header.Get("Content-Type")
+		if ct == "" {
 			// ice cubes, why you gotta do me like this?
 			values, err := url.ParseQuery(r.URL.RawQuery)
 			if err != nil {
 				return Error(http.StatusBadRequest, err)
 			}
 			if err := schema.NewDecoder().Decode(v, values); err != nil {
+				return Error(http.StatusBadRequest, err)
+			}
+			return nil
+		}
+		mt, _, err := mime.ParseMediaType(ct)
+		if err != nil {
+			return Error(http.StatusBadRequest, err)
+		}
+		switch mt {
+		case "application/json":
+			if err := json.UnmarshalFull(r.Body, v); err != nil {
 				return Error(http.StatusBadRequest, err)
 			}
 		case "application/x-www-form-urlencoded":

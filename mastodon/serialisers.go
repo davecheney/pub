@@ -94,13 +94,23 @@ func (s *Serialiser) Account(a *models.Actor) *Account {
 			return &st
 		}(),
 		Emojis: make([]map[string]any, 0), // must be an empty array -- not null
-		Fields: algorithms.Map(a.Attributes(), func(a models.ActorAttribute) Field {
-			return Field{
-				Name:  a.Name,
-				Value: a.Value,
-			}
-		}),
+		Fields: algorithms.Map(
+			algorithms.Filter(
+				a.Attributes(),
+				isPropertyValue,
+			),
+			func(a models.ActorAttachment) Field {
+				return Field{
+					Name:  a.Name,
+					Value: a.Value,
+				}
+			},
+		),
 	}
+}
+
+func isPropertyValue(a models.ActorAttachment) bool {
+	return a.Type == "PropertyValue"
 }
 
 func (s *Serialiser) CredentialAccount(a *models.Account) *CredentialAccount {
@@ -265,7 +275,7 @@ func (s *Serialiser) Status(st *models.Status) *Status {
 		Account:          s.Account(st.Actor),
 		MediaAttachments: s.MediaAttachments(st.Attachments()),
 		// Mentions:         s.Mentions(st.Mentions),
-		// Tags:             s.Tags(st.Tags),
+		Tags:   s.Tags(st.Tag()),
 		Emojis: nil,
 		Card:   nil,
 		// Poll:             s.Poll(st.Poll),
@@ -274,16 +284,16 @@ func (s *Serialiser) Status(st *models.Status) *Status {
 
 func (s *Serialiser) Tags(tags []models.StatusTag) []*Tag {
 	return algorithms.Map(
-		algorithms.Map(
+		algorithms.Filter(
 			tags,
-			func(st models.StatusTag) *models.Tag {
-				return st.Tag
+			func(st models.StatusTag) bool {
+				return st.Type == "Hashtag"
 			},
 		),
-		func(t *models.Tag) *Tag {
+		func(t models.StatusTag) *Tag {
 			return &Tag{
 				Name: t.Name,
-				URL:  s.urlFor("/tags/" + t.Name),
+				URL:  s.urlFor("/tags/" + t.Name[1:]), // strip the leading #
 			}
 		},
 	)

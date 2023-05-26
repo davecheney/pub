@@ -19,6 +19,7 @@ import (
 	"github.com/davecheney/pub/models"
 	"github.com/davecheney/pub/oauth"
 	"github.com/davecheney/pub/wellknown"
+	"github.com/davecheney/pub/workers"
 	"github.com/pkg/group"
 	"gorm.io/gorm"
 
@@ -236,8 +237,8 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		return svr.ListenAndServe()
 	})
 
-	// g.Add(workers.NewRelationshipRequestProcessor(ctx.Logger, db))
-	// g.Add(workers.NewReactionRequestProcessor(db))
+	g.Add(workers.NewRelationshipRequestProcessor(ctx.Logger, db))
+	g.Add(workers.NewReactionRequestProcessor(db))
 	// g.Add(workers.NewStatusAttachmentRequestProcessor(db))
 
 	// ActorRefreshProcessor needs an admin account to sign the activitypub requests.

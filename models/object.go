@@ -26,11 +26,7 @@ type Object struct {
 	Properties map[string]any `gorm:"serializer:json;not null"`
 }
 
-func (o *Object) BeforeCreate(tx *gorm.DB) error {
-	return forEach(tx, o.maybeSetURI, o.maybeSetID, o.maybeSetType)
-}
-
-func (o *Object) maybeSetURI(tx *gorm.DB) error {
+func (o *Object) BeforeSave(tx *gorm.DB) error {
 	if o.URI == "" {
 		uri, ok := o.Properties["id"].(string)
 		if !ok {
@@ -38,32 +34,7 @@ func (o *Object) maybeSetURI(tx *gorm.DB) error {
 		}
 		o.URI = uri
 	}
-	return nil
-}
 
-func (o *Object) maybeSetID(tx *gorm.DB) error {
-	if o.ID == 0 {
-		published, ok := o.Properties["published"].(string)
-		switch o.Type {
-		case "Person", "Service":
-			if !ok || published == "" {
-				// misskey/calckey don't seem to set published for actors, so set the ID to now.
-				o.ID = snowflake.Now()
-				return nil
-			}
-			fallthrough
-		default:
-			publishedAt, err := time.Parse(time.RFC3339, published)
-			if err != nil {
-				return fmt.Errorf("object %s has invalid published date %s: %w", o.URI, published, err)
-			}
-			o.ID = snowflake.TimeToID(publishedAt)
-		}
-	}
-	return nil
-}
-
-func (o *Object) maybeSetType(tx *gorm.DB) error {
 	if o.Type == "" {
 		typ, ok := o.Properties["type"].(string)
 		if !ok {
@@ -71,15 +42,40 @@ func (o *Object) maybeSetType(tx *gorm.DB) error {
 		}
 		o.Type = typ
 	}
+
+	if o.ID == 0 {
+		switch published := o.Properties["published"].(type) {
+		case string:
+			publishedAt, err := time.Parse(time.RFC3339, published)
+			if err != nil {
+				return fmt.Errorf("object %s, %s has invalid published date %q: %w", o.URI, o.Type, published, err)
+			}
+			o.ID = snowflake.TimeToID(publishedAt)
+		default:
+			o.ID = snowflake.Now()
+		}
+	}
+
+	if _, err := url.Parse(o.URI); err != nil {
+		return fmt.Errorf("object has invalid uri %q: %w", o.URI, err)
+	}
+	if o.ID == 0 {
+		return fmt.Errorf("object %s has empty id", o.URI)
+	}
+	if o.Type == "" {
+		return fmt.Errorf("object %s has empty type", o.URI)
+	}
+
+	fmt.Println("BeforeSave:", "id:", o.ID, "type:", o.Type, "uri:", o.URI)
 	return nil
 }
 
-func (o *Object) AfterCreate(tx *gorm.DB) error {
+func (o *Object) AfterSave(tx *gorm.DB) error {
+	// fmt.Println("AfterSave:", "id:", o.ID, "type:", o.Type, "uri:", o.URI)
 	switch o.Type {
 	case "Person", "Service":
 		return o.maybeSaveActor(tx)
 	case "Note", "Question":
-		// return o.maybeFetchActor(tx)
 		return o.maybeCreateStatus(tx)
 	case "Announce":
 		return o.maybeCreateReblog(tx)
@@ -104,13 +100,14 @@ func (o *Object) maybeSaveActor(tx *gorm.DB) error {
 	return tx.Save(a).Error
 }
 
-type ActorAttribute struct {
+type ActorAttachment struct {
 	Type  string `json:"type"`
 	Name  string `json:"name"`
 	Value string `json:"value"`
 }
 
 func (o *Object) maybeCreateStatus(tx *gorm.DB) error {
+	// fmt.Println("maybeCreateStatus:", "id:", o.ID, "type:", o.Type, "uri:", o.URI)
 	attributedTo, ok := o.Properties["attributedTo"].(string)
 	if !ok {
 		return fmt.Errorf("object %s has no attributedTo", o.URI)
@@ -128,8 +125,19 @@ func (o *Object) maybeCreateStatus(tx *gorm.DB) error {
 	if replyTo, ok := o.Properties["inReplyTo"].(string); ok {
 		inReplyTo, err = NewStatuses(tx).FindOrCreateByURI(replyTo)
 		if err != nil {
-			return err
+			switch {
+			case requests.HasStatusErr(err, http.StatusNotFound, http.StatusGone, http.StatusUnauthorized):
+				// if the inReplyTo status doesn't exist or isn't visible,
+				// we can still create the status, but we won't be able to
+				// set the conversation correctly.
+				inReplyTo = nil
+			default:
+				return err
+			}
 		}
+	}
+
+	if inReplyTo != nil {
 		conv = inReplyTo.Conversation
 	}
 
@@ -168,18 +176,20 @@ func (o *Object) maybeCreateReblog(tx *gorm.DB) error {
 		return err
 	}
 
-	// updatedAt := act.Updated
-	// if updatedAt.IsZero() {
-	// 	updatedAt = obj.ID.ToTime()
-	// }
+	var updatedAt time.Time
+	if updated, ok := o.Properties["updated"].(string); ok {
+		if updatedAt, err = time.Parse(time.RFC3339, updated); err != nil {
+			return fmt.Errorf("object %s has invalid updated date %s: %w", o.URI, updated, err)
+		}
+	}
 
 	conv := &Conversation{
-		Visibility: Visibility(visiblity(o.Properties)),
+		Visibility: original.Visibility,
 	}
 
 	status := &Status{
-		ObjectID: o.ID,
-		// UpdatedAt: updatedAt,
+		ObjectID:     o.ID,
+		UpdatedAt:    updatedAt,
 		ActorID:      actor.ObjectID,
 		Actor:        actor,
 		Conversation: conv,
@@ -233,38 +243,6 @@ func anyToSlice(v any) []any {
 	}
 }
 
-// maybeFetchActor fetches the object's actor and creates it if it doesn't exist.
-func (o *Object) maybeFetchActor(tx *gorm.DB) error {
-	attributedTo, ok := o.Properties["attributedTo"].(string)
-	if !ok {
-		return fmt.Errorf("object %s has no attributedTo property", o.URI)
-	}
-	var actor []Object
-	if err := tx.Where("uri = ?", attributedTo).Find(&actor).Error; err != nil {
-		return fmt.Errorf("failed to find actor %s: %w", attributedTo, err)
-	}
-	if len(actor) > 0 {
-		return nil
-	}
-
-	if err := o.fetchActor(tx, attributedTo); err != nil {
-		return fmt.Errorf("failed to fetch actor %s: %w", attributedTo, err)
-	}
-	return nil
-}
-
-func (o *Object) fetchActor(tx *gorm.DB, uri string) error {
-	attributedTo, ok := o.Properties["attributedTo"].(string)
-	if !ok {
-		return fmt.Errorf("object %s has no attributedTo property", o.URI)
-	}
-	obj, err := fetchObject(tx.Statement.Context, attributedTo)
-	if err != nil {
-		return err
-	}
-	return tx.Create(&Object{Properties: obj}).Error
-}
-
 func fetchObject(ctx context.Context, uri string) (map[string]any, error) {
 	instance, ok := ctx.Value("instance").(*Instance)
 	if !ok {
@@ -277,7 +255,9 @@ func fetchObject(ctx context.Context, uri string) (map[string]any, error) {
 		return nil, err
 	}
 	var obj map[string]any
-	return obj, client.Fetch(ctx, uri, &obj)
+	err = client.Fetch(ctx, uri, &obj)
+	// fmt.Println("fetched object:", "id", uri, "type", obj["type"], "error", err)
+	return obj, err
 }
 
 // Client is an ActivityPub client which can be used to fetch remote
@@ -318,7 +298,12 @@ func (c *Client) Fetch(ctx context.Context, uri string, obj interface{}) error {
 	return requests.URL(uri).
 		Accept(`application/ld+json; profile="https://www.w3.org/ns/activitystreams"`).
 		Transport(c).
-		CheckContentType("application/ld+json", "application/activity+json", "application/json").
+		CheckContentType(
+			"application/ld+json",
+			"application/activity+json",
+			"application/json",
+			"application/octet-stream", // sigh
+		).
 		CheckStatus(http.StatusOK).
 		ToJSON(obj).
 		Fetch(ctx)
@@ -331,17 +316,7 @@ func (c *Client) RoundTrip(req *http.Request) (*http.Response, error) {
 	return http.DefaultTransport.RoundTrip(req)
 }
 
-func boolFromAny(v any) bool {
-	b, _ := v.(bool)
-	return b
-}
-
 func stringFromAny(v any) string {
 	s, _ := v.(string)
 	return s
-}
-
-func mapFromAny(v any) map[string]any {
-	m, _ := v.(map[string]any)
-	return m
 }

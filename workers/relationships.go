@@ -36,7 +36,8 @@ func NewRelationshipRequestProcessor(log *slog.Logger, db *gorm.DB) func(ctx con
 }
 
 func relationshipRequestScope(db *gorm.DB) *gorm.DB {
-	return db.Preload("Actor").Preload("Target").Where("attempts < 3")
+	return db.Preload("Actor").Preload("Actor.Object").
+		Preload("Target").Preload("Target.Object").Where("attempts < 3")
 }
 
 func processRelationshipRequest(log *slog.Logger, db *gorm.DB, request *models.RelationshipRequest) error {

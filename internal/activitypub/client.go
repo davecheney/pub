@@ -53,7 +53,12 @@ func (c *Client) Fetch(ctx context.Context, uri string, obj interface{}) error {
 	return requests.URL(uri).
 		Accept(`application/ld+json; profile="https://www.w3.org/ns/activitystreams"`).
 		Transport(c).
-		CheckContentType("application/ld+json", "application/activity+json", "application/json").
+		CheckContentType(
+			"application/ld+json",
+			"application/activity+json",
+			"application/json",
+			"application/octet-stream", // sigh
+		).
 		CheckStatus(http.StatusOK).
 		ToJSON(obj).
 		Fetch(ctx)

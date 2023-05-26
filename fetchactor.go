@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/davecheney/pub/activitypub"
+	"github.com/davecheney/pub/internal/activitypub"
 	"github.com/davecheney/pub/models"
 	"gorm.io/gorm"
 )

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/davecheney/pub/activitypub/activities"
+	"github.com/davecheney/pub/internal/activitypub"
 	"github.com/davecheney/pub/internal/algorithms"
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/streaming"
@@ -33,7 +34,7 @@ func (e *Env) Log() *slog.Logger {
 func Followers(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var followers []*models.Relationship
 	query := env.DB.Joins("JOIN actors ON actors.object_id = relationships.target_id and actors.name = ? and actors.domain = ?", chi.URLParam(r, "name"), r.Host)
-	if err := query.Model(&models.Relationship{}).Scopes(models.PreloadActor).Find(&followers, "following = true").Error; err != nil {
+	if err := query.Model(&models.Relationship{}).Scopes(models.PreloadRelationshipTarget).Find(&followers, "following = true").Error; err != nil {
 		return err
 	}
 	return to.JSON(w, map[string]any{
@@ -152,7 +153,7 @@ func Follow(ctx context.Context, follower *models.Account, target *models.Actor)
 	if inbox == "" {
 		return fmt.Errorf("no inbox found for %s", target.URI())
 	}
-	c, err := NewClient(follower)
+	c, err := activitypub.NewClient(follower)
 	if err != nil {
 		return err
 	}
@@ -165,7 +166,7 @@ func Unfollow(ctx context.Context, follower *models.Account, target *models.Acto
 	if inbox == "" {
 		return fmt.Errorf("no inbox found for %s", target.URI())
 	}
-	c, err := NewClient(follower)
+	c, err := activitypub.NewClient(follower)
 	if err != nil {
 		return err
 	}
@@ -178,7 +179,7 @@ func Like(ctx context.Context, liker *models.Account, target *models.Status) err
 	if inbox == "" {
 		return fmt.Errorf("no inbox found for %s", target.Actor.URI())
 	}
-	c, err := NewClient(liker)
+	c, err := activitypub.NewClient(liker)
 	if err != nil {
 		return err
 	}
@@ -191,7 +192,7 @@ func Unlike(ctx context.Context, liker *models.Account, target *models.Status) e
 	if inbox == "" {
 		return fmt.Errorf("no inbox found for %s", target.Actor.URI())
 	}
-	c, err := NewClient(liker)
+	c, err := activitypub.NewClient(liker)
 	if err != nil {
 		return err
 	}

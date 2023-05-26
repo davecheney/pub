@@ -32,7 +32,8 @@ func NewReactionRequestProcessor(db *gorm.DB) func(ctx context.Context) error {
 }
 
 func reactionRequestScope(db *gorm.DB) *gorm.DB {
-	return db.Preload("Actor").Preload("Target").Preload("Target.Actor").Where("attempts < 3")
+	return db.Preload("Actor").Preload("Actor.Object").
+		Preload("Target").Preload("Target.Object").Preload("Target.Actor").Preload("Target.Actor.Object").Where("attempts < 3")
 }
 
 func processReactionRequest(db *gorm.DB, request *models.ReactionRequest) error {

@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/davecheney/pub/internal/snowflake"
 	"gorm.io/gorm"
@@ -178,8 +179,8 @@ func (r *Reactions) Unbookmark(status *Status, actor *Actor) (*Reaction, error) 
 
 // Reblog creates a new status that is a reblog of the given status.
 func (r *Reactions) Reblog(status *Status, actor *Actor) (*Status, error) {
-	var reblog Status
-	return &reblog, r.db.Transaction(func(tx *gorm.DB) error {
+	id := snowflake.Now()
+	if err := r.db.Transaction(func(tx *gorm.DB) error {
 		reaction, err := findOrCreateReaction(tx, status, actor)
 		if err != nil {
 			return err
@@ -189,22 +190,23 @@ func (r *Reactions) Reblog(status *Status, actor *Actor) (*Status, error) {
 		if err := tx.Save(reaction).Error; err != nil {
 			return err
 		}
-
-		id := snowflake.Now()
-		reblog = Status{
-			ObjectID: id,
-			ActorID:  actor.ObjectID,
-			Actor:    actor,
-			Conversation: &Conversation{
-				Visibility: "public",
-			},
-			Visibility: "public",
-			ReblogID:   &status.ObjectID,
-			Reblog:     status,
-			Reaction:   reaction,
+		props := map[string]any{
+			"type":      "Announce",
+			"id":        fmt.Sprintf("https://%s/u/%s/status/%d/activity", actor.Domain, actor.Name, id),
+			"actor":     actor.URI(),
+			"object":    status.URI(),
+			"published": id.ToTime().Format(time.RFC3339),
 		}
-		return tx.Create(&reblog).Error
-	})
+
+		obj := Object{
+			ID:         id, // populate ID so that it matches the URI, otherwise it will be generated from snowflate.FromDate.
+			Properties: props,
+		}
+		return tx.Create(&obj).Error
+	}); err != nil {
+		return nil, err
+	}
+	return NewStatuses(r.db).FindByID(id)
 }
 
 // Unreblog removes the reblog of the given status with the given actor.

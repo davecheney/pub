@@ -15,8 +15,8 @@ func AllTables() []interface{} {
 		&Reaction{}, &ReactionRequest{},
 		&Relationship{}, &RelationshipRequest{},
 		// &Notification{},
-		&Status{}, &StatusPoll{}, &StatusPollOption{}, &StatusAttachment{}, &StatusMention{}, &StatusTag{},
-		&StatusAttachmentRequest{},
+		&Status{}, &StatusPoll{}, &StatusPollOption{}, &StatusMention{},
+		// &StatusAttachmentRequest{},
 		&Tag{},
 		&Token{},
 	}

@@ -115,8 +115,8 @@ func TimelinesTagShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 	// use Joins("JOIN status_tags ...") as Joins("Tags") -- joining on an association -- causes a reflect panic in gorm.
 	// no biggie, just write the JOIN manually.
 	tag := env.DB.Select("id").Where("name = ?", chi.URLParam(r, "tag")).Table("tags")
-	query := scope.Joins("JOIN status_tags ON status_tags.status_id = statuses.id").Where("status_tags.tag_id = (?)", tag)
-	query = query.Preload("Actor").Scopes(models.PreloadStatus)
+	query := scope.Joins("JOIN status_tags ON status_tags.status_id = statuses.object_id").Where("status_tags.tag_id = (?)", tag)
+	query = query.Scopes(models.PreloadStatus)
 	query = query.Preload("Reaction", "actor_id = ?", user.Actor.ObjectID) // reactions
 	query = query.Preload("Reblog.Reaction", "actor_id = ?", user.Actor.ObjectID)
 	if err := query.Find(&statuses).Error; err != nil {

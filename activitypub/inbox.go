@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/davecheney/pub/internal/httpx"
-	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/davecheney/pub/models"
 	"github.com/go-fed/httpsig"
 	"github.com/go-json-experiment/json"
@@ -70,8 +69,7 @@ func (i *inboxProcessor) processActivity(act *Activity) error {
 		// Delete is a special case, as we may not have the actor in our database.
 		// In that case, check the actor exists locally, and if it does, then
 		// validate the signature.
-		// return i.processDelete(act)
-		return nil
+		return i.processDelete(act)
 	default:
 		if err := i.validateSignature(); err != nil {
 			return httpx.Error(http.StatusUnauthorized, err)
@@ -116,16 +114,15 @@ func (i *inboxProcessor) processUndo(obj map[string]any) error {
 }
 
 func (i *inboxProcessor) processUndoAnnounce(obj map[string]any) error {
-	id := stringFromAny(obj["id"])
-	status, err := models.NewStatuses(i.db).FindByURI(id)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		// already deleted
-		return nil
-	}
-	if err != nil {
+	var target models.Object
+	if err := i.db.Where("uri = ?", stringFromAny(obj["id"])).Take(&target).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// already deleted
+			return nil
+		}
 		return err
 	}
-	return i.db.Delete(status).Error
+	return i.db.Delete(&target).Error
 }
 
 func (i *inboxProcessor) processUndoFollow(body map[string]any) error {
@@ -152,10 +149,7 @@ func (i *inboxProcessor) processAnnounce(act *Activity) error {
 	if err := json.UnmarshalFull(&buf, &props); err != nil {
 		return err
 	}
-	obj := &models.Object{
-		Properties: props,
-	}
-	return i.db.Create(&obj).Error
+	return i.createObject(props)
 }
 
 func (i *inboxProcessor) processAdd(act *Activity) error {
@@ -222,91 +216,26 @@ func (i *inboxProcessor) processRemovePin(act *Activity) error {
 }
 
 func (i *inboxProcessor) processCreate(create map[string]any) error {
-	var obj = &models.Object{
-		Properties: create,
-	}
-	if err := i.db.Create(obj).Error; err != nil {
-		return err
-	}
-	return nil
+	return i.createObject(create)
 }
 
-func (i *inboxProcessor) processCreateNote(create map[string]any) error {
-	uri := stringFromAny(create["atomUri"])
-	_, err := models.NewStatuses(i.db).FindByURI(uri)
-	switch err {
-	case nil:
-		// we already have this status
-		return nil
-	case gorm.ErrRecordNotFound:
-		// we don't have this status
-		actor, err := models.NewActors(i.db).FindOrCreateByURI(stringFromAny(create["attributedTo"]))
-		if err != nil {
-			return err
-		}
-
-		publishedAt, updatedAt, err := publishedAndUpdated(create)
-		if err != nil {
-			return err
-		}
-
-		conv := &models.Conversation{
-			Visibility: models.Visibility(visiblity(create)),
-		}
-		var inReplyTo *models.Status
-		if inReplyToAtomUri, ok := create["inReplyTo"].(string); ok {
-			inReplyTo, err = models.NewStatuses(i.db).FindOrCreateByURI(inReplyToAtomUri)
-			if err != nil {
-				return err
-			}
-			conv = inReplyTo.Conversation
-		}
-
-		status := models.Status{
-			ObjectID:         snowflake.TimeToID(publishedAt),
-			UpdatedAt:        updatedAt,
-			ActorID:          actor.ObjectID,
-			Actor:            actor,
-			Conversation:     conv,
-			InReplyToID:      inReplyToID(inReplyTo),
-			InReplyToActorID: inReplyToActorID(inReplyTo),
-			Visibility:       conv.Visibility,
-		}
-		// for _, tag := range anyToSlice(create["tag"]) {
-		// 	t := mapFromAny(tag)
-		// 	switch t["type"] {
-		// 	case "Mention":
-		// 		mention, err := models.NewActors(i.db).FindOrCreate(stringFromAny(t["href"]), actors.Fetch)
-		// 		if err != nil {
-		// 			return err
-		// 		}
-		// 		status.Mentions = append(status.Mentions, models.StatusMention{
-		// 			StatusID: status.ID,
-		// 			ActorID:  mention.ID,
-		// 			Actor:    mention,
-		// 		})
-		// 	case "Hashtag":
-		// 		status.Tags = append(status.Tags, models.StatusTag{
-		// 			StatusID: status.ID,
-		// 			Tag: &models.Tag{
-		// 				Name: strings.TrimLeft(stringFromAny(t["name"]), "#"),
-		// 			},
-		// 		})
-		// 	}
-		// }
-
-		// if _, ok := create["oneOf"]; ok {
-		// 	status.Poll, err = objToStatusPoll(create)
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// 	status.Poll.StatusID = status.ID
-		// }
-		return i.db.Create(&status).Error
-	default:
-		// something else happened
-		return err
+func (i *inboxProcessor) createObject(props map[string]any) error {
+	obj := &models.Object{
+		Properties: props,
 	}
+	return i.db.
+		Clauses(
+			clause.Returning{
+				Columns: []clause.Column{{Name: "id"}},
+			},
+			clause.OnConflict{
+				Columns: []clause.Column{{Name: "uri"}},
+				DoUpdates: clause.AssignmentColumns([]string{
+					"type",
+					"properties",
+				}),
+			}).
+		Save(obj).Error
 }
 
 // publishedAndUpdated returns the published and updated times for the given object.
@@ -322,20 +251,6 @@ func publishedAndUpdated(obj map[string]any) (time.Time, time.Time, error) {
 		updated = published
 	}
 	return published, updated, nil
-}
-
-func inReplyToID(inReplyTo *models.Status) *snowflake.ID {
-	if inReplyTo != nil {
-		return &inReplyTo.ObjectID
-	}
-	return nil
-}
-
-func inReplyToActorID(inReplyTo *models.Status) *snowflake.ID {
-	if inReplyTo != nil {
-		return &inReplyTo.ActorID
-	}
-	return nil
 }
 
 // func objToStatusAttachment(obj map[string]any) *models.StatusAttachment {
@@ -397,49 +312,7 @@ func (i *inboxProcessor) processFollow(act *Activity) error {
 }
 
 func (i *inboxProcessor) processUpdate(update map[string]any) error {
-	typ := stringFromAny(update["type"])
-	switch typ {
-	case "Note", "Question":
-		return i.processUpdateStatus(update)
-	case "Person":
-		return i.processUpdateActor(update)
-	default:
-		return fmt.Errorf("unknown update object type: %q", typ)
-	}
-}
-
-func (i *inboxProcessor) processUpdateStatus(update map[string]any) error {
-	id := stringFromAny(update["id"])
-	status, err := models.NewStatuses(i.db).FindOrCreateByURI(id)
-	if err != nil {
-		return err
-	}
-	_, updatedAt, err := publishedAndUpdated(update)
-	if err != nil {
-		return err
-	}
-
-	status.UpdatedAt = updatedAt
-	// status.Note = stringFromAny(update["content"])
-	// if status.Poll != nil {
-	// 	if err := i.db.Delete(status.Poll).Error; err != nil {
-	// 		return err
-	// 	}
-	// }
-
-	// if _, ok := update["oneOf"]; ok {
-	// 	status.Poll, err = objToStatusPoll(update)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	status.Poll.StatusID = status.ID
-	// }
-
-	// TODO handle attachments
-	upsert := clause.OnConflict{
-		UpdateAll: true,
-	}
-	return i.db.Clauses(upsert).Save(&status).Error
+	return i.createObject(update)
 }
 
 func objToStatusPoll(obj map[string]any) (*models.StatusPoll, error) {
@@ -469,19 +342,6 @@ func objToStatusPoll(obj map[string]any) (*models.StatusPoll, error) {
 	return poll, nil
 }
 
-func (i *inboxProcessor) processUpdateActor(update map[string]any) error {
-	id := stringFromAny(update["id"])
-	actor, err := models.NewActors(i.db).FindOrCreateByURI(id)
-	if err != nil {
-		return err
-	}
-	actor.Name = stringFromAny(update["preferredUsername"])
-
-	// todo update attributes
-
-	return i.db.Save(&actor).Error
-}
-
 func (i *inboxProcessor) processDelete(act *Activity) error {
 	switch obj := act.Object.(type) {
 	case map[string]any:
@@ -497,35 +357,31 @@ func (i *inboxProcessor) processDeleteStatus(uri string) error {
 	if err := i.validateSignature(); err != nil {
 		return httpx.Error(http.StatusUnauthorized, err)
 	}
-
-	// load status to delete it so we can fire the delete hooks.
-	status, err := models.NewStatuses(i.db).FindByURI(uri)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// already deleted
-			return nil
-		}
+	var obj []models.Object
+	if err := i.db.Where("uri = ?", uri).Find(&obj).Error; err != nil {
 		return err
 	}
-	return i.db.Delete(&status).Error
-}
-
-func (i *inboxProcessor) processDeleteActor(uri string) error {
-	// use this form to avoid firing gorm's ErrNotFound mechanism;
-	// most deletes we don't know about, and that's fine.
-	var actors []*models.Actor
-	if err := i.db.Limit(1).Where("uri = ?", uri).Find(&actors).Error; err != nil {
-		return err
-	}
-	if len(actors) == 0 {
+	if len(obj) == 0 {
 		// already deleted
 		return nil
 	}
-	actor := actors[0]
+	return i.db.Delete(&obj[0]).Error
+}
+
+func (i *inboxProcessor) processDeleteActor(uri string) error {
+	// check to see if we have the actor locally, if not, nothing to do.
+	var obj []models.Object
+	if err := i.db.Where("uri = ?", uri).Find(&obj).Error; err != nil {
+		return err
+	}
+	if len(obj) == 0 {
+		// already deleted
+		return nil
+	}
 	if err := i.validateSignature(); err != nil {
 		return httpx.Error(http.StatusUnauthorized, err)
 	}
-	return i.db.Delete(actor).Error
+	return i.db.Delete(&obj[0]).Error
 }
 
 func (i *inboxProcessor) validateSignature() error {
