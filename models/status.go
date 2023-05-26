@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -47,8 +48,24 @@ type StatusObject struct {
 		Sensitive  bool               `json:"sensitive"` // as:sensitive
 		Summary    string             `json:"summary"`
 		Attachment []StatusAttachment `json:"attachment"`
-		Tag        []StatusTag        `json:"tag"`
+		Tag        StatusTags         `json:"tag"`
 	} `gorm:"serializer:json;not null"`
+}
+
+type StatusTags []StatusTag
+
+func (st *StatusTags) UnmarshalJSON(b []byte) error {
+	var tags []StatusTag
+	if err := json.Unmarshal(b, &tags); err == nil {
+		*st = tags
+		return nil
+	}
+	var tag StatusTag
+	if err := json.Unmarshal(b, &tag); err != nil {
+		return fmt.Errorf("unmarshal status tags: %q: %w", string(b), err)
+	}
+	*st = []StatusTag{tag}
+	return nil
 }
 
 type StatusAttachment struct {
