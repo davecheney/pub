@@ -45,14 +45,6 @@ func processReactionRequest(db *gorm.DB, request *models.ReactionRequest) error 
 		return err
 	}
 
-	inbox := request.Target.Actor.Inbox()
-	if inbox == "" {
-		if err := models.NewActors(db).Refresh(request.Target.Actor); err != nil {
-			return err
-		}
-		return fmt.Errorf("no inbox for actor %q", request.Target.Actor.URI())
-	}
-
 	switch request.Action {
 	case "like":
 		return activitypub.Like(db.Statement.Context, account, request.Target)

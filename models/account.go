@@ -1,6 +1,7 @@
 package models
 
 import (
+	"crypto/rsa"
 	"time"
 
 	"github.com/davecheney/pub/internal/crypto"
@@ -34,6 +35,26 @@ func (a *Account) Name() string {
 
 func (a *Account) Domain() string {
 	return a.Actor.Domain
+}
+
+func (a *Account) PublicKeyID() string {
+	return a.Actor.PublicKeyID()
+}
+
+func (a *Account) PrivKey() (*rsa.PrivateKey, error) {
+	_, privateKey, err := crypto.ParseRSAPrivateKey(a.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	return privateKey, nil
+}
+
+func (a *Account) PublicKey() (*rsa.PublicKey, error) {
+	publicKey, _, err := crypto.ParseRSAPrivateKey(a.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	return publicKey, nil
 }
 
 type AccountRole struct {
@@ -149,4 +170,9 @@ type AccountPreferences struct {
 	PostingDefaultLanguage   string       `gorm:"size:8;"`
 	ReadingExpandMedia       string       `gorm:"enum('default','show_all','hide_all');not null;default:'default'"`
 	ReadingExpandSpoilers    bool         `gorm:"not null;default:false"`
+}
+
+// PreloadAccount preloads all of an Account's relations and associations.
+func PreloadAccount(query *gorm.DB) *gorm.DB {
+	return query.Preload("Actor").Preload("Actor.Object")
 }

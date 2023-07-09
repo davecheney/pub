@@ -4,16 +4,28 @@ import (
 	"context"
 	"crypto"
 	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
-	"errors"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/carlmjohnson/requests"
 	"github.com/davecheney/pub/internal/httpsig"
-	"github.com/davecheney/pub/models"
+	"github.com/go-json-experiment/json"
 )
+
+// ClientKey is the key used to store the ActivityPub client in the context.
+var ClientKey = struct{}{}
+
+// FromContext returns the ActivityPub client from the given context.
+func FromContext(ctx context.Context) (*Client, bool) {
+	c, ok := ctx.Value(ClientKey).(*Client)
+	return c, ok
+}
+
+// WithClient returns a new context with the given ActivityPub client.
+func WithClient(ctx context.Context, c *Client) context.Context {
+	return context.WithValue(ctx, ClientKey, c)
+}
 
 // Client is an ActivityPub client which can be used to fetch remote
 // ActivityPub resources.
@@ -22,28 +34,20 @@ type Client struct {
 	privateKey crypto.PrivateKey
 }
 
+// Signer represents an object that can sign HTTP requests.
+type Signer interface {
+	PublicKeyID() string
+	PrivKey() (*rsa.PrivateKey, error)
+}
+
 // NewClient returns a new ActivityPub client.
-func NewClient(signAs *models.Account) (*Client, error) {
-	privPem, _ := pem.Decode(signAs.PrivateKey)
-	if privPem == nil || privPem.Type != "RSA PRIVATE KEY" {
-		return nil, errors.New("expected RSA PRIVATE KEY")
+func NewClient(signAs Signer) (*Client, error) {
+	privateKey, err := signAs.PrivKey()
+	if err != nil {
+		return nil, err
 	}
-
-	var parsedKey interface{}
-	var err error
-	if parsedKey, err = x509.ParsePKCS1PrivateKey(privPem.Bytes); err != nil {
-		if parsedKey, err = x509.ParsePKCS8PrivateKey(privPem.Bytes); err != nil { // note this returns type `interface{}`
-			return nil, err
-		}
-	}
-
-	privateKey, ok := parsedKey.(*rsa.PrivateKey)
-	if !ok {
-		return nil, errors.New("expected *rsa.PrivateKey")
-	}
-
 	return &Client{
-		keyID:      signAs.Actor.PublicKeyID(),
+		keyID:      signAs.PublicKeyID(),
 		privateKey: privateKey,
 	}, nil
 }
@@ -52,7 +56,12 @@ func NewClient(signAs *models.Account) (*Client, error) {
 func (c *Client) Fetch(ctx context.Context, uri string, obj interface{}) error {
 	return requests.URL(uri).
 		Accept(`application/ld+json; profile="https://www.w3.org/ns/activitystreams"`).
-		Transport(c).
+		Transport(requests.RoundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if err := httpsig.Sign(req, c.keyID, c.privateKey, nil); err != nil {
+				return nil, fmt.Errorf("failed to sign request: %w", err)
+			}
+			return http.DefaultTransport.RoundTrip(req)
+		})).
 		CheckContentType(
 			"application/ld+json",
 			"application/activity+json",
@@ -64,19 +73,22 @@ func (c *Client) Fetch(ctx context.Context, uri string, obj interface{}) error {
 		Fetch(ctx)
 }
 
-func (c *Client) RoundTrip(req *http.Request) (*http.Response, error) {
-	if err := httpsig.Sign(req, c.keyID, c.privateKey, nil); err != nil {
-		return nil, fmt.Errorf("failed to sign request: %w", err)
-	}
-	return http.DefaultTransport.RoundTrip(req)
-}
-
 // Post posts the given ActivityPub object to the given URL.
 func (c *Client) Post(ctx context.Context, url string, obj map[string]any) error {
+	body, err := json.Marshal(obj)
+	if err != nil {
+		return err
+	}
 	return requests.URL(url).
+		BodyBytes(body).
 		Header("Content-Type", `application/ld+json; profile="https://www.w3.org/ns/activitystreams"`).
-		BodyJSON(obj).
-		Transport(c).
-		CheckStatus(http.StatusOK, http.StatusCreated).
+		Transport(requests.RoundTripFunc(func(req *http.Request) (*http.Response, error) {
+			if err := httpsig.Sign(req, c.keyID, c.privateKey, body); err != nil {
+				return nil, fmt.Errorf("failed to sign request: %w", err)
+			}
+			return http.DefaultTransport.RoundTrip(req)
+		})).
+		ToWriter(os.Stderr).
+		CheckStatus(http.StatusOK, http.StatusCreated, http.StatusAccepted).
 		Fetch(ctx)
 }

@@ -19,6 +19,7 @@ func UsersShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 		}
 		return err
 	}
+
 	return to.JSON(w, map[string]any{
 		"@context": []any{
 			"https://www.w3.org/ns/activitystreams",
@@ -89,7 +90,7 @@ func UsersShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 		"featuredTags":              actor.URI() + "/collections/tags",
 		"preferredUsername":         name,
 		"name":                      name,
-		"summary":                   actor.Note(),
+		"summary":                   "toot!", // actor.Note(),
 		"url":                       actor.URL(),
 		"manuallyApprovesFollowers": actor.Locked(),
 		"discoverable":              false,                                                  // mastodon sets this to false
@@ -106,6 +107,11 @@ func UsersShow(env *Env, w http.ResponseWriter, r *http.Request) error {
 			"sharedInbox": "https://" + r.Host + "/inbox",
 		},
 		"icon": map[string]any{
+			"type":      "Image",
+			"mediaType": "image/jpeg",
+			"url":       "https://media.hachyderm.io/accounts/headers/109/364/117/028/564/263/original/c6b5edf498087717.jpeg",
+		},
+		"image": map[string]any{
 			"type":      "Image",
 			"mediaType": "image/jpeg",
 			"url":       "https://media.hachyderm.io/accounts/headers/109/364/117/028/564/263/original/c6b5edf498087717.jpeg",

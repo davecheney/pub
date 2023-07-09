@@ -109,20 +109,20 @@ func (st *Status) Attachments() []*Attachment {
 			Width:     a.Width,
 			Height:    a.Height,
 			Blurhash:  a.Blurhash,
-			// FocalPoint: FocalPoint{
-			// 	X: func() float64 {
-			// 		if len(a.FocalPoint) == 0 {
-			// 			return 0
-			// 		}
-			// 		return a.FocalPoint[0]
-			// 	}(),
-			// 	Y: func() float64 {
-			// 		if len(a.FocalPoint) < 2 {
-			// 			return 0
-			// 		}
-			// 		return a.FocalPoint[1]
-			// 	}(),
-			// },
+			FocalPoint: FocalPoint{
+				X: func() float64 {
+					if len(a.FocalPoint) == 0 {
+						return 0
+					}
+					return a.FocalPoint[0]
+				}(),
+				Y: func() float64 {
+					if len(a.FocalPoint) < 2 {
+						return 0
+					}
+					return a.FocalPoint[1]
+				}(),
+			},
 		}
 	})
 

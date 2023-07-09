@@ -24,6 +24,7 @@ type Env struct {
 	*gorm.DB
 	*streaming.Mux
 	Logger   *slog.Logger
+	Client   *activitypub.Client
 	Instance *models.Instance
 }
 

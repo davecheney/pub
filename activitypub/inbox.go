@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecheney/pub/internal/activitypub"
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/models"
 	"github.com/go-fed/httpsig"
@@ -42,7 +43,7 @@ func (i *InboxController) Create(env *Env, w http.ResponseWriter, r *http.Reques
 		logger: env.Logger.With("instance", env.Instance.Domain),
 		req:    r,
 		db:     env.DB,
-		signAs: env.Instance.Admin,
+		client: env.Client,
 	}
 
 	if err := processor.processActivity(act); err != nil {
@@ -56,7 +57,7 @@ type inboxProcessor struct {
 	logger *slog.Logger
 	req    *http.Request
 	db     *gorm.DB
-	signAs *models.Account
+	client *activitypub.Client
 }
 
 // processActivity processes an activity. If the activity can be handled without

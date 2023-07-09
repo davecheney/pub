@@ -120,7 +120,7 @@ func statusCC(s *models.Status) []string {
 
 func statusToObject(s *models.Status) any {
 	if s.ReblogID != nil {
-		return s.Reblog.URI
+		return s.Reblog.URI()
 	}
 	return nil
 }

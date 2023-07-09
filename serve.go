@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/davecheney/pub/activitypub"
+	ap "github.com/davecheney/pub/internal/activitypub"
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/streaming"
 	"github.com/davecheney/pub/mastodon"
@@ -43,6 +44,16 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		return err
 	}
 
+	var admin models.Account
+	if err := db.Scopes(models.PreloadAccount).Joins("Actor", "name = ? and type = ?", "admin", "LocalService").Take(&admin).Error; err != nil {
+		return err
+	}
+
+	client, err := ap.NewClient(&admin)
+	if err != nil {
+		return err
+	}
+
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -62,9 +73,10 @@ func (s *ServeCmd) Run(ctx *Context) error {
 	r.Route("/api", func(r chi.Router) {
 		envFn := func(r *http.Request) *mastodon.Env {
 			return &mastodon.Env{
-				DB:     db.WithContext(r.Context()),
+				DB:     db.WithContext(ap.WithClient(r.Context(), client)),
 				Mux:    &mux,
 				Logger: ctx.Logger,
+				Client: client,
 			}
 		}
 		r.Route("/v1", func(r chi.Router) {
@@ -161,9 +173,10 @@ func (s *ServeCmd) Run(ctx *Context) error {
 		}
 
 		return &activitypub.Env{
-			DB:       db.WithContext(context.WithValue(r.Context(), "instance", instance)),
+			DB:       db.WithContext(ap.WithClient(r.Context(), client)),
 			Mux:      &mux,
 			Logger:   ctx.Logger,
+			Client:   client,
 			Instance: instance,
 		}
 	}
@@ -243,10 +256,7 @@ func (s *ServeCmd) Run(ctx *Context) error {
 
 	// ActorRefreshProcessor needs an admin account to sign the activitypub requests.
 	// Pick _an_ admin account, it doesn't matter which one.
-	// var admin models.Account
-	// if err := db.Joins("Actor", "name = ? and type = ?", "admin", "LocalService").Take(&admin).Error; err != nil {
-	// 	return err
-	// }
+
 	// g.Add(workers.NewActorRefreshProcessor(db, &admin, ctx.Logger.With("worker", "ActorRefreshProcessor")))
 
 	return g.Wait()

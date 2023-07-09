@@ -24,7 +24,6 @@ var cli struct {
 	DSN    string `help:"data source name" default:"pub:pub@tcp(localhost:3306)/pub"`
 
 	AutoMigrate          AutoMigrateCmd          `cmd:"" help:"Automigrate the database."`
-	BackfillActors       BackfillActorsCmd       `cmd:"" help:"Backfill actors."`
 	CreateAccount        CreateAccountCmd        `cmd:"" help:"Create a new account."`
 	CreateInstance       CreateInstanceCmd       `cmd:"" help:"Create a new instance."`
 	DeleteAccount        DeleteAccountCmd        `cmd:"" help:"Delete an account."`

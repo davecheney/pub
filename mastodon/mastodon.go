@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/davecheney/pub/internal/activitypub"
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/snowflake"
 	"github.com/davecheney/pub/internal/streaming"
@@ -20,6 +21,7 @@ type Env struct {
 	*gorm.DB
 	*streaming.Mux
 	Logger *slog.Logger
+	Client *activitypub.Client
 }
 
 func (e *Env) Log() *slog.Logger {

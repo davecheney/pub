@@ -22,8 +22,9 @@ func AuthorizeNew(env *activitypub.Env, w http.ResponseWriter, r *http.Request) 
 		ClientID     string `json:"-" schema:"client_id,required"`
 		RedirectURI  string `json:"-" schema:"redirect_uri,required"`
 		Scope        string `json:"-" schema:"scope"`
-		ForceLogin   bool   `json:"-" schema:"force_login"` // elk.zone, ignored
-		Lang         string `json:"-" schema:"lang"`        // elk.zone, ignored
+		ForceLogin   bool   `json:"-" schema:"force_login"`   // elk.zone, ignored
+		Lang         string `json:"-" schema:"lang"`          // elk.zone, ignored
+		ClientSecret string `json:"-" schema:"client_secret"` // trunks, ignored
 	}
 	if err := httpx.Params(r, &params); err != nil {
 		return err
