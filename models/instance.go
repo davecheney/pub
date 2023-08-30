@@ -134,10 +134,3 @@ func (i *Instances) Create(domain, title, description, adminEmail string) (*Inst
 func trim[S []T, T any](s S, n int) S {
 	return s[:min(len(s), n)]
 }
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
