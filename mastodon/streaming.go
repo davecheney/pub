@@ -12,6 +12,7 @@ import (
 	"github.com/davecheney/pub/internal/streaming"
 	"github.com/davecheney/pub/models"
 	"github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json/jsontext"
 	"golang.org/x/net/websocket"
 )
 
@@ -31,9 +32,9 @@ func StreamingWebsocket(env *Env, w http.ResponseWriter, r *http.Request) error 
 					Stream string `json:"stream"`
 					Tag    string `json:"tag"`
 				}
-				dec := json.DecodeOptions{}.NewDecoder(ws)
+				dec := jsontext.NewDecoder(ws)
 				for {
-					err := json.UnmarshalOptions{}.UnmarshalNext(dec, &val)
+					err := json.UnmarshalDecode(dec, &val)
 					if err != nil {
 						readErr <- err
 						return
@@ -128,7 +129,7 @@ func stream(ctx context.Context, w http.ResponseWriter, r *http.Request, sub *st
 			serialise := Serialiser{req: r}
 			switch data := payload.Data.(type) {
 			case *models.Status:
-				if err := json.MarshalFull(w, serialise.Status(data)); err != nil {
+				if err := json.MarshalWrite(w, serialise.Status(data)); err != nil {
 					return err
 				}
 			default:

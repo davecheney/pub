@@ -33,6 +33,6 @@ func (f *FollowCmd) Run(ctx *Context) error {
 	if err != nil {
 		return err
 	}
-	json.MarshalFull(os.Stdout, rel)
+	json.MarshalWrite(os.Stdout, rel)
 	return nil
 }

@@ -36,7 +36,7 @@ func MarkersCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 	m := make(map[string]struct {
 		LastReadID snowflake.ID `json:"last_read_id,string"`
 	})
-	if err := json.UnmarshalFull(r.Body, &m); err != nil {
+	if err := json.UnmarshalRead(r.Body, &m); err != nil {
 		return httpx.Error(http.StatusBadRequest, err)
 	}
 

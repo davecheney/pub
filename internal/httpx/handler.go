@@ -46,10 +46,10 @@ func HandlerFunc[E env](envFn func(r *http.Request) E, fn func(E, http.ResponseW
 			if se := new(StatusError); errors.As(err, &se) {
 				status = se.Code
 			}
-			env.Log().Error("HTTP", "method", r.Method, "path", r.URL.Path, "status", status, "error", err)
+			env.Log().Error("pub/http", "method", r.Method, "path", r.URL.Path, "status", status, "error", err)
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
 			w.WriteHeader(status)
-			json.MarshalFull(w, map[string]any{
+			json.MarshalWrite(w, map[string]any{
 				"error": err.Error(),
 			})
 		}

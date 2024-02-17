@@ -29,7 +29,7 @@ type InboxController struct {
 
 func (i *InboxController) Create(env *Env, w http.ResponseWriter, r *http.Request) error {
 	var act map[string]any
-	if err := json.UnmarshalFull(r.Body, &act); err != nil {
+	if err := json.UnmarshalRead(r.Body, &act); err != nil {
 		return httpx.Error(http.StatusBadRequest, err)
 	}
 	id, ok := act["id"].(string)

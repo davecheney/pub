@@ -28,5 +28,5 @@ func (s *ShowActorCmd) Run(ctx *Context) error {
 
 	req, _ := http.NewRequest("GET", actor.URI(), nil)
 	ser := mastodon.NewSerialiser(req)
-	return json.MarshalFull(os.Stdout, ser.Account(actor))
+	return json.MarshalWrite(os.Stdout, ser.Account(actor))
 }

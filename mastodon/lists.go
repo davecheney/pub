@@ -56,7 +56,7 @@ func ListsCreate(env *Env, w http.ResponseWriter, r *http.Request) error {
 		params.Title = r.FormValue("title")
 		params.RepliesPolicy = r.FormValue("replies_policy")
 	case "application/json":
-		if err := json.UnmarshalFull(r.Body, &params); err != nil {
+		if err := json.UnmarshalRead(r.Body, &params); err != nil {
 			return httpx.Error(http.StatusBadRequest, err)
 		}
 	default:
@@ -93,7 +93,7 @@ func ListsAddMembers(env *Env, w http.ResponseWriter, r *http.Request) error {
 	case "application/x-www-form-urlencoded":
 		params.AccountIDs = strings.Split(r.FormValue("account_ids[]"), ",")
 	case "application/json":
-		if err := json.UnmarshalFull(r.Body, &params); err != nil {
+		if err := json.UnmarshalRead(r.Body, &params); err != nil {
 			return httpx.Error(http.StatusBadRequest, err)
 		}
 	default:
@@ -138,7 +138,7 @@ func ListsRemoveMembers(env *Env, w http.ResponseWriter, r *http.Request) error 
 	case "application/x-www-form-urlencoded":
 		params.AccountIDs = strings.Split(r.FormValue("account_ids[]"), ",")
 	case "application/json":
-		if err := json.UnmarshalFull(r.Body, &params); err != nil {
+		if err := json.UnmarshalRead(r.Body, &params); err != nil {
 			return httpx.Error(http.StatusBadRequest, err)
 		}
 	default:

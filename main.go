@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
+	"io"
 	"os"
+	"time"
 
 	"golang.org/x/exp/slog"
 
@@ -38,18 +41,50 @@ var cli struct {
 
 func main() {
 	ctx := kong.Parse(&cli)
+	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{}))
 	err := ctx.Run(&Context{
 		Debug:  cli.LogSQL,
-		Logger: slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{})),
+		Logger: log,
 		Config: gorm.Config{
-			Logger: logger.Default.LogMode(func() logger.LogLevel {
-				if cli.LogSQL {
-					return logger.Info
-				}
-				return logger.Warn
-			}()),
+			Logger: &slogGORMLogger{slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+				Level: func() slog.Level {
+					if cli.LogSQL {
+						return slog.LevelInfo
+					}
+					return slog.LevelWarn
+				}(),
+			}))},
 		},
 		Dialector: newDialector(cli.DSN),
 	})
 	ctx.FatalIfErrorf(err)
+}
+
+type slogHandler struct {
+	out io.Writer
+}
+
+type slogGORMLogger struct {
+	*slog.Logger
+}
+
+func (s *slogGORMLogger) LogMode(level logger.LogLevel) logger.Interface {
+	return s
+}
+
+func (s *slogGORMLogger) Info(ctx context.Context, msg string, data ...interface{}) {
+	s.InfoContext(ctx, msg, data...)
+}
+
+func (s *slogGORMLogger) Warn(ctx context.Context, msg string, data ...interface{}) {
+	s.WarnContext(ctx, msg, data...)
+}
+
+func (s *slogGORMLogger) Error(ctx context.Context, msg string, data ...interface{}) {
+	s.ErrorContext(ctx, msg, data...)
+}
+
+func (s *slogGORMLogger) Trace(ctx context.Context, begin time.Time, fc func() (sql string, rowsAffected int64), err error) {
+	sql, rowsAffected := fc()
+	s.InfoContext(ctx, "pub/sql.trace", "sql", sql, "rowsAffected", rowsAffected, "err", err)
 }

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"os"
@@ -15,6 +17,7 @@ import (
 	ap "github.com/davecheney/pub/internal/activitypub"
 	"github.com/davecheney/pub/internal/httpx"
 	"github.com/davecheney/pub/internal/streaming"
+	"github.com/davecheney/pub/internal/to"
 	"github.com/davecheney/pub/mastodon"
 	"github.com/davecheney/pub/media"
 	"github.com/davecheney/pub/models"
@@ -32,6 +35,7 @@ type ServeCmd struct {
 	Addr             string `help:"address to listen" default:"127.0.0.1:9999"`
 	DebugPrintRoutes bool   `help:"print routes to stdout on startup"`
 	LogHTTP          bool   `help:"log HTTP requests"`
+	Funnel           string `help:"hostname for funnel"`
 }
 
 func (s *ServeCmd) Run(ctx *Context) error {
@@ -69,6 +73,29 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	})
+
+	// r.Use(func(h http.Handler) http.Handler {
+	// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// 		if r.Host == `lucky.rya-rudd.ts.net` {
+	// 			r.Host = `cheney.net`
+	// 		}
+	// 		h.ServeHTTP(w, r)
+	// 	})
+	// })
+
+	r.Handle("/healthz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		to.JSON(w, map[string]string{"status": "ok"})
+	}))
+
+	r.Handle("/echo", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		dump, err := httputil.DumpRequest(r, true)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		io.Copy(w, bytes.NewReader(dump))
+	}))
 
 	r.Route("/api", func(r chi.Router) {
 		envFn := func(r *http.Request) *mastodon.Env {
@@ -248,6 +275,23 @@ func (s *ServeCmd) Run(ctx *Context) error {
 			svr.Shutdown(ctx)
 		}()
 		return svr.ListenAndServe()
+	})
+
+	g.Add(func(ctx context.Context) error {
+		addr := "127.0.0.1:8443"
+		fmt.Println("http.ListenAndServeTLS", addr, "started")
+		defer fmt.Println("http.ListenAndServeTLS", addr, "stopped")
+		svr := &http.Server{
+			Addr:         addr,
+			Handler:      r,
+			WriteTimeout: 15 * time.Second,
+			ReadTimeout:  15 * time.Second,
+		}
+		go func() {
+			<-ctx.Done()
+			svr.Shutdown(ctx)
+		}()
+		return svr.ListenAndServeTLS("server.cert", "server.key")
 	})
 
 	g.Add(workers.NewRelationshipRequestProcessor(ctx.Logger, db))

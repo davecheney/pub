@@ -80,11 +80,6 @@ func (a *Acct) Outbox() string {
 	return a.ID() + "/outbox"
 }
 
-// SharedInbox returns the URL for the shared inbox collection for this Acct.
-func (a *Acct) SharedInbox() string {
-	return "https://" + a.Host + "/inbox"
-}
-
 func (a *Acct) Fetch(ctx context.Context) (*Webfinger, error) {
 	var webfinger Webfinger
 	err := requests.URL(a.Webfinger()).ToJSON(&webfinger).Fetch(ctx)

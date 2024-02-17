@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json/jsontext"
 )
 
 // JSON writes the given object to the response body as JSON.
@@ -18,7 +19,5 @@ func JSON(rw http.ResponseWriter, obj any, writerOpts ...func(w io.Writer) io.Wr
 	for _, opt := range writerOpts {
 		w = opt(w)
 	}
-	return json.MarshalOptions{}.MarshalFull(json.EncodeOptions{
-		Indent: "  ",
-	}, w, obj)
+	return json.MarshalWrite(w, obj, jsontext.WithIndent("  "))
 }

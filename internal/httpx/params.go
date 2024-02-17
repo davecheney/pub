@@ -43,7 +43,7 @@ func Params(r *http.Request, v interface{}) error {
 		}
 		switch mt {
 		case "application/json":
-			if err := json.UnmarshalFull(r.Body, v); err != nil {
+			if err := json.UnmarshalRead(r.Body, v); err != nil {
 				return Error(http.StatusBadRequest, err)
 			}
 		case "application/x-www-form-urlencoded":
