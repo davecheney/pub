@@ -5,10 +5,10 @@ go 1.22
 require (
 	github.com/alecthomas/kong v0.8.1
 	github.com/carlmjohnson/requests v0.23.5
-	github.com/go-chi/chi/v5 v5.0.10
+	github.com/go-chi/chi/v5 v5.0.12
 	github.com/go-fed/httpsig v1.1.0
 	github.com/go-json-experiment/json v0.0.0-20231102232822-2e55bd4e08b0
-	github.com/google/uuid v1.4.0
+	github.com/google/uuid v1.6.0
 	github.com/gorilla/schema v1.2.1
 	github.com/pkg/group v1.0.0
 	github.com/stretchr/testify v1.8.4
